@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Atria.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AtriaDbContext))]
-    [Migration("20260624161912_InitialCreate")]
+    [Migration("20260625090707_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -583,10 +583,6 @@ namespace Atria.Infrastructure.Persistence.Migrations
                     b.Property<string>("LastName")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
-
-                    b.Property<string>("PasswordHash")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(32)

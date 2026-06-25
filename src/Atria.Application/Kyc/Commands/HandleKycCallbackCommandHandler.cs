@@ -51,6 +51,11 @@ public sealed class HandleKycCallbackCommandHandler : IRequestHandler<HandleKycC
         if (await _processed.IsProcessedAsync(key, ct))
             return Result.Success();
 
+        // Non-terminal / unrelated events (e.g. "In Review", "In Progress", or a non
+        // status.updated event family) are acknowledged with 2xx but do not move state.
+        if (callback.Decision == KycDecision.Pending)
+            return Result.Success();
+
         var profile = await _kyc.GetBySessionIdAsync(callback.ExternalSessionId, ct);
         if (profile is null)
             return Result.Failure(

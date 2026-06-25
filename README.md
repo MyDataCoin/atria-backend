@@ -199,7 +199,7 @@ local override that publishes 5432); only the API port **8080** is reachable.
 ## API (v1, prefix `api/v1`)
 
 ```
-Auth        POST register · login · refresh · register/phone/request-otp · register/phone/verify-otp
+Auth        POST register/phone/request-otp · register/phone/verify-otp · refresh   (phone-only, KG +996; no email/password)
 KYC         POST kyc/submit [Investor] · GET kyc/me [Investor] · POST kyc/{id}/review [Compliance]
 Applications POST applications [Investor] · GET me · GET {id} · POST {id}/submit · {id}/approve [Compliance] · {id}/reject [Compliance]
 Properties  GET properties · GET {id} · POST [Admin]

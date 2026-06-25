@@ -7,7 +7,12 @@ public sealed record KycSessionRequest(Guid KycProfileId, Guid UserId, string Em
 /// <summary>Hosted-flow session: redirect the user to <see cref="VerificationUrl"/>.</summary>
 public sealed record KycSessionResult(string SessionId, string VerificationUrl);
 
-public enum KycDecision { Approved, Declined }
+/// <summary>
+/// Outcome parsed from a provider callback. <see cref="Pending"/> means a non-terminal or
+/// unrelated event (e.g. Didit "In Review" / "In Progress" / a non status.updated event) that
+/// is acknowledged but must NOT move the KycProfile state.
+/// </summary>
+public enum KycDecision { Approved, Declined, Pending }
 
 /// <summary>Parsed result of a provider webhook callback.</summary>
 public sealed record KycCallbackResult(

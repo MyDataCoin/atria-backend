@@ -265,12 +265,11 @@ namespace Atria.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Email = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: true),
                     PhoneNumber = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
-                    PasswordHash = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     Role = table.Column<int>(type: "integer", nullable: false),
                     FirstName = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
                     LastName = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    Email = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     IsEmailVerified = table.Column<bool>(type: "boolean", nullable: false),
                     IsPhoneVerified = table.Column<bool>(type: "boolean", nullable: false),

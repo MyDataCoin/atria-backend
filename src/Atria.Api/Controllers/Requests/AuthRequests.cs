@@ -7,18 +7,6 @@ namespace Atria.Api.Controllers.Requests;
 // HTTP request bodies. Kept separate from Application commands so the wire shape can
 // evolve independently and so multipart/route-bound inputs (IFormFile, phone OTP, IP) map cleanly.
 
-/// <summary>POST /auth/register body.</summary>
-/// <param name="Email">Unique account email address.</param>
-/// <param name="Password">Plaintext password to hash and store.</param>
-/// <param name="FirstName">Optional given name.</param>
-/// <param name="LastName">Optional family name.</param>
-public sealed record RegisterRequest(string Email, string Password, string? FirstName, string? LastName);
-
-/// <summary>POST /auth/login body.</summary>
-/// <param name="Email">The account email address.</param>
-/// <param name="Password">The account password.</param>
-public sealed record LoginRequest(string Email, string Password);
-
 /// <summary>POST /auth/refresh body.</summary>
 /// <param name="RefreshToken">A valid, unexpired refresh token previously issued by an auth endpoint.</param>
 public sealed record RefreshTokenRequest(string RefreshToken);

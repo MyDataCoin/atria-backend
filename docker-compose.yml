@@ -33,6 +33,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Real secrets (Didit, JWT, Encryption, real DB password, etc.) come from an OPTIONAL
+    # .env file placed next to this compose on the server (gitignored, never committed).
+    # Use double-underscore keys, e.g. Didit__ApiKey, Didit__WebhookSecret, Didit__WorkflowId.
+    # If .env is absent the app falls back to appsettings defaults (so the stack still boots).
+    env_file:
+      - path: .env
+        required: false
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
@@ -40,6 +47,8 @@ services:
       ConnectionStrings__Postgres: "Host=db;Port=5432;Database=atria;Username=atria;Password=atria"
       # Auto-apply migrations on startup so the stack is usable immediately.
       Database__MigrateOnStartup: "true"
+      # Seed demo tokenization objects (Properties) on first run (idempotent).
+      Database__SeedOnStartup: "true"
     ports:
       - "8080:8080"
     restart: unless-stopped

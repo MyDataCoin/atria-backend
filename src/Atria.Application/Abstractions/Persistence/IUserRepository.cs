@@ -3,11 +3,10 @@ using Atria.Domain.Users;
 namespace Atria.Application.Abstractions;
 
 /// <summary>
-/// User aggregate repository. Adds lookup by the two natural login identifiers
-/// (email for password accounts, phone for OTP accounts).
+/// User aggregate repository. Lookup is by phone number — the sole login identifier
+/// (accounts authenticate via phone OTP).
 /// </summary>
 public interface IUserRepository : IRepository<User>
 {
-    Task<User?> GetByEmailAsync(string email, CancellationToken ct);
     Task<User?> GetByPhoneAsync(string phone, CancellationToken ct);
 }

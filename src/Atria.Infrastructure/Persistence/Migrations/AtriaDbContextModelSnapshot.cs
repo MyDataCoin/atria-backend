@@ -581,10 +581,6 @@ namespace Atria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.Property<string>("PasswordHash")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");

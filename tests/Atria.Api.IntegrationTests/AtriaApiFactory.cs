@@ -53,11 +53,13 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 // Encryption (section "Encryption"): base64 of exactly 32 bytes.
                 ["Encryption:Key"] = encryptionKey,
 
-                // Otp (section "Otp").
+                // Otp (section "Otp"). DevFixedCode makes the OTP a known value and skips SMS,
+                // so the phone auth flow can be exercised end-to-end in tests.
                 ["Otp:Length"] = "6",
                 ["Otp:TtlMinutes"] = "5",
                 ["Otp:MaxAttempts"] = "5",
-                ["Otp:RequestsPerHour"] = "5",
+                ["Otp:RequestsPerHour"] = "100",
+                ["Otp:DevFixedCode"] = "333333",
 
                 // Didit (section "Didit"): ApiKey/WebhookSecret/BaseUrl are [Required], BaseUrl is [Url].
                 ["Didit:ApiKey"] = "test-didit-api-key",

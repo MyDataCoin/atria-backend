@@ -9,57 +9,18 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Atria.Api.Controllers;
 
-/// <summary>Authentication: email/password + phone-OTP registration and token refresh.</summary>
+/// <summary>Phone-first authentication (Kyrgyzstan +996): OTP registration/sign-in and token refresh.</summary>
+/// <remarks>
+/// There is NO email/password login — accounts are created and authenticated purely via a
+/// phone OTP: <c>register/phone/request-otp</c> → <c>register/phone/verify-otp</c>, then
+/// <c>refresh</c> rotates the token pair.
+/// </remarks>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/auth")]
 [AllowAnonymous]
 public sealed class AuthController : ApiControllerBase
 {
     public AuthController(ISender sender) : base(sender) { }
-
-    /// <summary>Registers a new email/password account and returns a token pair.</summary>
-    /// <remarks>
-    /// Anonymous endpoint. Creates an <c>Investor</c> account from an email and password and
-    /// returns an access token plus a rotating refresh token. The email must be unique.
-    /// For phone-first onboarding (Kyrgyzstan, +996XXXXXXXXX) use the
-    /// <c>register/phone/request-otp</c> then <c>register/phone/verify-otp</c> flow instead.
-    /// </remarks>
-    /// <param name="request">The new account's email, password and optional name.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <response code="200">Account created; access and refresh tokens returned.</response>
-    /// <response code="400">The request failed validation (e.g. weak password or malformed email).</response>
-    /// <response code="409">An account with this email already exists.</response>
-    [HttpPost("register")]
-    [ProducesResponseType<AuthTokensDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Register(RegisterRequest request, CancellationToken ct)
-    {
-        var result = await Sender.Send(
-            new RegisterCommand(request.Email, request.Password, request.FirstName, request.LastName), ct);
-        return ToActionResult(result);
-    }
-
-    /// <summary>Authenticates an email/password account and returns a token pair.</summary>
-    /// <remarks>
-    /// Anonymous endpoint. Verifies the email/password and returns an access token plus a
-    /// rotating refresh token. To avoid account enumeration the same <c>401</c> is returned
-    /// whether the account is missing, inactive, has no password, or the password is wrong.
-    /// </remarks>
-    /// <param name="request">The account email and password.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <response code="200">Authenticated; access and refresh tokens returned.</response>
-    /// <response code="400">The request failed validation (missing email or password).</response>
-    /// <response code="401">Invalid email or password.</response>
-    [HttpPost("login")]
-    [ProducesResponseType<AuthTokensDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Login(LoginRequest request, CancellationToken ct)
-    {
-        var result = await Sender.Send(new LoginCommand(request.Email, request.Password), ct);
-        return ToActionResult(result);
-    }
 
     /// <summary>Rotates a refresh token into a fresh access + refresh pair.</summary>
     /// <remarks>

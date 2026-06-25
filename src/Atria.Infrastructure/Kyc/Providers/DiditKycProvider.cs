@@ -17,11 +17,11 @@ namespace Atria.Infrastructure.Kyc.Providers;
 /// </summary>
 public sealed class DiditKycProvider : IKycProviderStrategy
 {
-    // NOTE: Didit field/header names per their hosted-session + webhook docs.
-    // Adjust these constants if the account uses a different API contract/version.
-    private const string SessionEndpoint = "/v2/session/";        // POST -> hosted session
-    private const string SignatureHeader = "x-signature";          // hex HMAC-SHA256 of raw body
-    private const string TimestampHeader = "x-timestamp";          // unix seconds
+    // Didit contract (docs.didit.me). Create session: POST /v3/session/ (x-api-key).
+    private const string SessionEndpoint = "/v3/session/";          // POST -> hosted session
+    private const string SignatureHeader = "X-Signature";          // hex HMAC-SHA256 of the raw body
+    private const string TimestampHeader = "X-Timestamp";          // unix epoch seconds
+    private const string StatusUpdatedType = "status.updated";      // the session-status event we act on
 
     private readonly HttpClient _http;
     private readonly DiditOptions _options;
@@ -119,26 +119,33 @@ public sealed class DiditKycProvider : IKycProviderStrategy
         using var doc = JsonDocument.Parse(payload.RawBody);
         var root = doc.RootElement;
 
-        // NOTE: Didit webhook shape — "session_id", "status", optional "reason"/"comment",
-        // and a unique delivery id ("webhook_id"/"id") used for idempotency.
-        var sessionId = GetString(root, "session_id", "vendor_data", "reference")
-            ?? throw new InvalidOperationException("Didit webhook missing session id.");
+        // Didit webhook envelope: event_id (idempotency), session_id, status, webhook_type.
+        // session_id may be absent on non-session events (those are acked as Pending no-ops).
+        var webhookType = GetString(root, "webhook_type") ?? string.Empty;
+        var sessionId = GetString(root, "session_id") ?? string.Empty;
+        var status = GetString(root, "status") ?? string.Empty;
+        var reason = GetString(root, "reason", "comment");
+        var eventId = GetString(root, "event_id", "webhook_id", "id") ?? sessionId;
 
-        var status = GetString(root, "status", "decision", "review_result") ?? string.Empty;
-        var reason = GetString(root, "reason", "comment", "decline_reason");
-        var eventId = GetString(root, "webhook_id", "event_id", "id")
-            ?? sessionId; // fall back to session id so the handler can still dedupe
+        // Only the session status-change event drives the KycProfile; any other event family
+        // (data.updated, user.*, business.*, activity.*, transaction.*) is acknowledged, not applied.
+        var decision = string.Equals(webhookType, StatusUpdatedType, StringComparison.OrdinalIgnoreCase)
+            ? MapDecision(status)
+            : KycDecision.Pending;
 
-        var decision = MapDecision(status);
         return new KycCallbackResult(sessionId, decision, reason, eventId);
     }
 
-    // NOTE: Didit statuses. "Approved"/"verified" -> Approved; everything terminal-negative -> Declined.
+    // Didit verification statuses (docs.didit.me/integration/verification-statuses).
+    // Only the two terminal outcomes move our state; the rest are non-terminal -> Pending (no-op).
     private static KycDecision MapDecision(string status) =>
         status.Trim().ToLowerInvariant() switch
         {
-            "approved" or "verified" or "success" or "completed" => KycDecision.Approved,
-            _ => KycDecision.Declined
+            "approved" => KycDecision.Approved,
+            "declined" => KycDecision.Declined,
+            // "In Review" / "In Progress" / "Not Started" / "Abandoned" / "Expired" /
+            // "KYC Expired" / "Resubmitted" -> acknowledge without changing state.
+            _ => KycDecision.Pending
         };
 
     private static bool TryGetTimestamp(WebhookPayload payload, out DateTimeOffset timestamp)

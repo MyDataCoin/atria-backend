@@ -130,8 +130,14 @@ public static class DependencyInjection
     // --- Strategies (registered per concrete type so handlers get IEnumerable<...>) ---
     private static void AddStrategies(IServiceCollection services)
     {
-        // KYC providers. Didit uses a typed HttpClient; Manual is stateless.
-        services.AddHttpClient<IKycProviderStrategy, DiditKycProvider>();
+        // KYC providers. Didit uses a typed HttpClient (BaseAddress from DiditOptions.BaseUrl so
+        // relative endpoints like /v2/session/ resolve). Manual is stateless.
+        services.AddHttpClient<IKycProviderStrategy, DiditKycProvider>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<DiditOptions>>().Value;
+            if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
+                client.BaseAddress = new Uri(opts.BaseUrl);
+        });
         services.AddScoped<IKycProviderStrategy, ManualKycProvider>();
 
         // Payment providers. Stripe uses the Stripe.net SDK (no HttpClient ctor); BankTransfer is options-only.
@@ -142,8 +148,13 @@ public static class DependencyInjection
     // --- Notification + storage adapters ---
     private static void AddAdapters(IServiceCollection services)
     {
-        // Nikita Pro SMS adapter requires an HttpClient -> typed client.
-        services.AddHttpClient<ISmsSender, NikitaProSmsAdapter>();
+        // Nikita Pro SMS adapter requires an HttpClient -> typed client (BaseAddress from options).
+        services.AddHttpClient<ISmsSender, NikitaProSmsAdapter>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<NikitaProOptions>>().Value;
+            if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
+                client.BaseAddress = new Uri(opts.BaseUrl);
+        });
         services.AddScoped<IEmailSender, EmailNotificationAdapter>();
         services.AddScoped<INotificationSender, NotificationSender>();
 
@@ -168,8 +179,13 @@ public static class DependencyInjection
     private static void AddCompliance(IServiceCollection services)
     {
         services.AddScoped<IChainAnchor, SolanaChainAnchor>();
-        // External signer calls a configured signer URL via HttpClient.
-        services.AddHttpClient<IBlockchainSigner, ExternalBlockchainSigner>();
+        // External signer calls a configured signer URL via HttpClient (BaseAddress from options).
+        services.AddHttpClient<IBlockchainSigner, ExternalBlockchainSigner>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<BlockchainOptions>>().Value;
+            if (!string.IsNullOrWhiteSpace(opts.SignerUrl))
+                client.BaseAddress = new Uri(opts.SignerUrl);
+        });
         services.AddScoped<IBlockchainOperationQueue, BlockchainOperationQueue>();
         services.AddScoped<ITesseraComplianceService, TesseraComplianceService>();
     }

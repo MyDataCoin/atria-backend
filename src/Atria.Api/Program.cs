@@ -114,9 +114,10 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description =
             "Real-estate tokenization (RWA) platform API.\n\n" +
-            "**Authentication is phone-first (Kyrgyzstan +996 numbers).** Register/sign in via " +
-            "`/auth/register/phone/request-otp` then `/auth/register/phone/verify-otp` to receive a JWT. " +
-            "Email/password endpoints also exist. Send the access token as `Authorization: Bearer {token}`.\n\n" +
+            "**Authentication is phone-only (Kyrgyzstan +996 numbers).** Register/sign in via " +
+            "`/auth/register/phone/request-otp` then `/auth/register/phone/verify-otp` to receive a JWT, " +
+            "and `/auth/refresh` to rotate it. There is no email/password login. " +
+            "Send the access token as `Authorization: Bearer {token}`.\n\n" +
             "Enums are sent/returned by name (e.g. `Didit`, `Stripe`, `Investor`); each schema lists its allowed values. " +
             "Errors come back as RFC-7807 ProblemDetails with a `correlationId`."
     });
@@ -191,14 +192,23 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-// --- Apply EF migrations on startup when explicitly enabled (e.g. docker-compose) so the
-//     containerized stack comes up with a ready schema. OFF by default — never auto-migrate
-//     a production database you do not control; run `dotnet ef database update` there. ---
-if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+// --- Startup database bootstrap (dev/compose convenience). Both flags are OFF by default —
+//     never auto-migrate/seed a production database you do not control. ---
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup")
+    || app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
 {
     using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
-    await db.Database.MigrateAsync();
+    var sp = scope.ServiceProvider;
+
+    // Apply EF migrations so the schema is ready (run before seeding).
+    if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+        await sp.GetRequiredService<AtriaDbContext>().Database.MigrateAsync();
+
+    // Seed demo tokenization objects (idempotent: only when empty).
+    if (app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
+        await Atria.Infrastructure.Persistence.Seeding.DataSeeder.SeedAsync(
+            sp.GetRequiredService<AtriaDbContext>(),
+            sp.GetRequiredService<ILogger<Program>>());
 }
 
 // --- Middleware pipeline ---

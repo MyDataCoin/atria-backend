@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -6,6 +6,7 @@
     <!-- Emit XML docs so Swagger shows controller/action summaries; CS1591 noise off. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <UserSecretsId>1091829d-99fb-4b00-bce5-a491815e8e50</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
