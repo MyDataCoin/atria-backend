@@ -6,9 +6,11 @@ using Atria.Api.Security;
 using Atria.Application.Abstractions;
 using Atria.Infrastructure;
 using Atria.Infrastructure.Configuration;
+using Atria.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -160,6 +162,16 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+// --- Apply EF migrations on startup when explicitly enabled (e.g. docker-compose) so the
+//     containerized stack comes up with a ready schema. OFF by default — never auto-migrate
+//     a production database you do not control; run `dotnet ef database update` there. ---
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 // --- Middleware pipeline ---
 // Exception handling wraps everything; correlation id is set before errors are written

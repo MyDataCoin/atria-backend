@@ -1,0 +1,17 @@
+# Keep the build context small and the image clean.
+**/bin/
+**/obj/
+**/out/
+**/.vs/
+**/.vscode/
+**/.idea/
+.git/
+.gitignore
+**/*.user
+tests/
+*.md
+docker-compose*.yml
+Dockerfile
+.dockerignore
+**/appsettings.*.local.json
+**/.env

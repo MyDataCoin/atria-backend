@@ -1,0 +1,45 @@
+# Local stack: PostgreSQL + the Atria API. Run with `docker compose up --build`.
+# The API applies EF migrations on startup (Database__MigrateOnStartup=true) so the
+# schema is ready automatically. Dev secrets come from appsettings.json defaults —
+# override them with real values via environment / a secret store for anything real.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: atria-db
+    environment:
+      POSTGRES_USER: atria
+      POSTGRES_PASSWORD: atria
+      POSTGRES_DB: atria
+    ports:
+      - "5432:5432"
+    volumes:
+      - atria-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atria -d atria"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atria-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      # Point the app at the db service (overrides the appsettings default).
+      ConnectionStrings__Postgres: "Host=db;Port=5432;Database=atria;Username=atria;Password=atria"
+      # Auto-apply migrations on startup so the stack is usable immediately.
+      Database__MigrateOnStartup: "true"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  atria-pgdata:

@@ -129,6 +129,23 @@ To regenerate the migration:
 dotnet ef migrations add <Name> --project src/Atria.Infrastructure --startup-project src/Atria.Api -o Persistence/Migrations
 ```
 
+### Run with Docker (Postgres + API)
+The repo ships a multi-stage `Dockerfile` and a `docker-compose.yml` that brings up
+PostgreSQL **and** the API together. The API applies EF migrations on startup
+(`Database__MigrateOnStartup=true` in compose), so the schema is created automatically.
+```bash
+docker compose up --build
+```
+- API: http://localhost:8080  (Swagger at http://localhost:8080/swagger)
+- PostgreSQL: localhost:5432  (db `atria`, user `atria`, password `atria`)
+- Data persists in the `atria-pgdata` volume. Tear down with `docker compose down`
+  (add `-v` to also drop the volume).
+
+Dev secrets come from `appsettings.json` defaults so the stack works out of the box;
+the compose file only overrides the connection string to point at the `db` service.
+For anything real, supply secrets via environment variables / a secret store and set
+`Database__MigrateOnStartup=false`.
+
 ### Test
 ```bash
 dotnet test
