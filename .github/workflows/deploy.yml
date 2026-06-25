@@ -84,11 +84,17 @@ jobs:
             fi
 
             cd /opt/atria
+            # Remove the previously-deployed source FIRST: tar -x overlays files but never
+            # prunes ones deleted in git, so stale files (e.g. removed handlers) would linger
+            # in the Docker build context and break the build. Preserve .env (secrets) and the
+            # incoming bundle. The Postgres data lives in a Docker volume, not here, so it is safe.
+            find . -maxdepth 1 -mindepth 1 ! -name '.env' ! -name 'deploy.tar.gz' -exec rm -rf {} +
             tar -xzf deploy.tar.gz
             rm -f deploy.tar.gz
 
             # Explicit -f excludes docker-compose.override.yml, so Postgres is NOT
-            # published on the public host. Rebuilds the API image and restarts.
+            # published on the public host. The cleaned src/ changes the COPY layer content,
+            # so Docker's cache invalidates the build automatically. Rebuilds + restarts.
             docker compose -f docker-compose.yml up -d --build
 
             # Reclaim space from old image layers.
