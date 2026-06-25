@@ -11,8 +11,11 @@ services:
       POSTGRES_USER: atria
       POSTGRES_PASSWORD: atria
       POSTGRES_DB: atria
-    ports:
-      - "5432:5432"
+    # Internal only: the API reaches the DB over the compose network. NOT published to the
+    # host, so it is never exposed on a public server. For local DB tools, docker-compose.override.yml
+    # publishes 5432 (auto-applied by `docker compose up` locally, not used by the deploy).
+    expose:
+      - "5432"
     volumes:
       - atria-pgdata:/var/lib/postgresql/data
     healthcheck:

@@ -1,0 +1,11 @@
+# LOCAL development overrides. `docker compose up` auto-merges this file on top of
+# docker-compose.yml — but ONLY locally. The server deploy runs with an explicit
+# `-f docker-compose.yml`, so these local conveniences are never applied in production.
+#
+# Here we publish PostgreSQL on the host so you can connect with pgAdmin/psql at
+# localhost:5432. Safe locally; intentionally excluded from the public-server deploy.
+
+services:
+  db:
+    ports:
+      - "5432:5432"

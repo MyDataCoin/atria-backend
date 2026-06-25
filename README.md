@@ -153,6 +153,49 @@ dotnet test
 
 ---
 
+## Deployment (GitHub Actions → Ubuntu)
+
+`.github/workflows/deploy.yml` runs on every push: it builds + tests, then (on the
+default branch) SSHes into the Ubuntu server and brings the stack up with
+`docker compose`. Docker is installed automatically on first run. PostgreSQL stays
+**internal** to the compose network (deploy uses `-f docker-compose.yml`, excluding the
+local override that publishes 5432); only the API port **8080** is reachable.
+
+**One-time setup**
+
+1. Create a GitHub repo and push this code (Actions only run on GitHub).
+2. Add repository **Secrets** (Settings → Secrets and variables → Actions). Nothing
+   sensitive lives in the repo — the workflow reads these:
+
+   | Secret | Value |
+   |---|---|
+   | `DEPLOY_HOST` | server IP/hostname |
+   | `DEPLOY_USER` | SSH user (prefer a dedicated `deploy` user) |
+   | `DEPLOY_SSH_KEY` | private SSH key (recommended) — or use the password below |
+   | `DEPLOY_SSH_PASSWORD` | SSH password (only if not using a key) |
+   | `DEPLOY_SSH_PORT` | optional, defaults to 22 |
+
+   With the `gh` CLI:
+   ```bash
+   gh secret set DEPLOY_HOST    --body "<server-ip>"
+   gh secret set DEPLOY_USER    --body "<ssh-user>"
+   gh secret set DEPLOY_SSH_KEY --body "$(cat ~/.ssh/atria_deploy)"   # recommended
+   # or password auth instead of a key:
+   # gh secret set DEPLOY_SSH_PASSWORD --body "<password>"
+   ```
+3. Push to `main`/`master` (or run the workflow manually) → the API comes up at
+   `http://<server-ip>:8080` (Swagger at `/swagger`).
+
+**Production hardening (before real traffic)**
+- Use an SSH **key** + non-root `deploy` user instead of a root password.
+- This serves plain **HTTP** on 8080. Put a reverse proxy (nginx/Caddy/Traefik) with
+  TLS in front, switch `ASPNETCORE_ENVIRONMENT` to `Production` (enables HSTS), replace
+  the dev secrets in `appsettings.json` (JWT/Encryption keys, DB password), and clear
+  `Otp:DevFixedCode`.
+- Open the firewall for the API port: `ufw allow 8080`.
+
+---
+
 ## API (v1, prefix `api/v1`)
 
 ```
