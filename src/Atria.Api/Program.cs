@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Atria.Api.Middleware;
 using Atria.Api.Security;
+using Atria.Api.Startup;
 using Atria.Application.Abstractions;
 using Atria.Infrastructure;
 using Atria.Infrastructure.Configuration;
@@ -195,24 +196,9 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-// --- Startup database bootstrap (dev/compose convenience). Both flags are OFF by default —
-//     never auto-migrate/seed a production database you do not control. ---
-if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup")
-    || app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
-{
-    using var scope = app.Services.CreateScope();
-    var sp = scope.ServiceProvider;
-
-    // Apply EF migrations so the schema is ready (run before seeding).
-    if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
-        await sp.GetRequiredService<AtriaDbContext>().Database.MigrateAsync();
-
-    // Seed demo tokenization objects (idempotent: only when empty).
-    if (app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
-        await Atria.Infrastructure.Persistence.Seeding.DataSeeder.SeedAsync(
-            sp.GetRequiredService<AtriaDbContext>(),
-            sp.GetRequiredService<ILogger<Program>>());
-}
+// --- Optional dev/compose DB bootstrap: apply migrations (with retry) + seed demo data.
+//     Gated by Database:MigrateOnStartup / Database:SeedOnStartup; both OFF by default. ---
+await app.MigrateAndSeedAsync();
 
 // --- Middleware pipeline ---
 // Exception handling wraps everything; correlation id is set before errors are written
