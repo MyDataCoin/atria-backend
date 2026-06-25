@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Atria.Domain</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Domain depends on NOTHING. No EF, no HTTP, no external packages. -->
+
+</Project>

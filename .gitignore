@@ -1,0 +1,32 @@
+## .NET
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+.vs/
+.vscode/
+*.log
+
+## Rider / VS
+.idea/
+_ReSharper*/
+
+## EF / local
+*.db
+*.db-shm
+*.db-wal
+
+## Secrets — never commit real secrets
+appsettings.*.local.json
+secrets.json
+.env
+.env.*
+
+## OS
+.DS_Store
+Thumbs.db
