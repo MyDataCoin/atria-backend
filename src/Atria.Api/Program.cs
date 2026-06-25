@@ -134,6 +134,9 @@ builder.Services.AddSwaggerGen(c =>
     c.SupportNonNullableReferenceTypes();
     c.UseAllOfToExtendReferenceSchemas();
 
+    // Process-level descriptions on each tag group (KYC flow, webhooks, etc.).
+    c.DocumentFilter<Atria.Api.Swagger.TagDescriptionsDocumentFilter>();
+
     var scheme = new OpenApiSecurityScheme
     {
         Name = "Authorization",

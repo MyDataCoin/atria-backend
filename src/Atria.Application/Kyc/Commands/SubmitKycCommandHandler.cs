@@ -7,7 +7,7 @@ namespace Atria.Application.Kyc.Commands;
 
 /// <summary>Handles <see cref="SubmitKycCommand"/> for the authenticated investor.</summary>
 public sealed class SubmitKycCommandHandler
-    : IRequestHandler<SubmitKycCommand, Result<KycStatusDto>>
+    : IRequestHandler<SubmitKycCommand, Result<KycSubmissionDto>>
 {
     private readonly IKycRepository _kyc;
     private readonly ICurrentUserService _currentUser;
@@ -26,17 +26,17 @@ public sealed class SubmitKycCommandHandler
         _uow = uow;
     }
 
-    public async Task<Result<KycStatusDto>> Handle(SubmitKycCommand request, CancellationToken ct)
+    public async Task<Result<KycSubmissionDto>> Handle(SubmitKycCommand request, CancellationToken ct)
     {
         // Resource owner: the current investor acts on their OWN profile only.
         if (_currentUser.UserId is not { } userId)
-            return Result.Failure<KycStatusDto>(
+            return Result.Failure<KycSubmissionDto>(
                 Error.Unauthorized("Kyc.Unauthorized", "Authentication required."));
 
         // Strategy selection by type (never if/else on a string).
         var provider = _providers.FirstOrDefault(p => p.ProviderType == request.Provider);
         if (provider is null)
-            return Result.Failure<KycStatusDto>(
+            return Result.Failure<KycSubmissionDto>(
                 Error.Validation("Kyc.UnknownProvider", "The requested KYC provider is not configured."));
 
         // One profile per user; create on first submit.
@@ -59,6 +59,7 @@ public sealed class SubmitKycCommandHandler
 
         await _uow.SaveChangesAsync(ct);
 
-        return new KycStatusDto(profile.Id, profile.Status, profile.RejectionReason);
+        // Return the hosted verification URL so the client can redirect the user to the provider.
+        return new KycSubmissionDto(profile.Id, profile.Status, session.SessionId, session.VerificationUrl);
     }
 }

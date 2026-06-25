@@ -10,7 +10,21 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Atria.Api.Controllers;
 
-/// <summary>KYC submission, the investor's own status, and Compliance review.</summary>
+/// <summary>KYC verification: start a session, read your status, and (Compliance) review.</summary>
+/// <remarks>
+/// **KYC flow (hosted provider, e.g. Didit):**
+/// 1. Investor calls <c>POST /kyc/submit</c> → the backend opens a provider verification
+///    session and returns a <c>verificationUrl</c>; the profile moves to <c>UnderReview</c>.
+/// 2. The client redirects the user to that <c>verificationUrl</c> to complete checks
+///    (document, liveness, etc.) on the provider's hosted page.
+/// 3. The provider calls our webhook <c>POST /webhooks/kyc/{provider}</c> (signature-verified,
+///    idempotent). A terminal <c>status.updated</c> moves the profile to <c>Approved</c> or
+///    <c>Rejected</c>; non-terminal events are acknowledged without changing state.
+/// 4. The client polls <c>GET /kyc/me</c> for the latest status. On <c>Approved</c>, downstream
+///    effects (DID/attestations, allowlist) run asynchronously via the outbox.
+///
+/// Statuses: <c>Pending → UnderReview → Approved | Rejected</c>.
+/// </remarks>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/kyc")]
 [Authorize]
@@ -18,23 +32,25 @@ public sealed class KycController : ApiControllerBase
 {
     public KycController(ISender sender) : base(sender) { }
 
-    /// <summary>The investor submits KYC and opens a provider verification session.</summary>
+    /// <summary>Step 1: the investor submits KYC and starts a provider verification session.</summary>
     /// <remarks>
-    /// Requires an authenticated user in the <c>Investor</c> role. Ensures a KYC profile exists
-    /// for the caller (one per user), opens a verification session with the chosen provider, and
-    /// moves the profile to <c>UnderReview</c>. A supplied wallet address must be a valid
-    /// 0x-prefixed 40-hex-character address. Resubmitting a profile that is already under review,
-    /// approved, or rejected is rejected as a domain rule violation (<c>400</c>).
+    /// Requires the <c>Investor</c> role. Ensures a KYC profile exists for the caller (one per
+    /// user), opens a verification session with the chosen provider, moves the profile to
+    /// <c>UnderReview</c>, and RETURNS the hosted <c>verificationUrl</c> — the client MUST
+    /// redirect the user there to finish verification. The final decision arrives later via the
+    /// provider webhook (poll <c>GET /kyc/me</c>). A supplied wallet address must be a valid
+    /// 0x-prefixed 40-hex address. Resubmitting a profile already under review/approved/rejected
+    /// is a domain rule violation (<c>400</c>).
     /// </remarks>
     /// <param name="request">The provider plus optional wallet address and identity details.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <response code="200">KYC submitted; the current profile status is returned.</response>
+    /// <response code="200">Session started; returns profileId, status, sessionId and the verificationUrl to redirect to.</response>
     /// <response code="400">Validation failed, the provider is not configured, or the profile cannot be (re)submitted.</response>
     /// <response code="401">The caller is not authenticated.</response>
     /// <response code="403">The caller is authenticated but not an Investor.</response>
     [HttpPost("submit")]
     [Authorize(Roles = "Investor")]
-    [ProducesResponseType<KycStatusDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<KycSubmissionDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
