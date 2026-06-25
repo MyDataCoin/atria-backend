@@ -36,8 +36,25 @@ public sealed class WebhooksController : ApiControllerBase
     public WebhooksController(ISender sender) : base(sender) { }
 
     /// <summary>KYC provider callback. The decision only moves <c>KycProfile</c> State.</summary>
+    /// <remarks>
+    /// Inbound callback from a KYC provider. Anonymous at the transport layer, but the raw body is
+    /// authenticated inside the matching provider Strategy (signature + timestamp/replay check) before
+    /// anything happens. The body is never trusted as a command — the parsed decision only moves the
+    /// referenced profile's State. Processing is exactly-once: a redelivered event (same provider
+    /// event id) is acknowledged without re-applying. No response body is returned.
+    /// </remarks>
+    /// <param name="provider">Provider key in the route, matched (case-insensitive) to a configured KYC provider.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="204">The callback was accepted (verified and applied, or a duplicate ignored).</response>
+    /// <response code="400">The provider key is unknown or not configured.</response>
+    /// <response code="401">Signature verification failed; the body is not trusted.</response>
+    /// <response code="404">The callback references a KYC profile that does not exist.</response>
     [HttpPost("kyc/{provider}")]
     [Consumes("application/json", "text/plain")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Kyc(string provider, CancellationToken ct)
     {
         var payload = await BuildPayloadAsync(ct);
@@ -46,8 +63,26 @@ public sealed class WebhooksController : ApiControllerBase
     }
 
     /// <summary>Payment provider callback. The decision only moves <c>Investment</c> State (idempotent).</summary>
+    /// <remarks>
+    /// Inbound callback from a payment provider. Anonymous at the transport layer, but the raw body is
+    /// authenticated inside the matching provider Strategy (signature + timestamp/replay check) before
+    /// anything happens. The body is never trusted as a command — the parsed decision only moves the
+    /// referenced investment's State, and the paid amount/currency is reconciled against what was owed
+    /// before activation. Processing is exactly-once: a redelivered event (same provider event id) is
+    /// acknowledged without moving money twice. No response body is returned.
+    /// </remarks>
+    /// <param name="provider">Provider key in the route, matched (case-insensitive) to a configured payment provider.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="204">The callback was accepted (verified and applied, or a duplicate ignored).</response>
+    /// <response code="400">The provider key is unknown, or the payment decision is unrecognized.</response>
+    /// <response code="401">Signature verification failed; the body is not trusted.</response>
+    /// <response code="404">The callback references an investment that does not exist.</response>
     [HttpPost("payments/{provider}")]
     [Consumes("application/json", "text/plain")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Payments(string provider, CancellationToken ct)
     {
         var payload = await BuildPayloadAsync(ct);

@@ -4,6 +4,9 @@ using Atria.Domain.Users;
 namespace Atria.Application.Auth.Dtos;
 
 /// <summary>Token pair returned by every successful authentication flow.</summary>
+/// <param name="AccessToken">The signed JWT access token to send as a Bearer token on subsequent requests.</param>
+/// <param name="ExpiresAtUtc">UTC instant at which the access token expires.</param>
+/// <param name="RefreshToken">The rotating refresh token; exchange it at <c>auth/refresh</c> for a new pair.</param>
 public sealed record AuthTokensDto(string AccessToken, DateTime ExpiresAtUtc, string RefreshToken);
 
 /// <summary>

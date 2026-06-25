@@ -49,6 +49,7 @@ public abstract class ApiControllerBase : ControllerBase
         return new ObjectResult(problem) { StatusCode = status };
     }
 
+    /// <summary>Maps a domain <see cref="ErrorType"/> to the matching HTTP status code.</summary>
     private static int StatusFor(ErrorType type) => type switch
     {
         ErrorType.Validation => StatusCodes.Status400BadRequest,

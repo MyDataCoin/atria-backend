@@ -1,5 +1,6 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
+using Atria.Domain.Users;
 
 namespace Atria.Application.Auth.Commands;
 
@@ -11,5 +12,6 @@ public sealed class RequestPhoneOtpCommandHandler : IRequestHandler<RequestPhone
     public RequestPhoneOtpCommandHandler(IOtpService otp) => _otp = otp;
 
     public Task<Result> Handle(RequestPhoneOtpCommand request, CancellationToken ct)
-        => _otp.RequestAsync(request.Phone.Trim(), request.IpAddress, ct);
+        // Canonicalize to +996XXXXXXXXX so the OTP bucket/lookup is stable regardless of input form.
+        => _otp.RequestAsync(KyrgyzPhone.Normalize(request.Phone), request.IpAddress, ct);
 }

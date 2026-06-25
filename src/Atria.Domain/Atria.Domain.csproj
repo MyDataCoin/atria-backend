@@ -3,6 +3,9 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>Atria.Domain</RootNamespace>
+    <!-- Emit XML docs so Swagger can describe enums/value objects; CS1591 noise off. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <!-- Domain depends on NOTHING. No EF, no HTTP, no external packages. -->

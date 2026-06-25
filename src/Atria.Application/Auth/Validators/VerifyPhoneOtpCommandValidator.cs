@@ -1,17 +1,18 @@
 using Atria.Application.Auth.Commands;
+using Atria.Domain.Users;
 using FluentValidation;
 
 namespace Atria.Application.Auth.Validators;
 
-/// <summary>Validates the phone number and numeric OTP code format.</summary>
+/// <summary>Validates the Kyrgyzstan (+996) phone number and the numeric OTP code.</summary>
 public sealed class VerifyPhoneOtpCommandValidator : AbstractValidator<VerifyPhoneOtpCommand>
 {
     public VerifyPhoneOtpCommandValidator()
     {
         RuleFor(x => x.Phone)
             .NotEmpty()
-            .Matches(@"^\+?[1-9]\d{6,14}$")
-            .WithMessage("Phone must be a valid international number.");
+            .Must(KyrgyzPhone.IsValid)
+            .WithMessage($"Phone must be a valid Kyrgyzstan number, e.g. {KyrgyzPhone.Example}.");
 
         RuleFor(x => x.Code)
             .NotEmpty()

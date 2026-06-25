@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Atria.Api.Middleware;
@@ -47,8 +48,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
 
 // --- MVC controllers. Validators are registered by Infrastructure and run inside the
 //     Application mediator pipeline (ValidationBehavior), so no MVC auto-validation hook
-//     is needed here. ---
-builder.Services.AddControllers();
+//     is needed here. Enums are (de)serialized by NAME (e.g. "Didit") rather than integers
+//     — clearer payloads and Swagger lists the allowed values. ---
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(o =>
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // --- API versioning: default v1.0, URL segment reader, grouped explorer for Swagger. ---
 builder.Services
@@ -103,7 +108,30 @@ builder.Services.AddAuthorizationBuilder()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Atria API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Atria API",
+        Version = "v1",
+        Description =
+            "Real-estate tokenization (RWA) platform API.\n\n" +
+            "**Authentication is phone-first (Kyrgyzstan +996 numbers).** Register/sign in via " +
+            "`/auth/register/phone/request-otp` then `/auth/register/phone/verify-otp` to receive a JWT. " +
+            "Email/password endpoints also exist. Send the access token as `Authorization: Bearer {token}`.\n\n" +
+            "Enums are sent/returned by name (e.g. `Didit`, `Stripe`, `Investor`); each schema lists its allowed values. " +
+            "Errors come back as RFC-7807 ProblemDetails with a `correlationId`."
+    });
+
+    // Pull in the XML doc comments from every layer so summaries/remarks/param docs and
+    // enum/DTO descriptions show up in the UI. (Generated via GenerateDocumentationFile.)
+    foreach (var xml in new[] { "Atria.Api.xml", "Atria.Application.xml", "Atria.Domain.xml" })
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, xml);
+        if (File.Exists(path))
+            c.IncludeXmlComments(path, includeControllerXmlComments: true);
+    }
+
+    c.SupportNonNullableReferenceTypes();
+    c.UseAllOfToExtendReferenceSchemas();
 
     var scheme = new OpenApiSecurityScheme
     {
@@ -112,7 +140,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "JWT access token. Example: 'Bearer {token}'.",
+        Description = "Paste the JWT access token only (Swagger adds the 'Bearer ' prefix).",
         Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
     };
     c.AddSecurityDefinition("Bearer", scheme);

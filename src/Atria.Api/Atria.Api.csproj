@@ -3,6 +3,9 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>Atria.Api</RootNamespace>
+    <!-- Emit XML docs so Swagger shows controller/action summaries; CS1591 noise off. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

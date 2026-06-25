@@ -33,7 +33,8 @@ public sealed class VerifyPhoneOtpCommandHandler : IRequestHandler<VerifyPhoneOt
 
     public async Task<Result<AuthTokensDto>> Handle(VerifyPhoneOtpCommand request, CancellationToken ct)
     {
-        var phone = request.Phone.Trim();
+        // Same canonicalization as the request step so the stored code/user is found.
+        var phone = KyrgyzPhone.Normalize(request.Phone);
 
         var verification = await _otp.VerifyAsync(phone, request.Code, ct);
         if (verification.IsFailure)
