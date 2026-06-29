@@ -1,4 +1,5 @@
 using System.Text;
+using System.Xml.Linq;
 using Atria.Application.Abstractions;
 using Atria.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
@@ -29,8 +30,8 @@ public sealed class NikitaProSmsAdapter : ISmsSender
 
     public async Task SendAsync(string phoneNumber, string message, CancellationToken ct)
     {
-        // NOTE: Nikita Pro's "smspro" API accepts an XML POST body to <BaseUrl>/message/
-        // with the following shape (transaction id is an arbitrary unique request id):
+        // Nikita Pro's "smspro" XML API (https://smspro.nikita.kg/api/message): an SSL POST
+        // of the following body (id is an arbitrary unique request id):
         //   <?xml version="1.0" encoding="UTF-8"?>
         //   <message>
         //     <login>{Login}</login>
@@ -40,9 +41,14 @@ public sealed class NikitaProSmsAdapter : ISmsSender
         //     <text>{message}</text>
         //     <phones><phone>{phoneNumber}</phone></phones>
         //   </message>
-        // The gateway replies with an XML <response> carrying a <status> code; non-zero
-        // means rejection. Swap the endpoint/shape here if the contract changes.
+        // The gateway replies HTTP 200 with an XML <response><status>N</status>...</response>;
+        // status 0 means accepted, any non-zero value means the request was rejected (e.g.
+        // bad credentials, unknown sender, no balance). HTTP success alone is NOT enough.
         var transactionId = Guid.NewGuid().ToString("N");
+
+        // The gateway expects bare international digits (e.g. 996700123456) — strip the
+        // leading '+' and any separators that may have survived normalization.
+        var phoneDigits = new string(phoneNumber.Where(char.IsDigit).ToArray());
 
         var xml = new StringBuilder()
             .Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
@@ -52,11 +58,11 @@ public sealed class NikitaProSmsAdapter : ISmsSender
             .Append("<id>").Append(transactionId).Append("</id>")
             .Append("<sender>").Append(SecurityElementEscape(_options.Sender)).Append("</sender>")
             .Append("<text>").Append(SecurityElementEscape(message)).Append("</text>")
-            .Append("<phones><phone>").Append(SecurityElementEscape(phoneNumber)).Append("</phone></phones>")
+            .Append("<phones><phone>").Append(SecurityElementEscape(phoneDigits)).Append("</phone></phones>")
             .Append("</message>")
             .ToString();
 
-        var requestUri = new Uri(new Uri(EnsureTrailingSlash(_options.BaseUrl)), "message/");
+        var requestUri = new Uri(new Uri(EnsureTrailingSlash(_options.BaseUrl)), "message");
         using var content = new StringContent(xml, Encoding.UTF8, "application/xml");
         using var response = await _http.PostAsync(requestUri, content, ct);
 
@@ -64,14 +70,46 @@ public sealed class NikitaProSmsAdapter : ISmsSender
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError(
-                "Nikita Pro SMS send failed. TransactionId={TransactionId} Status={StatusCode}",
+                "Nikita Pro SMS send failed (HTTP). TransactionId={TransactionId} Status={StatusCode}",
                 transactionId, (int)response.StatusCode);
             throw new HttpRequestException(
                 $"Nikita Pro SMS gateway returned HTTP {(int)response.StatusCode}.");
         }
 
+        // Parse the XML <response> and treat any non-zero <status> as a failure.
+        var body = await response.Content.ReadAsStringAsync(ct);
+        var (status, gatewayMessage) = ParseResponse(body);
+        if (status != 0)
+        {
+            _logger.LogError(
+                "Nikita Pro SMS rejected. TransactionId={TransactionId} GatewayStatus={Status} GatewayMessage={Message}",
+                transactionId, status?.ToString() ?? "<unparsed>", gatewayMessage);
+            throw new HttpRequestException(
+                $"Nikita Pro SMS gateway rejected the message (status={status?.ToString() ?? "unparsed"}).");
+        }
+
         _logger.LogInformation(
             "Nikita Pro SMS dispatched. TransactionId={TransactionId}", transactionId);
+    }
+
+    /// <summary>
+    /// Parses the gateway's <c>&lt;response&gt;&lt;status&gt;N&lt;/status&gt;&lt;message&gt;…&lt;/message&gt;&lt;/response&gt;</c>.
+    /// Returns the status code (null if it could not be parsed) and the optional gateway message.
+    /// </summary>
+    private static (int? Status, string? Message) ParseResponse(string body)
+    {
+        try
+        {
+            var root = XDocument.Parse(body).Root;
+            var statusText = root?.Element("status")?.Value;
+            var message = root?.Element("message")?.Value;
+            return int.TryParse(statusText, out var status) ? (status, message) : (null, message);
+        }
+        catch (System.Xml.XmlException)
+        {
+            // Unparseable body: surface as a failure (status null) rather than a false success.
+            return (null, null);
+        }
     }
 
     // Minimal XML text escaping for body values.

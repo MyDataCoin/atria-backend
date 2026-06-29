@@ -75,7 +75,7 @@ public sealed class OtpService : IOtpService
         }
 
         // The message embeds the code; we never log this string.
-        var message = $"Your Atria verification code is {code}. It expires in {_options.TtlMinutes} minutes.";
+        var message = $"Добро пожаловать в Atria! Ваш код потверждения: {code}. Он истечёт через {_options.TtlMinutes} минут.";
         await _sms.SendAsync(phone, message, ct);
 
         return Result.Success();
