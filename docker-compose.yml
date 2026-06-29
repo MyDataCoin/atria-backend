@@ -9,7 +9,11 @@ services:
     container_name: atria-db
     environment:
       POSTGRES_USER: atria
-      POSTGRES_PASSWORD: atria
+      # Required: set via GitHub Actions secret on deploy, or the project .env locally.
+      # NOTE: POSTGRES_PASSWORD only takes effect when the data volume is FIRST initialized.
+      # The existing prod volume was created with "atria", so this secret MUST equal the
+      # current password unless you intentionally reset the atria-pgdata volume.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: atria
     # Internal only: the API reaches the DB over the compose network. NOT published to the
     # host, so it is never exposed on a public server. For local DB tools, docker-compose.override.yml
@@ -43,8 +47,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      # Point the app at the db service (overrides the appsettings default).
-      ConnectionStrings__Postgres: "Host=db;Port=5432;Database=atria;Username=atria;Password=atria"
+      # Point the app at the db service (overrides the appsettings default). The password
+      # is interpolated from the same POSTGRES_PASSWORD variable used by the db service.
+      ConnectionStrings__Postgres: "Host=db;Port=5432;Database=atria;Username=atria;Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       # Auto-apply migrations on startup so the stack is usable immediately.
       Database__MigrateOnStartup: "true"
       # Seed demo tokenization objects (Properties) on first run (idempotent).
@@ -53,9 +58,10 @@ services:
       # those come from GitHub Actions secrets exported into the SSH session (see deploy.yml);
       # for a local `docker compose up` they come from the project .env (compose interpolates
       # ${...} from the shell env or .env). `environment:` overrides any stale server-side .env,
-      # and compose warns loudly if a variable is unset so a misconfig can't pass silently.
-      NikitaPro__Login: ${NIKITA_PRO_LOGIN}
-      NikitaPro__ApiKey: ${NIKITA_PRO_API_KEY}
+      # and the :? guard FAILS the deploy with a clear message if a variable is unset/empty,
+      # so a misconfigured secret can never boot the app with blank credentials.
+      NikitaPro__Login: ${NIKITA_PRO_LOGIN:?NIKITA_PRO_LOGIN is required}
+      NikitaPro__ApiKey: ${NIKITA_PRO_API_KEY:?NIKITA_PRO_API_KEY is required}
       # Sender is not secret; pin it explicitly so it can't drift from the approved name.
       NikitaPro__Sender: MYDATACOIN
     ports:
