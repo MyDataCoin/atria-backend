@@ -49,6 +49,15 @@ services:
       Database__MigrateOnStartup: "true"
       # Seed demo tokenization objects (Properties) on first run (idempotent).
       Database__SeedOnStartup: "true"
+      # Nikita Pro SMS gateway credentials, mapped from the NIKITA_PRO_* variables. On deploy
+      # those come from GitHub Actions secrets exported into the SSH session (see deploy.yml);
+      # for a local `docker compose up` they come from the project .env (compose interpolates
+      # ${...} from the shell env or .env). `environment:` overrides any stale server-side .env,
+      # and compose warns loudly if a variable is unset so a misconfig can't pass silently.
+      NikitaPro__Login: ${NIKITA_PRO_LOGIN}
+      NikitaPro__ApiKey: ${NIKITA_PRO_API_KEY}
+      # Sender is not secret; pin it explicitly so it can't drift from the approved name.
+      NikitaPro__Sender: MYDATACOIN
     ports:
       - "8080:8080"
     restart: unless-stopped

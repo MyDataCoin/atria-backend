@@ -68,12 +68,18 @@ jobs:
 
       - name: Build & restart the stack on the server
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          # SMS gateway credentials from GitHub Secrets, transferred to the remote shell
+          # (via `envs` below) so `docker compose` can interpolate ${NIKITA_PRO_*}.
+          NIKITA_PRO_LOGIN: ${{ secrets.NIKITA_PRO_LOGIN }}
+          NIKITA_PRO_API_KEY: ${{ secrets.NIKITA_PRO_API_KEY }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
+          envs: NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY
           script: |
             set -euo pipefail
 
