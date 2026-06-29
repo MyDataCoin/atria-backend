@@ -57,6 +57,7 @@ public abstract class ApiControllerBase : ControllerBase
         ErrorType.Conflict => StatusCodes.Status409Conflict,
         ErrorType.Forbidden => StatusCodes.Status403Forbidden,
         ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
+        ErrorType.ExternalService => StatusCodes.Status502BadGateway,
         _ => StatusCodes.Status500InternalServerError
     };
 }

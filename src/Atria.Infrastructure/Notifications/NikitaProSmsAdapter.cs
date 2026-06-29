@@ -64,28 +64,47 @@ public sealed class NikitaProSmsAdapter : ISmsSender
 
         var requestUri = new Uri(new Uri(EnsureTrailingSlash(_options.BaseUrl)), "message");
         using var content = new StringContent(xml, Encoding.UTF8, "application/xml");
-        using var response = await _http.PostAsync(requestUri, content, ct);
 
-        // Do not log the message body (may contain an OTP) — only the outcome.
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response;
+        try
         {
+            response = await _http.PostAsync(requestUri, content, ct);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Transport failure (DNS, TLS, connection refused, etc.) — never surface as a generic 500.
             _logger.LogError(
-                "Nikita Pro SMS send failed (HTTP). TransactionId={TransactionId} Status={StatusCode}",
-                transactionId, (int)response.StatusCode);
-            throw new HttpRequestException(
-                $"Nikita Pro SMS gateway returned HTTP {(int)response.StatusCode}.");
+                ex, "Nikita Pro SMS transport failure. TransactionId={TransactionId}", transactionId);
+            throw new SmsGatewayException(
+                gatewayStatus: null,
+                $"Nikita Pro SMS gateway is unreachable (transaction {transactionId}).", ex);
         }
 
-        // Parse the XML <response> and treat any non-zero <status> as a failure.
-        var body = await response.Content.ReadAsStringAsync(ct);
-        var (status, gatewayMessage) = ParseResponse(body);
-        if (status != 0)
+        using (response)
         {
-            _logger.LogError(
-                "Nikita Pro SMS rejected. TransactionId={TransactionId} GatewayStatus={Status} GatewayMessage={Message}",
-                transactionId, status?.ToString() ?? "<unparsed>", gatewayMessage);
-            throw new HttpRequestException(
-                $"Nikita Pro SMS gateway rejected the message (status={status?.ToString() ?? "unparsed"}).");
+            // Do not log the message body (may contain an OTP) — only the outcome.
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError(
+                    "Nikita Pro SMS send failed (HTTP). TransactionId={TransactionId} Status={StatusCode}",
+                    transactionId, (int)response.StatusCode);
+                throw new SmsGatewayException(
+                    gatewayStatus: null,
+                    $"Nikita Pro SMS gateway returned HTTP {(int)response.StatusCode}.");
+            }
+
+            // Parse the XML <response> and treat any non-zero <status> as a failure.
+            var body = await response.Content.ReadAsStringAsync(ct);
+            var (status, gatewayMessage) = ParseResponse(body);
+            if (status != 0)
+            {
+                _logger.LogError(
+                    "Nikita Pro SMS rejected. TransactionId={TransactionId} GatewayStatus={Status} GatewayMessage={Message}",
+                    transactionId, status?.ToString() ?? "<unparsed>", gatewayMessage);
+                throw new SmsGatewayException(
+                    status,
+                    $"Nikita Pro SMS gateway rejected the message (status={status?.ToString() ?? "unparsed"}).");
+            }
         }
 
         _logger.LogInformation(
@@ -96,13 +115,19 @@ public sealed class NikitaProSmsAdapter : ISmsSender
     /// Parses the gateway's <c>&lt;response&gt;&lt;status&gt;N&lt;/status&gt;&lt;message&gt;…&lt;/message&gt;&lt;/response&gt;</c>.
     /// Returns the status code (null if it could not be parsed) and the optional gateway message.
     /// </summary>
+    /// <remarks>
+    /// The live gateway wraps the response in a default namespace
+    /// (<c>xmlns="http://Giper.mobi/schema/Message"</c>), so elements are matched by local name
+    /// rather than by a namespace-qualified <see cref="XName"/> — otherwise a successful
+    /// <c>status=0</c> would be read as <c>null</c> and a delivered SMS reported as a failure.
+    /// </remarks>
     private static (int? Status, string? Message) ParseResponse(string body)
     {
         try
         {
             var root = XDocument.Parse(body).Root;
-            var statusText = root?.Element("status")?.Value;
-            var message = root?.Element("message")?.Value;
+            var statusText = ElementByLocalName(root, "status")?.Value;
+            var message = ElementByLocalName(root, "message")?.Value;
             return int.TryParse(statusText, out var status) ? (status, message) : (null, message);
         }
         catch (System.Xml.XmlException)
@@ -111,6 +136,10 @@ public sealed class NikitaProSmsAdapter : ISmsSender
             return (null, null);
         }
     }
+
+    /// <summary>Finds a direct child element by local name, ignoring any XML namespace.</summary>
+    private static XElement? ElementByLocalName(XElement? root, string localName) =>
+        root?.Elements().FirstOrDefault(e => e.Name.LocalName == localName);
 
     // Minimal XML text escaping for body values.
     private static string SecurityElementEscape(string value) =>

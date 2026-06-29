@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Infrastructure.Configuration;
+using Atria.Infrastructure.Notifications;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -76,7 +77,34 @@ public sealed class OtpService : IOtpService
 
         // The message embeds the code; we never log this string.
         var message = $"Добро пожаловать в Atria! Ваш код потверждения: {code}. Он истечёт через {_options.TtlMinutes} минут.";
-        await _sms.SendAsync(phone, message, ct);
+
+        try
+        {
+            await _sms.SendAsync(phone, message, ct);
+        }
+        catch (SmsGatewayException ex)
+        {
+            // Log the full exception (stack trace included); the request CorrelationId is attached
+            // automatically via the Serilog LogContext. Surface a precise 502 carrying the smspro
+            // status code instead of an opaque 500 "An unexpected error occurred".
+            _logger.LogError(
+                ex, "OTP SMS delivery failed for {Phone}. GatewayStatus={GatewayStatus}",
+                phone, ex.GatewayStatus?.ToString() ?? "<none>");
+            return Result.Failure(Error.ExternalService(
+                "sms.gateway_error",
+                ex.GatewayStatus is { } gatewayStatus
+                    ? $"SMS gateway rejected the request (smspro status={gatewayStatus})."
+                    : "SMS gateway is currently unavailable. Please try again later."));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Any other unexpected failure while contacting the gateway: still a downstream
+            // problem, not a server bug — return 502 rather than letting it become a generic 500.
+            _logger.LogError(ex, "OTP SMS delivery failed unexpectedly for {Phone}.", phone);
+            return Result.Failure(Error.ExternalService(
+                "sms.gateway_unreachable",
+                "SMS gateway is currently unavailable. Please try again later."));
+        }
 
         return Result.Success();
     }

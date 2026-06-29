@@ -59,10 +59,12 @@ public sealed class AuthController : ApiControllerBase
     /// <response code="204">A code was issued (SMS sent, or a fixed dev code used in development).</response>
     /// <response code="400">The phone number failed validation.</response>
     /// <response code="409">Too many OTP requests for this number; try again later.</response>
+    /// <response code="502">The SMS gateway rejected the request or was unreachable (detail carries the smspro status).</response>
     [HttpPost("register/phone/request-otp")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> RequestPhoneOtp(RequestOtpRequest request, CancellationToken ct)
     {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();

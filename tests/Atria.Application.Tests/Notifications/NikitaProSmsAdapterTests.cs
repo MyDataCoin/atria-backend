@@ -62,9 +62,11 @@ public sealed class NikitaProSmsAdapterTests
         var body = $"<response><id>x</id><status>{status}</status><message>rejected</message></response>";
         var sut = CreateSut(new CapturingHandler(HttpStatusCode.OK, body));
 
-        // HTTP 200 but a non-zero gateway status must NOT be treated as a delivered SMS.
-        await sut.Invoking(s => s.SendAsync("+996700123456", "msg", CancellationToken.None))
-            .Should().ThrowAsync<HttpRequestException>();
+        // HTTP 200 but a non-zero gateway status must NOT be treated as a delivered SMS — it
+        // raises a typed SmsGatewayException carrying the gateway status (mapped to 502 upstream).
+        (await sut.Invoking(s => s.SendAsync("+996700123456", "msg", CancellationToken.None))
+            .Should().ThrowAsync<SmsGatewayException>())
+            .Which.GatewayStatus.Should().Be(status);
     }
 
     [Fact]
@@ -73,7 +75,33 @@ public sealed class NikitaProSmsAdapterTests
         var sut = CreateSut(new CapturingHandler(HttpStatusCode.InternalServerError, "boom"));
 
         await sut.Invoking(s => s.SendAsync("+996700123456", "msg", CancellationToken.None))
-            .Should().ThrowAsync<HttpRequestException>();
+            .Should().ThrowAsync<SmsGatewayException>();
+    }
+
+    [Fact]
+    public async Task SendAsync_accepts_namespaced_status_zero_response()
+    {
+        // The LIVE gateway wraps the response in a default namespace; status 0 must still be
+        // read as success (regression: a namespace-qualified <status> previously parsed as null
+        // and turned a delivered SMS into a thrown failure / 500).
+        const string namespacedAccepted =
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><response xmlns="http://Giper.mobi/schema/Message"><id>x</id><status>0</status><phones>1</phones><smscnt>1</smscnt></response>""";
+        var sut = CreateSut(new CapturingHandler(HttpStatusCode.OK, namespacedAccepted));
+
+        await sut.Invoking(s => s.SendAsync("+996700123456", "msg", CancellationToken.None))
+            .Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task SendAsync_namespaced_nonzero_status_throws_with_status()
+    {
+        const string namespacedRejected =
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><response xmlns="http://Giper.mobi/schema/Message"><id>x</id><status>2</status></response>""";
+        var sut = CreateSut(new CapturingHandler(HttpStatusCode.OK, namespacedRejected));
+
+        (await sut.Invoking(s => s.SendAsync("+996700123456", "msg", CancellationToken.None))
+            .Should().ThrowAsync<SmsGatewayException>())
+            .Which.GatewayStatus.Should().Be(2);
     }
 
     [Fact]
@@ -83,7 +111,7 @@ public sealed class NikitaProSmsAdapterTests
         var sut = CreateSut(new CapturingHandler(HttpStatusCode.OK, "not xml at all"));
 
         await sut.Invoking(s => s.SendAsync("+996700123456", "msg", CancellationToken.None))
-            .Should().ThrowAsync<HttpRequestException>();
+            .Should().ThrowAsync<SmsGatewayException>();
     }
 
     /// <summary>Records the outgoing request and replays a canned response.</summary>

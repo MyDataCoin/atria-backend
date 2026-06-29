@@ -8,7 +8,8 @@ public enum ErrorType
     Conflict = 3,
     Forbidden = 4,
     Unauthorized = 5,
-    Failure = 6
+    Failure = 6,
+    ExternalService = 7
 }
 
 /// <summary>A structured, safe-to-return error. No internal details leak through this.</summary>
@@ -22,4 +23,7 @@ public sealed record Error(string Code, string Message, ErrorType Type)
     public static Error Forbidden(string code, string message) => new(code, message, ErrorType.Forbidden);
     public static Error Unauthorized(string code, string message) => new(code, message, ErrorType.Unauthorized);
     public static Error Failure(string code, string message) => new(code, message, ErrorType.Failure);
+
+    /// <summary>A downstream dependency (e.g. the SMS gateway) failed or rejected the request; maps to 502.</summary>
+    public static Error ExternalService(string code, string message) => new(code, message, ErrorType.ExternalService);
 }
