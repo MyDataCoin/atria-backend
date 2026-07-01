@@ -33,6 +33,10 @@ public sealed record SubmitKycRequest(
     string? DocumentNumber,
     string? Nationality);
 
+/// <summary>PATCH /kyc/wallet body. Links the caller's wallet to their KYC profile after verification.</summary>
+/// <param name="WalletAddress">0x-prefixed 40-hex-character wallet address for token allocation.</param>
+public sealed record LinkWalletRequest(string WalletAddress);
+
 /// <summary>POST /kyc/{id}/review body. <c>Approve=false</c> requires a <c>Reason</c>.</summary>
 /// <param name="Approve"><c>true</c> to approve the profile; <c>false</c> to reject it.</param>
 /// <param name="Reason">Required when rejecting; the human-readable rejection reason.</param>

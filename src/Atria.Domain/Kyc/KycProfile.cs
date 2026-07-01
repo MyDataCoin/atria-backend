@@ -49,6 +49,19 @@ public sealed class KycProfile : AggregateRoot
         Status = KycStateFactory.Create(Status).Submit(this).Status;
     }
 
+    /// <summary>
+    /// Links the investor's crypto wallet after verification (the token-allocation address).
+    /// Format is validated at the application boundary; the already-linked conflict is handled
+    /// by the caller. Empty input is rejected here as a last-resort invariant.
+    /// </summary>
+    public void LinkWallet(string walletAddress)
+    {
+        if (string.IsNullOrWhiteSpace(walletAddress))
+            throw new DomainException("Wallet address is required.");
+
+        WalletAddress = walletAddress;
+    }
+
     /// <summary>Transitions UnderReview -> Approved (raises <c>KycApprovedEvent</c>).</summary>
     public void Approve()
         => Status = KycStateFactory.Create(Status).Approve(this).Status;

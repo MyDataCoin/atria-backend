@@ -62,6 +62,35 @@ public sealed class KycController : ApiControllerBase
         return ToActionResult(result);
     }
 
+    /// <summary>Links the investor's crypto wallet to their KYC profile (after verification).</summary>
+    /// <remarks>
+    /// Requires the <c>Investor</c> role. By UX the wallet is collected AFTER the user passes
+    /// verification, so it is linked here rather than at submit. The address must be a valid
+    /// 0x-prefixed 40-hex address and becomes the token-allocation destination. A wallet is not
+    /// overwritten once set — relinking a profile that already has a wallet returns <c>409</c>.
+    /// </remarks>
+    /// <param name="request">The wallet address to link.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="204">The wallet was linked.</response>
+    /// <response code="400">The wallet address is missing or malformed.</response>
+    /// <response code="401">The caller is not authenticated.</response>
+    /// <response code="403">The caller is authenticated but not an Investor.</response>
+    /// <response code="404">The caller has no KYC profile yet.</response>
+    /// <response code="409">A wallet is already linked to the caller's KYC profile.</response>
+    [HttpPatch("wallet")]
+    [Authorize(Roles = "Investor")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> LinkWallet(LinkWalletRequest request, CancellationToken ct)
+    {
+        var result = await Sender.Send(new LinkKycWalletCommand(request.WalletAddress), ct);
+        return ToActionResult(result);
+    }
+
     /// <summary>Returns the current investor's KYC profile state.</summary>
     /// <remarks>
     /// Requires an authenticated user in the <c>Investor</c> role. Reads only the caller's own
