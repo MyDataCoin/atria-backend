@@ -52,6 +52,21 @@ public sealed class KycProfile : AggregateRoot
     }
 
     /// <summary>
+    /// Issues a fresh provider session for an already-submitted verification the user did not
+    /// finish (abandoned / not started / expired on the provider side). Only valid while
+    /// UnderReview and does NOT change status — it just points the profile at the new session.
+    /// </summary>
+    public void RefreshSession(KycProviderType provider, string sessionId, string? verificationUrl)
+    {
+        if (Status != KycStatus.UnderReview)
+            throw new DomainException("Only an in-progress verification can be restarted.");
+
+        Provider = provider;
+        ProviderSessionId = sessionId;
+        VerificationUrl = verificationUrl;
+    }
+
+    /// <summary>
     /// Links the investor's crypto wallet after verification (the token-allocation address).
     /// Format is validated at the application boundary; the already-linked conflict is handled
     /// by the caller. Empty input is rejected here as a last-resort invariant.

@@ -41,6 +41,15 @@ public sealed class SubmitKycCommandHandler
 
         // One profile per user; create on first submit.
         var profile = await _kyc.GetByUserIdAsync(userId, ct);
+
+        // A decided profile cannot be (re)submitted — fail before spending a provider session.
+        if (profile is { Status: KycStatus.Approved })
+            return Result.Failure<KycSubmissionDto>(
+                Error.Conflict("Kyc.AlreadyVerified", "Your identity is already verified."));
+        if (profile is { Status: KycStatus.Rejected })
+            return Result.Failure<KycSubmissionDto>(
+                Error.Conflict("Kyc.Rejected", "Your verification was rejected. Please contact support."));
+
         var isNew = profile is null;
         profile ??= KycProfile.Create(userId);
 
@@ -62,9 +71,14 @@ public sealed class SubmitKycCommandHandler
                     : "KYC provider is currently unavailable. Please try again later."));
         }
 
-        // Domain enforces the Pending -> UnderReview transition (raises KycSubmittedEvent).
-        profile.Submit(request.Provider, session.SessionId, session.VerificationUrl,
-            request.WalletAddress, request.FullName, request.DocumentNumber, request.Nationality);
+        if (profile.Status == KycStatus.UnderReview)
+            // RESUME/RESTART: the user abandoned an in-progress verification (e.g. closed the
+            // hosted flow before finishing). Point the profile at a fresh session; stay UnderReview.
+            profile.RefreshSession(request.Provider, session.SessionId, session.VerificationUrl);
+        else
+            // First submission: domain enforces Pending -> UnderReview (raises KycSubmittedEvent).
+            profile.Submit(request.Provider, session.SessionId, session.VerificationUrl,
+                request.WalletAddress, request.FullName, request.DocumentNumber, request.Nationality);
 
         if (isNew)
             await _kyc.AddAsync(profile, ct);
