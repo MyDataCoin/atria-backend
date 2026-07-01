@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Application.Kyc.Dtos;
+using Atria.Domain.Kyc;
 
 namespace Atria.Application.Kyc.Queries;
 
@@ -29,6 +30,16 @@ public sealed class GetKycStatusQueryHandler
             return Result.Failure<KycStatusDto>(
                 Error.NotFound("Kyc.NotFound", "No KYC profile exists for this user."));
 
-        return new KycStatusDto(profile.Id, profile.Status, profile.RejectionReason);
+        // Resume support: while a verification is still in progress (UnderReview) but not yet
+        // decided, surface the provider session/URL so the client can reopen the same hosted
+        // flow the user abandoned. Once terminal (Approved/Rejected) there is nothing to resume.
+        var resumable = profile.Status == KycStatus.UnderReview;
+
+        return new KycStatusDto(
+            profile.Id,
+            profile.Status,
+            profile.RejectionReason,
+            resumable ? profile.ProviderSessionId : null,
+            resumable ? profile.VerificationUrl : null);
     }
 }

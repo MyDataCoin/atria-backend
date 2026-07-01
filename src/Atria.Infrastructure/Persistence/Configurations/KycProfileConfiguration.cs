@@ -22,6 +22,7 @@ internal sealed class KycProfileConfiguration : IEntityTypeConfiguration<KycProf
         b.Property(k => k.Nationality).HasMaxLength(128);
         b.Property(k => k.WalletAddress).HasMaxLength(64);
         b.Property(k => k.ProviderSessionId).HasMaxLength(256);
+        b.Property(k => k.VerificationUrl).HasMaxLength(512);
         b.Property(k => k.RejectionReason).HasMaxLength(1024);
 
         b.HasIndex(k => k.UserId).IsUnique();

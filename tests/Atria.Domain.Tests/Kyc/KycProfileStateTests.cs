@@ -10,8 +10,8 @@ public sealed class KycProfileStateTests
     private static KycProfile NewSubmittedProfile()
     {
         var profile = KycProfile.Create(Guid.NewGuid());
-        profile.Submit(KycProviderType.Didit, "session-1", "0x" + new string('a', 40),
-            "Jane Doe", "AB123456", "KZ");
+        profile.Submit(KycProviderType.Didit, "session-1", "https://verify.didit.test/s/1",
+            "0x" + new string('a', 40), "Jane Doe", "AB123456", "KZ");
         return profile;
     }
 
@@ -37,8 +37,8 @@ public sealed class KycProfileStateTests
         var profile = KycProfile.Create(Guid.NewGuid());
 
         // Act
-        profile.Submit(KycProviderType.Didit, "session-1", "0x" + new string('b', 40),
-            "Jane Doe", "AB123456", "KZ");
+        profile.Submit(KycProviderType.Didit, "session-1", "https://verify.didit.test/s/1",
+            "0x" + new string('b', 40), "Jane Doe", "AB123456", "KZ");
         profile.Approve();
 
         // Assert
@@ -56,7 +56,7 @@ public sealed class KycProfileStateTests
         var profile = KycProfile.Create(Guid.NewGuid());
 
         // Act
-        profile.Submit(KycProviderType.Didit, "session-1", null, null, null, null);
+        profile.Submit(KycProviderType.Didit, "session-1", null, null, null, null, null);
 
         // Assert
         profile.Status.Should().Be(KycStatus.UnderReview);
@@ -115,7 +115,7 @@ public sealed class KycProfileStateTests
         var profile = NewSubmittedProfile();
 
         // Act
-        var act = () => profile.Submit(KycProviderType.Didit, "session-2", null, null, null, null);
+        var act = () => profile.Submit(KycProviderType.Didit, "session-2", null, null, null, null, null);
 
         // Assert
         act.Should().Throw<InvalidStateTransitionException>();

@@ -63,8 +63,8 @@ public sealed class SubmitKycCommandHandler
         }
 
         // Domain enforces the Pending -> UnderReview transition (raises KycSubmittedEvent).
-        profile.Submit(request.Provider, session.SessionId, request.WalletAddress,
-            request.FullName, request.DocumentNumber, request.Nationality);
+        profile.Submit(request.Provider, session.SessionId, session.VerificationUrl,
+            request.WalletAddress, request.FullName, request.DocumentNumber, request.Nationality);
 
         if (isNew)
             await _kyc.AddAsync(profile, ct);

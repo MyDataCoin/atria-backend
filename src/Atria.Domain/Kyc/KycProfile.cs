@@ -19,6 +19,7 @@ public sealed class KycProfile : AggregateRoot
     public string? Nationality { get; private set; }
     public string? WalletAddress { get; private set; }
     public string? ProviderSessionId { get; private set; }
+    public string? VerificationUrl { get; private set; }   // hosted provider URL, for resuming an unfinished flow
     public string? RejectionReason { get; private set; }
 
     // private ctor: creation only through the static factory
@@ -37,11 +38,12 @@ public sealed class KycProfile : AggregateRoot
     /// Records provider/session and PII details, then transitions
     /// Pending -> UnderReview (raises <c>KycSubmittedEvent</c>).
     /// </summary>
-    public void Submit(KycProviderType provider, string sessionId, string? walletAddress,
-        string? fullName, string? documentNumber, string? nationality)
+    public void Submit(KycProviderType provider, string sessionId, string? verificationUrl,
+        string? walletAddress, string? fullName, string? documentNumber, string? nationality)
     {
         Provider = provider;
         ProviderSessionId = sessionId;
+        VerificationUrl = verificationUrl;
         WalletAddress = walletAddress;
         FullName = fullName;
         DocumentNumber = documentNumber;
