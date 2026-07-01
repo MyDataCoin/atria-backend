@@ -29,4 +29,13 @@ public sealed class OtpOptions
     /// null/empty in production (the service logs a loud warning whenever it is active).
     /// </summary>
     public string? DevFixedCode { get; init; }
+
+    /// <summary>
+    /// TEMPORARY OUTAGE BYPASS. When set (e.g. "111111"), verify-otp accepts this exact code
+    /// for ANY phone WITHOUT a prior request-otp and WITHOUT contacting the SMS gateway —
+    /// used only while the SMS provider is down. This is an auth bypass: keep it null/empty
+    /// normally and REMOVE it the moment SMS is restored. The service logs a loud warning on
+    /// every use.
+    /// </summary>
+    public string? MagicCode { get; init; }
 }

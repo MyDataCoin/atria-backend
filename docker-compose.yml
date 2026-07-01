@@ -64,6 +64,9 @@ services:
       NikitaPro__ApiKey: ${NIKITA_PRO_API_KEY:?NIKITA_PRO_API_KEY is required}
       # Sender is not secret; pin it explicitly so it can't drift from the approved name.
       NikitaPro__Sender: MYDATACOIN
+      # !!! TEMPORARY SMS-OUTAGE BYPASS — REMOVE THIS LINE once the SMS provider is restored !!!
+      # Lets verify-otp accept code 111111 for any phone without SMS. This is an auth bypass.
+      Otp__MagicCode: "111111"
       # Didit hosted-KYC secrets, mapped from the DIDIT_* variables (same flow as NIKITA_PRO_*:
       # GitHub Actions secrets exported into the SSH session, see deploy.yml; local `docker
       # compose up` reads them from the project .env). The :? guard fails the deploy with a

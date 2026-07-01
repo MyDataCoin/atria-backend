@@ -113,6 +113,20 @@ public sealed class OtpService : IOtpService
     {
         var now = _clock.UtcNow;
 
+        // TEMPORARY OUTAGE BYPASS: while the SMS provider is down, accept a configured magic
+        // code for ANY phone without a stored code. This is a deliberate auth bypass — it is
+        // OFF unless Otp:MagicCode is set, and MUST be removed once SMS is restored.
+        var magicCode = _options.MagicCode;
+        if (!string.IsNullOrEmpty(magicCode) &&
+            CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.UTF8.GetBytes(code), System.Text.Encoding.UTF8.GetBytes(magicCode)))
+        {
+            _logger.LogWarning(
+                "OTP MAGIC-CODE BYPASS ACTIVE: verify-otp accepted the outage magic code for {Phone} " +
+                "WITHOUT SMS. Remove Otp:MagicCode once the SMS provider is restored.", phone);
+            return Result.Success();
+        }
+
         var entry = await _store.GetLatestActiveAsync(phone, ct);
         if (entry is null || entry.Consumed || entry.ExpiresAtUtc <= now)
             return Result.Failure(Error.Validation(
