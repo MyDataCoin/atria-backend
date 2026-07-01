@@ -44,9 +44,23 @@ public sealed class SubmitKycCommandHandler
         var isNew = profile is null;
         profile ??= KycProfile.Create(userId);
 
-        var session = await provider.CreateSessionAsync(
-            new KycSessionRequest(profile.Id, userId, _currentUser.Email ?? string.Empty, RedirectUrl: null),
-            ct);
+        KycSessionResult session;
+        try
+        {
+            session = await provider.CreateSessionAsync(
+                new KycSessionRequest(profile.Id, userId, _currentUser.Email ?? string.Empty, RedirectUrl: null),
+                ct);
+        }
+        catch (KycProviderException ex)
+        {
+            // The provider (Didit) rejected or could not be reached. Surface a 502 the client can
+            // distinguish from a bad request — nothing is persisted, so the user can safely retry.
+            return Result.Failure<KycSubmissionDto>(Error.ExternalService(
+                "Kyc.ProviderError",
+                ex.ProviderStatus is { } status
+                    ? $"KYC provider rejected the request (status={status})."
+                    : "KYC provider is currently unavailable. Please try again later."));
+        }
 
         // Domain enforces the Pending -> UnderReview transition (raises KycSubmittedEvent).
         profile.Submit(request.Provider, session.SessionId, request.WalletAddress,

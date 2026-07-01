@@ -41,15 +41,25 @@ public sealed class DiditKycProvider : IKycProviderStrategy
 
     public async Task<KycSessionResult> CreateSessionAsync(KycSessionRequest request, CancellationToken ct)
     {
-        // NOTE: Didit hosted-session body. "workflow_id"/"features" + a vendor reference
-        // we can correlate back to our KycProfile, and the post-verification redirect URL.
-        var body = new
+        // Fail fast on missing config: without a workflow_id Didit returns an opaque 400, and
+        // without an api key a 403 — surface a clear, diagnosable reason instead.
+        if (string.IsNullOrWhiteSpace(_options.WorkflowId))
+            throw new KycProviderException(null, "Didit WorkflowId is not configured (Didit:WorkflowId).");
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+            throw new KycProviderException(null, "Didit ApiKey is not configured (Didit:ApiKey).");
+
+        // Didit hosted-session body: workflow_id + a vendor reference we can correlate back to
+        // our KycProfile. Optional fields are OMITTED when empty (a null callback or blank
+        // contact email would otherwise make Didit 400 the request).
+        var body = new Dictionary<string, object?>
         {
-            workflow_id = _options.WorkflowId,
-            vendor_data = request.KycProfileId.ToString(),
-            callback = request.RedirectUrl,
-            contact_details = new { email = request.Email }
+            ["workflow_id"] = _options.WorkflowId,
+            ["vendor_data"] = request.KycProfileId.ToString(),
         };
+        if (!string.IsNullOrWhiteSpace(request.RedirectUrl))
+            body["callback"] = request.RedirectUrl;
+        if (!string.IsNullOrWhiteSpace(request.Email))
+            body["contact_details"] = new { email = request.Email };
 
         using var message = new HttpRequestMessage(HttpMethod.Post, SessionEndpoint)
         {
@@ -61,27 +71,50 @@ public sealed class DiditKycProvider : IKycProviderStrategy
         // Didit authenticates session creation with the API key.
         message.Headers.TryAddWithoutValidation("x-api-key", _options.ApiKey);
 
-        using var response = await _http.SendAsync(message, ct);
-        var json = await response.Content.ReadAsStringAsync(ct);
-
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response;
+        try
         {
-            _logger.LogError("Didit session creation failed with status {Status}", (int)response.StatusCode);
-            throw new InvalidOperationException(
-                $"Didit session creation failed with status {(int)response.StatusCode}.");
+            response = await _http.SendAsync(message, ct);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Transport failure (DNS/TLS/connection) — a downstream problem, not a server bug.
+            _logger.LogError(ex, "Didit session creation transport failure.");
+            throw new KycProviderException(null, "Didit is currently unreachable.", ex);
         }
 
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
+        using (response)
+        {
+            var json = await response.Content.ReadAsStringAsync(ct);
 
-        // NOTE: Didit returns "session_id" and the hosted "url" to redirect the user to.
-        var sessionId = GetString(root, "session_id", "id")
-            ?? throw new InvalidOperationException("Didit response missing session id.");
-        var verificationUrl = GetString(root, "url", "verification_url", "session_url")
-            ?? throw new InvalidOperationException("Didit response missing verification url.");
+            if (!response.IsSuccessStatusCode)
+            {
+                // Log the provider's response body (truncated) so a 403 (bad/revoked x-api-key) or
+                // 400 (invalid workflow_id/body) is diagnosable from OUR logs — never returned to the client.
+                _logger.LogError(
+                    "Didit session creation failed. Status={Status} Body={Body}",
+                    (int)response.StatusCode, Truncate(json, 1000));
+                throw new KycProviderException(
+                    (int)response.StatusCode,
+                    $"Didit rejected the session request (status={(int)response.StatusCode}).");
+            }
 
-        return new KycSessionResult(sessionId, verificationUrl);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // NOTE: Didit returns "session_id" and the hosted "url" to redirect the user to.
+            var sessionId = GetString(root, "session_id", "id")
+                ?? throw new KycProviderException(null, "Didit response missing session id.");
+            var verificationUrl = GetString(root, "url", "verification_url", "session_url")
+                ?? throw new KycProviderException(null, "Didit response missing verification url.");
+
+            return new KycSessionResult(sessionId, verificationUrl);
+        }
     }
+
+    // Bounds a provider response body before logging so a large/hostile payload can't bloat logs.
+    private static string Truncate(string value, int max)
+        => value.Length <= max ? value : value[..max] + "…";
 
     public bool VerifySignature(WebhookPayload payload)
     {
