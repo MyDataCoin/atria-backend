@@ -48,7 +48,7 @@ public sealed class SubmitKycCommandHandler
         try
         {
             session = await provider.CreateSessionAsync(
-                new KycSessionRequest(profile.Id, userId, _currentUser.Email ?? string.Empty, RedirectUrl: null),
+                new KycSessionRequest(profile.Id, userId, RedirectUrl: null),
                 ct);
         }
         catch (KycProviderException ex)

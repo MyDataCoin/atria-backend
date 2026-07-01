@@ -58,8 +58,9 @@ public sealed class DiditKycProvider : IKycProviderStrategy
         };
         if (!string.IsNullOrWhiteSpace(request.RedirectUrl))
             body["callback"] = request.RedirectUrl;
-        if (!string.IsNullOrWhiteSpace(request.Email))
-            body["contact_details"] = new { email = request.Email };
+        // No contact_details: this is a phone-first product with no email addresses. Didit only
+        // uses contact_details to email the user the hosted-flow link, which we don't need — we
+        // return the url to the client directly. workflow_id + vendor_data is all Didit requires.
 
         using var message = new HttpRequestMessage(HttpMethod.Post, SessionEndpoint)
         {

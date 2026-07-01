@@ -2,7 +2,7 @@ using Atria.Domain.Kyc;
 
 namespace Atria.Application.Abstractions;
 
-public sealed record KycSessionRequest(Guid KycProfileId, Guid UserId, string Email, string? RedirectUrl);
+public sealed record KycSessionRequest(Guid KycProfileId, Guid UserId, string? RedirectUrl);
 
 /// <summary>Hosted-flow session: redirect the user to <see cref="VerificationUrl"/>.</summary>
 public sealed record KycSessionResult(string SessionId, string VerificationUrl);
