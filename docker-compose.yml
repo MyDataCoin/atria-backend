@@ -64,6 +64,13 @@ services:
       NikitaPro__ApiKey: ${NIKITA_PRO_API_KEY:?NIKITA_PRO_API_KEY is required}
       # Sender is not secret; pin it explicitly so it can't drift from the approved name.
       NikitaPro__Sender: MYDATACOIN
+      # Didit hosted-KYC secrets, mapped from the DIDIT_* variables (same flow as NIKITA_PRO_*:
+      # GitHub Actions secrets exported into the SSH session, see deploy.yml; local `docker
+      # compose up` reads them from the project .env). The :? guard fails the deploy with a
+      # clear message if unset/empty, so the app can never boot with a blank Didit key/secret.
+      # WorkflowId is NOT a secret — it lives in appsettings.json.
+      Didit__ApiKey: ${DIDIT_API_KEY:?DIDIT_API_KEY is required}
+      Didit__WebhookSecret: ${DIDIT_WEBHOOK_SECRET:?DIDIT_WEBHOOK_SECRET is required}
     ports:
       - "8080:8080"
     restart: unless-stopped

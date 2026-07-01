@@ -74,13 +74,15 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           NIKITA_PRO_LOGIN: ${{ secrets.NIKITA_PRO_LOGIN }}
           NIKITA_PRO_API_KEY: ${{ secrets.NIKITA_PRO_API_KEY }}
+          DIDIT_API_KEY: ${{ secrets.DIDIT_API_KEY }}
+          DIDIT_WEBHOOK_SECRET: ${{ secrets.DIDIT_WEBHOOK_SECRET }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
-          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY
+          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET
           script: |
             set -euo pipefail
 
