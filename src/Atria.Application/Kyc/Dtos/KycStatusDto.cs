@@ -8,9 +8,13 @@ namespace Atria.Application.Kyc.Dtos;
 /// <param name="RejectionReason">The reason supplied when the profile was rejected; <c>null</c> otherwise.</param>
 /// <param name="SessionId">The provider session id of an unfinished verification; <c>null</c> once completed.</param>
 /// <param name="VerificationUrl">Hosted provider URL to RESUME an unfinished verification; <c>null</c> once completed.</param>
+/// <param name="FullName">The owner's KYC full name, decrypted server-side at read time (same
+/// AES-GCM key/service used to encrypt at submit); <c>null</c> until captured. Returned only to
+/// the profile owner.</param>
 public sealed record KycStatusDto(
     Guid Id,
     KycStatus Status,
     string? RejectionReason,
     string? SessionId,
-    string? VerificationUrl);
+    string? VerificationUrl,
+    string? FullName);

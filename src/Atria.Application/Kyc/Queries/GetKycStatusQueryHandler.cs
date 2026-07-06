@@ -35,11 +35,15 @@ public sealed class GetKycStatusQueryHandler
         // flow the user abandoned. Once terminal (Approved/Rejected) there is nothing to resume.
         var resumable = profile.Status == KycStatus.UnderReview;
 
+        // FullName is decrypted transparently by the EF value converter on read (same
+        // IEncryptionService/key used to encrypt at submit); the row stays encrypted at rest.
+        // Safe to return here — the handler already scoped the read to the caller's OWN profile.
         return new KycStatusDto(
             profile.Id,
             profile.Status,
             profile.RejectionReason,
             resumable ? profile.ProviderSessionId : null,
-            resumable ? profile.VerificationUrl : null);
+            resumable ? profile.VerificationUrl : null,
+            profile.FullName);
     }
 }
