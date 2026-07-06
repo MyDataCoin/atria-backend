@@ -49,6 +49,11 @@ public sealed class ManualKycProvider : IKycProviderStrategy
         return new KycCallbackResult(sessionId, decision, reason, eventId);
     }
 
+    // No external vendor to query: manual review has no verified-identity source, so the name
+    // recorded at submit stands. Returns null so callers fall back to the self-reported name.
+    public Task<KycVerifiedIdentity?> RetrieveVerifiedIdentityAsync(string sessionId, CancellationToken ct)
+        => Task.FromResult<KycVerifiedIdentity?>(null);
+
     private static string? GetString(JsonElement element, params string[] names)
     {
         foreach (var name in names)

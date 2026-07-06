@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Atria.Application.Abstractions;
@@ -20,6 +21,18 @@ public sealed class DiditKycProviderTests
 
     private static DiditKycProvider CreateSut() =>
         new(new HttpClient(),
+            Options.Create(new DiditOptions
+            {
+                ApiKey = "x",
+                WebhookSecret = Secret,
+                BaseUrl = "https://verification.didit.test",
+                WebhookToleranceSeconds = 300
+            }),
+            NullLogger<DiditKycProvider>.Instance);
+
+    // Overload wiring a stub transport so the decision-retrieval HTTP path can be exercised.
+    private static DiditKycProvider CreateSut(HttpMessageHandler transport) =>
+        new(new HttpClient(transport) { BaseAddress = new Uri("https://verification.didit.test") },
             Options.Create(new DiditOptions
             {
                 ApiKey = "x",
@@ -102,5 +115,77 @@ public sealed class DiditKycProviderTests
         const string body = """{"event_id":"t1","status":"Approved","webhook_type":"transaction.created"}""";
 
         sut.ParseCallback(Payload(body, null, null)).Decision.Should().Be(KycDecision.Pending);
+    }
+
+    [Fact]
+    public async Task RetrieveVerifiedIdentity_reads_verified_name_from_decision_and_hits_the_right_endpoint()
+    {
+        // Didit v3 user-KYC decision: verified ID fields live in the id_verifications[] array.
+        const string json = """
+            {"session_kind":"user","id_verifications":[
+              {"node_id":"f1","first_name":"Carmen","last_name":"Española Española",
+               "full_name":"Carmen Española Española","status":"Approved"}]}
+            """;
+        var transport = new StubTransport(HttpStatusCode.OK, json);
+        var sut = CreateSut(transport);
+
+        var identity = await sut.RetrieveVerifiedIdentityAsync("sess-1", CancellationToken.None);
+
+        identity.Should().NotBeNull();
+        identity!.FirstName.Should().Be("Carmen");
+        identity.LastName.Should().Be("Española Española");
+        identity.FullName.Should().Be("Carmen Española Española");
+        // Correct endpoint (GET /v3/session/{id}/decision/) and x-api-key auth.
+        transport.LastRequest!.Method.Should().Be(HttpMethod.Get);
+        transport.LastRequest.RequestUri!.AbsolutePath.Should().Be("/v3/session/sess-1/decision/");
+        transport.LastRequest.Headers.GetValues("x-api-key").Should().ContainSingle().Which.Should().Be("x");
+    }
+
+    [Fact]
+    public async Task RetrieveVerifiedIdentity_supports_nested_object_shape()
+    {
+        // Alternative/older shape: a single id_verification object instead of the array.
+        const string json = """{"id_verification":{"first_name":"Aibek","last_name":"Uulu"}}""";
+        var sut = CreateSut(new StubTransport(HttpStatusCode.OK, json));
+
+        var identity = await sut.RetrieveVerifiedIdentityAsync("sess-2", CancellationToken.None);
+
+        identity.Should().NotBeNull();
+        identity!.FirstName.Should().Be("Aibek");
+        identity.LastName.Should().Be("Uulu");
+    }
+
+    [Fact]
+    public async Task RetrieveVerifiedIdentity_returns_null_on_non_success_status()
+    {
+        // A failed retrieval must be a null (best-effort) result, never an exception.
+        var sut = CreateSut(new StubTransport(HttpStatusCode.NotFound, """{"detail":"not found"}"""));
+
+        (await sut.RetrieveVerifiedIdentityAsync("missing", CancellationToken.None)).Should().BeNull();
+    }
+
+    /// <summary>Canned-response transport that also captures the last outbound request.</summary>
+    private sealed class StubTransport : HttpMessageHandler
+    {
+        private readonly HttpStatusCode _status;
+        private readonly string _body;
+
+        public HttpRequestMessage? LastRequest { get; private set; }
+
+        public StubTransport(HttpStatusCode status, string body)
+        {
+            _status = status;
+            _body = body;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            LastRequest = request;
+            return Task.FromResult(new HttpResponseMessage(_status)
+            {
+                Content = new StringContent(_body, Encoding.UTF8, "application/json")
+            });
+        }
     }
 }

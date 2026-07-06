@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Domain.Kyc;
+using Microsoft.Extensions.Logging;
 
 namespace Atria.Application.Kyc.Commands;
 
@@ -14,17 +15,20 @@ public sealed class HandleKycCallbackCommandHandler : IRequestHandler<HandleKycC
     private readonly IKycRepository _kyc;
     private readonly IProcessedEventStore _processed;
     private readonly IUnitOfWork _uow;
+    private readonly ILogger<HandleKycCallbackCommandHandler> _logger;
 
     public HandleKycCallbackCommandHandler(
         IEnumerable<IKycProviderStrategy> providers,
         IKycRepository kyc,
         IProcessedEventStore processed,
-        IUnitOfWork uow)
+        IUnitOfWork uow,
+        ILogger<HandleKycCallbackCommandHandler> logger)
     {
         _providers = providers;
         _kyc = kyc;
         _processed = processed;
         _uow = uow;
+        _logger = logger;
     }
 
     public async Task<Result> Handle(HandleKycCallbackCommand request, CancellationToken ct)
@@ -65,6 +69,9 @@ public sealed class HandleKycCallbackCommandHandler : IRequestHandler<HandleKycC
         switch (callback.Decision)
         {
             case KycDecision.Approved:
+                // Pull the VERIFIED name from the provider's decision (the real name on the ID
+                // document) into the profile before approving, replacing the self-reported one.
+                await ApplyVerifiedNameAsync(provider, profile, callback.ExternalSessionId, ct);
                 profile.Approve();
                 break;
             case KycDecision.Declined:
@@ -77,5 +84,44 @@ public sealed class HandleKycCallbackCommandHandler : IRequestHandler<HandleKycC
         await _uow.SaveChangesAsync(ct);
 
         return Result.Success();
+    }
+
+    /// <summary>
+    /// Best-effort enrichment: overwrites the profile's <c>FullName</c> with the verified name from
+    /// the provider's decision. A missing/failed retrieval keeps the self-reported name and must
+    /// never block approval — verification already succeeded on the provider side.
+    /// </summary>
+    private async Task ApplyVerifiedNameAsync(
+        IKycProviderStrategy provider, KycProfile profile, string sessionId, CancellationToken ct)
+    {
+        KycVerifiedIdentity? identity;
+        try
+        {
+            identity = await provider.RetrieveVerifiedIdentityAsync(sessionId, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to retrieve verified identity for KYC profile {KycProfileId}; keeping self-reported name.",
+                profile.Id);
+            return;
+        }
+
+        var fullName = identity is null ? null : ComposeFullName(identity);
+        if (!string.IsNullOrWhiteSpace(fullName))
+            profile.SetVerifiedFullName(fullName);
+    }
+
+    /// <summary>Prefers a single verified full name; otherwise joins the split first/last parts.</summary>
+    private static string? ComposeFullName(KycVerifiedIdentity identity)
+    {
+        if (!string.IsNullOrWhiteSpace(identity.FullName))
+            return identity.FullName.Trim();
+
+        var joined = string.Join(' ', new[] { identity.FirstName, identity.LastName }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!.Trim()));
+
+        return string.IsNullOrWhiteSpace(joined) ? null : joined;
     }
 }

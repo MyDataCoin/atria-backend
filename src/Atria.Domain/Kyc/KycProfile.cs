@@ -79,6 +79,19 @@ public sealed class KycProfile : AggregateRoot
         WalletAddress = walletAddress;
     }
 
+    /// <summary>
+    /// Overwrites <see cref="FullName"/> with the verified name from the provider's decision
+    /// (the real name on the scanned ID document), replacing whatever the user self-reported at
+    /// submit. Applied on approval so the KYC record carries the authoritative, verified name.
+    /// </summary>
+    public void SetVerifiedFullName(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            throw new DomainException("Verified full name is required.");
+
+        FullName = fullName;
+    }
+
     /// <summary>Transitions UnderReview -> Approved (raises <c>KycApprovedEvent</c>).</summary>
     public void Approve()
         => Status = KycStateFactory.Create(Status).Approve(this).Status;

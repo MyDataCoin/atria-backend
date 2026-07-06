@@ -117,6 +117,101 @@ public sealed class DiditKycProvider : IKycProviderStrategy
     private static string Truncate(string value, int max)
         => value.Length <= max ? value : value[..max] + "…";
 
+    public async Task<KycVerifiedIdentity?> RetrieveVerifiedIdentityAsync(string sessionId, CancellationToken ct)
+    {
+        // Best-effort enrichment: any missing config / transport / status failure returns null so
+        // the caller falls back to the self-reported name — never blocks the approval side effects.
+        if (string.IsNullOrWhiteSpace(sessionId))
+            return null;
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            _logger.LogWarning("Didit ApiKey not configured; cannot retrieve verified identity.");
+            return null;
+        }
+
+        // Retrieve Session Decision: GET /v3/session/{session_id}/decision/ (x-api-key).
+        using var message = new HttpRequestMessage(
+            HttpMethod.Get, $"/v3/session/{Uri.EscapeDataString(sessionId)}/decision/");
+        message.Headers.TryAddWithoutValidation("x-api-key", _options.ApiKey);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(message, ct);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Didit decision retrieval transport failure for session {SessionId}.", sessionId);
+            return null;
+        }
+
+        using (response)
+        {
+            var json = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError(
+                    "Didit decision retrieval failed. Status={Status} Body={Body}",
+                    (int)response.StatusCode, Truncate(json, 1000));
+                return null;
+            }
+
+            return ParseVerifiedIdentity(json);
+        }
+    }
+
+    // Extracts the verified name from a Didit decision payload. In v3 user-KYC the verified ID
+    // fields live in the id_verifications[] feature array; other/older shapes nest them under an
+    // id_verification / kyc / decision object. We probe those locations in order and take the
+    // first that carries a name. Any parse failure yields null (enrichment is best-effort).
+    private KycVerifiedIdentity? ParseVerifiedIdentity(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            foreach (var source in EnumerateIdentitySources(root))
+            {
+                var first = GetString(source, "first_name", "firstName", "given_name");
+                var last = GetString(source, "last_name", "lastName", "family_name", "surname");
+                var full = GetString(source, "full_name", "fullName", "name");
+
+                if (!string.IsNullOrWhiteSpace(first) ||
+                    !string.IsNullOrWhiteSpace(last) ||
+                    !string.IsNullOrWhiteSpace(full))
+                    return new KycVerifiedIdentity(first, last, full);
+            }
+
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse Didit decision payload.");
+            return null;
+        }
+    }
+
+    // Candidate JSON objects that may carry the verified name, in priority order.
+    private static IEnumerable<JsonElement> EnumerateIdentitySources(JsonElement root)
+    {
+        // v3 user KYC: id_verifications is an array of feature results.
+        if (root.TryGetProperty("id_verifications", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            foreach (var item in arr.EnumerateArray())
+                if (item.ValueKind == JsonValueKind.Object)
+                    yield return item;
+
+        // Alternative shapes: a single object under one of these keys.
+        foreach (var key in IdentityObjectKeys)
+            if (root.TryGetProperty(key, out var obj) && obj.ValueKind == JsonValueKind.Object)
+                yield return obj;
+
+        // Last resort: the fields sit directly on the root.
+        yield return root;
+    }
+
+    private static readonly string[] IdentityObjectKeys = { "id_verification", "kyc", "decision" };
+
     public bool VerifySignature(WebhookPayload payload)
     {
         // Never trust the body until both signature AND timestamp freshness pass.

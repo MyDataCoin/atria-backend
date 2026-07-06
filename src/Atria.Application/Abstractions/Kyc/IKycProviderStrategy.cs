@@ -22,6 +22,13 @@ public sealed record KycCallbackResult(
     string EventId);
 
 /// <summary>
+/// Verified identity read back from the provider's decision after approval — the REAL name on
+/// the scanned ID document, as opposed to whatever the user self-reported at submit. Any field
+/// may be null: some providers expose a split first/last name, some only a full name.
+/// </summary>
+public sealed record KycVerifiedIdentity(string? FirstName, string? LastName, string? FullName);
+
+/// <summary>
 /// KYC provider Strategy. Async by design: create a session, the user verifies on
 /// the provider side, the provider calls our webhook. Selected by ProviderType
 /// through DI (never if/else on a string).
@@ -37,4 +44,12 @@ public interface IKycProviderStrategy
 
     /// <summary>Parse a verified webhook into a decision. Never trust an unverified body.</summary>
     KycCallbackResult ParseCallback(WebhookPayload payload);
+
+    /// <summary>
+    /// Fetches the verified identity (the real name from the ID document) for a decided session,
+    /// used to enrich the account after approval. Returns null when the provider exposes no
+    /// verified data (e.g. manual review) or it cannot be retrieved — callers must treat this as
+    /// best-effort enrichment and never let a null/failure block the approval flow.
+    /// </summary>
+    Task<KycVerifiedIdentity?> RetrieveVerifiedIdentityAsync(string sessionId, CancellationToken ct);
 }

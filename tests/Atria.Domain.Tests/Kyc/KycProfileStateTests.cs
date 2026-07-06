@@ -82,6 +82,34 @@ public sealed class KycProfileStateTests
     }
 
     [Fact]
+    public void SetVerifiedFullName_OverwritesSelfReportedName()
+    {
+        // Arrange — submitted with a self-reported "Jane Doe".
+        var profile = NewSubmittedProfile();
+
+        // Act — the provider's decision returns the verified document name.
+        profile.SetVerifiedFullName("Carmen Española Española");
+
+        // Assert — the KYC record now carries the verified name.
+        profile.FullName.Should().Be("Carmen Española Española");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void SetVerifiedFullName_Blank_Throws(string fullName)
+    {
+        // Arrange
+        var profile = NewSubmittedProfile();
+
+        // Act
+        var act = () => profile.SetVerifiedFullName(fullName);
+
+        // Assert
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
     public void Approve_OnPending_Throws()
     {
         // Arrange
