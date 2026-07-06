@@ -51,12 +51,10 @@ ctors + static factory methods. Ids are `Guid.NewGuid()` in the factory.
 ### Users (`Atria.Domain.Users`)
 ```
 sealed class User : AggregateRoot
-  string? Email; string? PhoneNumber; string? PasswordHash; Role Role;
-  string? FirstName; string? LastName;
-  bool IsActive; bool IsEmailVerified; bool IsPhoneVerified; DateTime? DeletedAtUtc;
-  static User CreateWithPassword(string email, string passwordHash, Role role, string? firstName, string? lastName)
+  string? PhoneNumber; Role Role;
+  bool IsActive; bool IsPhoneVerified; DateTime? DeletedAtUtc;
   static User CreateFromPhone(string phoneNumber, Role role)   // role = Investor
-  void MarkEmailVerified(); void MarkPhoneVerified(); void Deactivate();
+  void MarkPhoneVerified(); void Deactivate();
   void SoftDelete(DateTime utc);   // sets DeletedAtUtc + IsActive=false
 ```
 
