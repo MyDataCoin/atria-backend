@@ -25,8 +25,8 @@ internal static class AuthTokensFactory
         IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        // Identity claims: email may be null for phone accounts; fall back to phone.
-        var access = jwt.GenerateAccessToken(user.Id, user.Email ?? user.PhoneNumber ?? string.Empty, user.Role);
+        // Identity claims: phone-only accounts, so the identifier claim is the phone number.
+        var access = jwt.GenerateAccessToken(user.Id, user.PhoneNumber ?? string.Empty, user.Role);
         var refresh = jwt.GenerateRefreshToken();
 
         // Store with the refresh token's OWN lifetime (RefreshTokenDays), not the access TTL.

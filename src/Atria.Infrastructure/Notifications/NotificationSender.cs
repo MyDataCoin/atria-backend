@@ -85,12 +85,9 @@ public sealed class NotificationSender : INotificationSender
                 await _smsSender.SendAsync(user.PhoneNumber!, body, ct);
                 break;
 
-            case NotificationChannel.Email when !string.IsNullOrWhiteSpace(user.Email):
-                await _emailSender.SendAsync(user.Email!, title, body, ct);
-                break;
-
             default:
-                // Persisted in-app, but no usable contact for the selected channel.
+                // Persisted in-app only. Accounts are phone-only, so non-SMS channels
+                // (e.g. Email) have no delivery target and are surfaced in-app.
                 _logger.LogWarning(
                     "Notification persisted but not delivered: missing contact. UserId={UserId} Channel={Channel} Template={Template}",
                     user.Id, channel, template);
