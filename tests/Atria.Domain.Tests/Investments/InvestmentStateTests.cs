@@ -9,20 +9,19 @@ namespace Atria.Domain.Tests.Investments;
 public sealed class InvestmentStateTests
 {
     private static Investment NewPendingInvestment()
-        => InvestmentFactory.CreateFromApprovedApplication(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1000m, "USD");
+        => InvestmentFactory.CreateForInvestor(
+            Guid.NewGuid(), Guid.NewGuid(), 1000m, "USD");
 
     [Fact]
-    public void Factory_CreateFromApprovedApplication_ProducesPendingPaymentAndCreatedEvent()
+    public void Factory_CreateForInvestor_ProducesPendingPaymentAndCreatedEvent()
     {
         // Arrange
-        var applicationId = Guid.NewGuid();
         var investorId = Guid.NewGuid();
         var propertyId = Guid.NewGuid();
 
         // Act
-        var investment = InvestmentFactory.CreateFromApprovedApplication(
-            applicationId, investorId, propertyId, 5000m, "USD");
+        var investment = InvestmentFactory.CreateForInvestor(
+            investorId, propertyId, 5000m, "USD");
 
         // Assert
         investment.Status.Should().Be(InvestmentStatus.PendingPayment);
@@ -31,7 +30,6 @@ public sealed class InvestmentStateTests
         investment.Payments.Should().BeEmpty();
         var created = investment.DomainEvents.OfType<InvestmentCreatedEvent>().Single();
         created.InvestmentId.Should().Be(investment.Id);
-        created.ApplicationId.Should().Be(applicationId);
         created.InvestorId.Should().Be(investorId);
         created.PropertyId.Should().Be(propertyId);
         created.Amount.Should().Be(5000m);
@@ -43,8 +41,8 @@ public sealed class InvestmentStateTests
     public void Factory_WhenAmountNotPositive_ThrowsDomainException(decimal amount)
     {
         // Act
-        var act = () => InvestmentFactory.CreateFromApprovedApplication(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), amount, "USD");
+        var act = () => InvestmentFactory.CreateForInvestor(
+            Guid.NewGuid(), Guid.NewGuid(), amount, "USD");
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*amount must be positive*");
@@ -56,8 +54,8 @@ public sealed class InvestmentStateTests
     public void Factory_WhenCurrencyMissing_ThrowsDomainException(string currency)
     {
         // Act
-        var act = () => InvestmentFactory.CreateFromApprovedApplication(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1000m, currency);
+        var act = () => InvestmentFactory.CreateForInvestor(
+            Guid.NewGuid(), Guid.NewGuid(), 1000m, currency);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*Currency is required*");

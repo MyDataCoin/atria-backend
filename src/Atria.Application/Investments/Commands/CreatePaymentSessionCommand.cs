@@ -5,6 +5,6 @@ using Atria.Domain.Investments;
 
 namespace Atria.Application.Investments.Commands;
 
-/// <summary>Starts a hosted payment session for the investment created from an approved application.</summary>
-public sealed record CreatePaymentSessionCommand(Guid ApplicationId, PaymentProviderType Provider)
+/// <summary>Starts a hosted payment session for one of the investor's pending investments.</summary>
+public sealed record CreatePaymentSessionCommand(Guid InvestmentId, PaymentProviderType Provider)
     : IRequest<Result<PaymentSessionDto>>;

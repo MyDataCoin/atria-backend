@@ -13,13 +13,12 @@ internal sealed class InvestmentConfiguration : IEntityTypeConfiguration<Investm
 
         b.Property(i => i.InvestorId).IsRequired();
         b.Property(i => i.PropertyId).IsRequired();
-        b.Property(i => i.ApplicationId).IsRequired();
         b.Property(i => i.Amount).HasPrecision(18, 2).IsRequired();
         b.Property(i => i.Currency).HasMaxLength(8).IsRequired();
         b.Property(i => i.Status).HasConversion<int>().IsRequired();
 
         b.HasIndex(i => i.InvestorId);
-        b.HasIndex(i => i.ApplicationId);
+        b.HasIndex(i => i.PropertyId);
 
         // Map the PaymentTransaction child collection via the backing field as a
         // separate FK table owned by the Investment aggregate.

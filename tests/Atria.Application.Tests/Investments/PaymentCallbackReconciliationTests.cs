@@ -38,8 +38,8 @@ public sealed class PaymentCallbackReconciliationTests
     public async Task Completed_callback_with_mismatched_amount_does_not_activate_investment()
     {
         // Arrange — an investment owing exactly 1000 USD.
-        var investment = InvestmentFactory.CreateFromApprovedApplication(
-            applicationId: Guid.NewGuid(), investorId: Guid.NewGuid(), propertyId: Guid.NewGuid(),
+        var investment = InvestmentFactory.CreateForInvestor(
+            investorId: Guid.NewGuid(), propertyId: Guid.NewGuid(),
             amount: 1_000m, currency: Currency);
 
         _strategy.ProviderType.Returns(PaymentProviderType.Stripe);
@@ -72,8 +72,8 @@ public sealed class PaymentCallbackReconciliationTests
     public async Task Completed_callback_with_matching_amount_activates_investment()
     {
         // Arrange — control case: paid amount/currency match exactly, so the investment activates.
-        var investment = InvestmentFactory.CreateFromApprovedApplication(
-            applicationId: Guid.NewGuid(), investorId: Guid.NewGuid(), propertyId: Guid.NewGuid(),
+        var investment = InvestmentFactory.CreateForInvestor(
+            investorId: Guid.NewGuid(), propertyId: Guid.NewGuid(),
             amount: 1_000m, currency: Currency);
 
         _strategy.ProviderType.Returns(PaymentProviderType.Stripe);

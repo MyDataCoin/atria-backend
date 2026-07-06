@@ -18,20 +18,42 @@ public sealed class InvestmentsController : ApiControllerBase
 {
     public InvestmentsController(ISender sender) : base(sender) { }
 
-    /// <summary>Starts a hosted payment session for the investment of an approved application.</summary>
+    /// <summary>Creates a PendingPayment investment for the current investor.</summary>
     /// <remarks>
-    /// Requires the <c>Investor</c> role and a valid bearer token. The investment is resolved from the
-    /// approved <paramref name="applicationId"/>; the caller must own that investment, it must still be
-    /// awaiting payment, and the investor's KYC must be approved at payment time. The
-    /// <c>Provider</c> in the body selects the payment strategy and is sent by name
-    /// (for example <c>Stripe</c> or <c>BankTransfer</c>). On success a session id and an optional hosted
+    /// Requires the <c>Investor</c> role and a valid bearer token. The investor's KYC must be approved and the
+    /// target property must exist, be active, and have enough remaining token capacity for the requested
+    /// <c>Amount</c>. The investment's settlement currency is taken from the property. On success the new
+    /// investment id is returned; payment is started separately via <c>POST /investments/{investmentId}/payments</c>.
+    /// </remarks>
+    /// <param name="request">The property to invest in and the amount to commit.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost]
+    [Authorize(Roles = "Investor")]
+    [ProducesResponseType<Guid>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Create(CreateInvestmentRequest request, CancellationToken ct)
+    {
+        var result = await Sender.Send(new CreateInvestmentCommand(request.PropertyId, request.Amount), ct);
+        return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
+    }
+
+    /// <summary>Starts a hosted payment session for one of the investor's pending investments.</summary>
+    /// <remarks>
+    /// Requires the <c>Investor</c> role and a valid bearer token. The caller must own the investment
+    /// <paramref name="investmentId"/>, it must still be awaiting payment, and the investor's KYC must be
+    /// approved at payment time. The <c>Provider</c> in the body selects the payment strategy and is sent by
+    /// name (for example <c>Stripe</c> or <c>BankTransfer</c>). On success a session id and an optional hosted
     /// payment URL are returned for the client to complete the purchase. No money is moved here; activation
     /// happens later via the provider callback.
     /// </remarks>
-    /// <param name="applicationId">Id of the approved application whose investment is being paid for.</param>
+    /// <param name="investmentId">Id of the pending investment being paid for.</param>
     /// <param name="request">Payment session request carrying the desired provider (sent by name).</param>
     /// <param name="ct">Cancellation token.</param>
-    [HttpPost("{applicationId:guid}/payments")]
+    [HttpPost("{investmentId:guid}/payments")]
     [Authorize(Roles = "Investor")]
     [ProducesResponseType<PaymentSessionDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -40,9 +62,9 @@ public sealed class InvestmentsController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreatePayment(
-        Guid applicationId, CreatePaymentRequest request, CancellationToken ct)
+        Guid investmentId, CreatePaymentRequest request, CancellationToken ct)
     {
-        var result = await Sender.Send(new CreatePaymentSessionCommand(applicationId, request.Provider), ct);
+        var result = await Sender.Send(new CreatePaymentSessionCommand(investmentId, request.Provider), ct);
         return ToActionResult(result);
     }
 

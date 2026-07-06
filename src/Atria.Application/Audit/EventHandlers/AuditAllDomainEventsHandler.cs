@@ -19,7 +19,7 @@ public sealed class AuditAllDomainEventsHandler<TEvent> : IDomainEventHandler<TE
     // Common id-bearing property names on Atria events, in priority order.
     private static readonly string[] IdPropertyNames =
     {
-        "KycProfileId", "ApplicationId", "InvestmentId", "InvestorId",
+        "KycProfileId", "InvestmentId", "InvestorId",
         "PropertyId", "OwnerUserId", "UserId", "Id"
     };
 

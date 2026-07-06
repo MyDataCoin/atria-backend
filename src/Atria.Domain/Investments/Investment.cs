@@ -5,14 +5,13 @@ using Atria.Domain.Investments.States;
 namespace Atria.Domain.Investments;
 
 /// <summary>
-/// An investor's token purchase. Created (PendingPayment) from an approved application,
+/// An investor's token purchase. Created (PendingPayment) directly by the investor,
 /// then driven through its lifecycle by the State pattern as payments resolve.
 /// </summary>
 public sealed class Investment : AggregateRoot
 {
     public Guid InvestorId { get; private set; }
     public Guid PropertyId { get; private set; }
-    public Guid ApplicationId { get; private set; }
     public decimal Amount { get; private set; }
     public string Currency { get; private set; } = null!;
 
@@ -27,11 +26,10 @@ public sealed class Investment : AggregateRoot
 
     // Used by InvestmentFactory (same assembly) to build a PendingPayment investment.
     internal static Investment CreatePending(
-        Guid applicationId, Guid investorId, Guid propertyId, decimal amount, string currency)
+        Guid investorId, Guid propertyId, decimal amount, string currency)
         => new()
         {
             Id = Guid.NewGuid(),
-            ApplicationId = applicationId,
             InvestorId = investorId,
             PropertyId = propertyId,
             Amount = amount,

@@ -40,17 +40,11 @@ public sealed class TagDescriptionsDocumentFilter : IDocumentFilter
             },
             new OpenApiTag
             {
-                Name = "Applications",
-                Description =
-                    "Investor applications to invest in a property: create → submit → Compliance approve/reject. " +
-                    "Approval creates a (PendingPayment) investment via a domain event."
-            },
-            new OpenApiTag
-            {
                 Name = "Investments",
                 Description =
-                    "Open a payment session for an approved application (provider sent by name, e.g. Stripe/BankTransfer). " +
-                    "The payment webhook reconciles the amount, activates the investment, and allocates tokens."
+                    "Investor creates a (PendingPayment) investment in a property, then opens a payment session " +
+                    "(provider sent by name, e.g. Stripe/BankTransfer). The payment webhook reconciles the amount, " +
+                    "activates the investment, and allocates tokens."
             },
             new OpenApiTag
             {

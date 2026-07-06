@@ -27,7 +27,4 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
         var activeCount = await active.CountAsync(ct);
         return (totalInvested, activeCount);
     }
-
-    public Task<Investment?> GetByApplicationIdAsync(Guid applicationId, CancellationToken ct)
-        => Set.Include(i => i.Payments).FirstOrDefaultAsync(i => i.ApplicationId == applicationId, ct);
 }

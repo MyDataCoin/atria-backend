@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Atria.Application.Abstractions;
-using Atria.Domain.Applications;
 using Atria.Domain.Audit;
 using Atria.Domain.Common;
 using Atria.Domain.Compliance;
@@ -30,7 +29,6 @@ public sealed class AtriaDbContext : DbContext
     // Domain aggregates + child entities.
     public DbSet<User> Users => Set<User>();
     public DbSet<KycProfile> KycProfiles => Set<KycProfile>();
-    public DbSet<InvestorApplication> InvestorApplications => Set<InvestorApplication>();
     public DbSet<Investment> Investments => Set<Investment>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<Property> Properties => Set<Property>();

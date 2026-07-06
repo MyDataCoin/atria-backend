@@ -82,26 +82,6 @@ Events (`Atria.Domain.Kyc.Events`, records : DomainEventBase):
   KycRejectedEvent(Guid KycProfileId, Guid UserId, string Reason)
 ```
 
-### Applications (`Atria.Domain.Applications`)
-```
-sealed class InvestorApplication : AggregateRoot
-  Guid InvestorId; Guid PropertyId; decimal Amount; ApplicationStatus Status; string? RejectionReason;
-  internal static InvestorApplication CreateDraft(Guid investorId, Guid propertyId, decimal amount); // used by factory
-  void Submit();   void Approve();   void Reject(string reason);  void MoveToReview();
-  internal void RaiseDomainEvent(IDomainEvent e);
-States (`...Applications.States`): IApplicationState { ApplicationStatus Status; Submit; Approve; Reject(reason); MoveToReview; }
-  DraftState (Submit), SubmittedState (Approve/Reject/MoveToReview), UnderReviewState (Approve/Reject),
-  ApprovedState (terminal), RejectedState (terminal). ApplicationStateFactory.Create(status).
-Events (`...Applications.Events`):
-  ApplicationSubmittedEvent(Guid ApplicationId, Guid InvestorId, Guid PropertyId, decimal Amount)
-  ApplicationApprovedEvent(Guid ApplicationId, Guid PropertyId, Guid InvestorId, decimal Amount)
-  ApplicationRejectedEvent(Guid ApplicationId, Guid InvestorId, string Reason)
-Factory (`Atria.Domain.Factories`):
-  static class InvestorApplicationFactory {
-    static InvestorApplication Create(Guid investorId, Guid propertyId, decimal amount, KycStatus investorKycStatus)
-      // throws DomainException if kyc != Approved or amount <= 0 ; returns Draft }
-```
-
 ### Investments (`Atria.Domain.Investments`)
 ```
 sealed class Property : AggregateRoot
@@ -111,7 +91,7 @@ sealed class Property : AggregateRoot
                          decimal tokenPrice, long totalTokens, string currency);
   void AllocateTokens(long count);   // throws if count > AvailableTokens
 sealed class Investment : AggregateRoot
-  Guid InvestorId; Guid PropertyId; Guid ApplicationId; decimal Amount; string Currency;
+  Guid InvestorId; Guid PropertyId; decimal Amount; string Currency;
   InvestmentStatus Status; private readonly List<PaymentTransaction> _payments;
   IReadOnlyCollection<PaymentTransaction> Payments;
   void ConfirmPayment(PaymentProviderType provider, string externalPaymentId, decimal amount, string currency);
@@ -126,13 +106,13 @@ sealed class PaymentTransaction : Entity
 States (`...Investments.States`): IInvestmentState { InvestmentStatus Status; ConfirmPayment(...); FailPayment(...); }
   PendingPaymentState, ActiveState, FailedState, CancelledState. InvestmentStateFactory.Create(status).
 Events (`...Investments.Events`):
-  InvestmentCreatedEvent(Guid InvestmentId, Guid InvestorId, Guid PropertyId, decimal Amount, Guid ApplicationId)
+  InvestmentCreatedEvent(Guid InvestmentId, Guid InvestorId, Guid PropertyId, decimal Amount)
   PaymentCompletedEvent(Guid InvestmentId, Guid InvestorId, decimal Amount, string ExternalPaymentId)
   PaymentFailedEvent(Guid InvestmentId, Guid InvestorId, string Reason)
   InvestmentActivatedEvent(Guid InvestmentId, Guid InvestorId, Guid PropertyId, decimal Amount)
 Factory (`Atria.Domain.Factories`):
   static class InvestmentFactory {
-    static Investment CreateFromApprovedApplication(Guid applicationId, Guid investorId, Guid propertyId, decimal amount, string currency)
+    static Investment CreateForInvestor(Guid investorId, Guid propertyId, decimal amount, string currency)
       // PendingPayment ; raises InvestmentCreatedEvent }
 ```
 
@@ -200,8 +180,7 @@ sealed class OutboxMessage : Entity
 ```
 IUserRepository : IRepository<User> { Task<User?> GetByEmailAsync(string email, ct); Task<User?> GetByPhoneAsync(string phone, ct); }
 IKycRepository : IRepository<KycProfile> { Task<KycProfile?> GetByUserIdAsync(Guid userId, ct); Task<KycProfile?> GetBySessionIdAsync(string sessionId, ct); }
-IApplicationRepository : IRepository<InvestorApplication> { Task<IReadOnlyList<InvestorApplication>> GetByInvestorAsync(Guid investorId, ct); }
-IInvestmentRepository : IRepository<Investment> { Task<IReadOnlyList<Investment>> GetByInvestorAsync(Guid investorId, ct); Task<Investment?> GetByApplicationIdAsync(Guid applicationId, ct); }
+IInvestmentRepository : IRepository<Investment> { Task<IReadOnlyList<Investment>> GetByInvestorAsync(Guid investorId, ct); Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, ct); }
 IPropertyRepository : IRepository<Property> { Task<IReadOnlyList<Property>> GetAllAsync(ct); }
 IDocumentRepository : IRepository<DocumentRecord> { Task<IReadOnlyList<DocumentRecord>> GetByOwnerAsync(Guid ownerId, ct); }
 INotificationRepository : IRepository<Notification> { Task<IReadOnlyList<Notification>> GetByUserAsync(Guid userId, ct); }
@@ -221,13 +200,10 @@ the implementer's choice (keep minimal, in `<Module>/Dtos`). Resource ownership 
   ReviewKycCommand(Guid kycId, bool approve, string? reason)→Result [Compliance];
   GetKycStatusQuery→Result<KycStatusDto> (current user);
   HandleKycCallbackCommand(string provider, WebhookPayload payload)→Result (webhook).
-- **Applications**: CreateApplicationCommand(Guid propertyId, decimal amount)→Result<Guid>;
-  SubmitApplicationCommand(Guid id)→Result; ApproveApplicationCommand(Guid id)→Result [Compliance];
-  RejectApplicationCommand(Guid id, string reason)→Result [Compliance];
-  GetMyApplicationsQuery→Result<IReadOnlyList<ApplicationDto>>; GetApplicationByIdQuery(Guid id)→Result<ApplicationDto>.
 - **Properties**: CreatePropertyCommand(...)→Result<Guid> [Admin]; GetPropertiesQuery→Result<IReadOnlyList<PropertyDto>>;
   GetPropertyByIdQuery(Guid id)→Result<PropertyDto>.
-- **Investments**: CreatePaymentSessionCommand(Guid applicationId, PaymentProviderType provider)→Result<PaymentSessionDto>;
+- **Investments**: CreateInvestmentCommand(Guid propertyId, decimal amount)→Result<Guid> [Investor, KYC-gated];
+  CreatePaymentSessionCommand(Guid investmentId, PaymentProviderType provider)→Result<PaymentSessionDto>;
   HandlePaymentCallbackCommand(string provider, WebhookPayload payload)→Result (webhook, idempotent);
   GetMyInvestmentsQuery→Result<IReadOnlyList<InvestmentDto>>; GetInvestmentByIdQuery(Guid id)→Result<InvestmentDto>;
   GetPortfolioQuery→Result<PortfolioDto>.
@@ -238,9 +214,8 @@ the implementer's choice (keep minimal, in `<Module>/Dtos`). Resource ownership 
 
 ### Domain event handlers (`<Module>/EventHandlers`, implement IDomainEventHandler<TEvent>)
 - Audit: `AuditAllDomainEventsHandler<TEvent>` — universal, logs EVERY event to IAuditLogRepository.
-- Notifications: on KycApprovedEvent, KycRejectedEvent, ApplicationApprovedEvent, ApplicationRejectedEvent,
+- Notifications: on KycApprovedEvent, KycRejectedEvent,
   PaymentCompletedEvent, InvestmentActivatedEvent → INotificationSender.SendAsync.
-- Investments: on ApplicationApprovedEvent → create Investment via InvestmentFactory (idempotent: skip if one exists for the application).
 - Compliance: on KycApprovedEvent → create ComplianceProfile + ITesseraComplianceService.IssueDidAndAttestationsAsync (idempotent).
   on PaymentCompletedEvent (or InvestmentActivatedEvent) → VerifyPresentationAsync + AddToAllowlistAsync + enqueue token allocation (idempotent, exactly-once via IProcessedEventStore).
   on KycRejectedEvent / AttestationsRevokedEvent → RevokeAttestationsAsync + RemoveFromAllowlistAsync.
@@ -260,7 +235,7 @@ package to Application. Validators derive `AbstractValidator<TCommand>` in `<Mod
   OutboxMessage + ProcessedEvent + RefreshToken. Applies all `IEntityTypeConfiguration` from the assembly.
   `SaveChanges` override: set CreatedAtUtc/UpdatedAtUtc via ChangeTracker; collect AggregateRoot.DomainEvents,
   write each as an OutboxMessage (System.Text.Json payload + assembly-qualified Type) in the SAME transaction, then ClearEvents.
-- **Concurrency**: `UseXminAsConcurrencyToken()` for KycProfile, InvestorApplication, Investment (Npgsql). (InMemory ignores it — fine for tests.)
+- **Concurrency**: `UseXminAsConcurrencyToken()` for KycProfile, Investment (Npgsql). (InMemory ignores it — fine for tests.)
 - **PII encryption**: KycProfile.FullName + DocumentNumber use an EF value converter backed by IEncryptionService (AES-GCM). Provide an `EncryptedConverter`.
 - **Persistence/Repositories**: `Repository<T>` (generic) + one class per specialized interface above.
 - **Persistence/UnitOfWork** : IUnitOfWork over AtriaDbContext.SaveChangesAsync.
@@ -311,7 +286,7 @@ package to Application. Validators derive `AbstractValidator<TCommand>` in `<Mod
   CorrelationIdMiddleware; SecurityHeadersMiddleware (HSTS, X-Content-Type-Options, restrictive CSP for Swagger); HTTPS redirection.
 - **CurrentUserService : ICurrentUserService** lives in Api (reads IHttpContextAccessor); registered in Program.
 - **Controllers** (`Atria.Api.Controllers`, thin, `[ApiController]`, route `api/v{version:apiVersion}/<name>`, inject ISender):
-  AuthController, KycController, ApplicationsController, PropertiesController, InvestmentsController,
+  AuthController, KycController, PropertiesController, InvestmentsController,
   DocumentsController, NotificationsController, AdminAuditController, WebhooksController
   (`POST api/v1/webhooks/kyc/{provider}` + `POST api/v1/webhooks/payments/{provider}` — build WebhookPayload from the raw request,
   read raw body + headers + signature, [AllowAnonymous], verified inside the strategy).
@@ -322,7 +297,7 @@ package to Application. Validators derive `AbstractValidator<TCommand>` in `<Mod
 
 ## 5. TESTS
 
-- **Atria.Domain.Tests**: xUnit + FluentAssertions. State transition tests for InvestorApplication, KycProfile, Investment —
+- **Atria.Domain.Tests**: xUnit + FluentAssertions. State transition tests for KycProfile, Investment —
   cover happy path + invalid transitions throw + repeated/stale transitions are rejected (or idempotent). Test factories' invariants.
 - **Atria.Application.Tests**: xUnit + FluentAssertions + NSubstitute + EF InMemory. At least one idempotency test:
   a money/token effect handler invoked twice with the same event id produces the effect ONCE (via IProcessedEventStore).

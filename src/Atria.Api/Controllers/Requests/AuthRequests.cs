@@ -42,14 +42,10 @@ public sealed record LinkWalletRequest(string WalletAddress);
 /// <param name="Reason">Required when rejecting; the human-readable rejection reason.</param>
 public sealed record ReviewKycRequest(bool Approve, string? Reason);
 
-/// <summary>POST /applications body.</summary>
+/// <summary>POST /investments body.</summary>
 /// <param name="PropertyId">Identifier of the property to invest in.</param>
 /// <param name="Amount">Amount the investor wishes to commit; must be greater than 0.</param>
-public sealed record CreateApplicationRequest(Guid PropertyId, decimal Amount);
-
-/// <summary>POST /applications/{id}/reject body.</summary>
-/// <param name="Reason">Required rejection reason (max 1000 characters) shown to the investor.</param>
-public sealed record RejectApplicationRequest(string Reason);
+public sealed record CreateInvestmentRequest(Guid PropertyId, decimal Amount);
 
 /// <summary>POST /properties body.</summary>
 /// <param name="Name">Display name of the property; required, max 256 characters.</param>

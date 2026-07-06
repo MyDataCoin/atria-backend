@@ -7,9 +7,9 @@ using Atria.Domain.Kyc;
 namespace Atria.Application.Investments.Commands;
 
 /// <summary>
-/// Resolves the investment for an approved application, picks the requested payment
-/// provider Strategy, and creates a hosted payment session. The current investor may
-/// only open a session for their OWN investment.
+/// Resolves the investor's pending investment, picks the requested payment provider
+/// Strategy, and creates a hosted payment session. The current investor may only open
+/// a session for their OWN investment.
 /// </summary>
 public sealed class CreatePaymentSessionCommandHandler
     : IRequestHandler<CreatePaymentSessionCommand, Result<PaymentSessionDto>>
@@ -38,10 +38,10 @@ public sealed class CreatePaymentSessionCommandHandler
             return Result.Failure<PaymentSessionDto>(
                 Error.Unauthorized("payment.unauthorized", "Authentication is required."));
 
-        var investment = await _investments.GetByApplicationIdAsync(request.ApplicationId, ct);
+        var investment = await _investments.GetByIdAsync(request.InvestmentId, ct);
         if (investment is null)
             return Result.Failure<PaymentSessionDto>(
-                Error.NotFound("investment.notFound", "No investment exists for this application."));
+                Error.NotFound("investment.notFound", "Investment not found."));
 
         // Resource-based authorization: an investor may only pay for their own investment.
         if (investment.InvestorId != userId.Value)
@@ -54,7 +54,7 @@ public sealed class CreatePaymentSessionCommandHandler
                 Error.Conflict("payment.notPending", "This investment is not awaiting payment."));
 
         // Re-check KYC at payment time: it may have been revoked/rejected after the
-        // application was approved, in which case the investor must not proceed to pay.
+        // investment was created, in which case the investor must not proceed to pay.
         var kyc = await _kyc.GetByUserIdAsync(userId.Value, ct);
         if (kyc is null || kyc.Status != KycStatus.Approved)
             return Result.Failure<PaymentSessionDto>(

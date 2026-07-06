@@ -1,7 +1,7 @@
 # Atria Backend
 
-Real-estate tokenization investment platform (RWA): KYC, investor applications,
-investments, rental dividends, and an on-chain compliance/allowlist layer.
+Real-estate tokenization investment platform (RWA): KYC, investments,
+rental dividends, and an on-chain compliance/allowlist layer.
 
 **.NET 9 · ASP.NET Core Web API · Clean Architecture · Modular Monolith · PostgreSQL · JWT**
 
@@ -46,12 +46,12 @@ Notifications · Audit · **Compliance (Web3)** · Outbox.
 ### Patterns
 | Pattern | Where |
 |---|---|
-| **State** (no if/else over status) | `KycProfile`, `InvestorApplication`, `Investment` — EF-friendly variant: only the status enum is persisted, the current state is derived via a stateless state factory. |
+| **State** (no if/else over status) | `KycProfile`, `Investment` — EF-friendly variant: only the status enum is persisted, the current state is derived via a stateless state factory. |
 | **Strategy** (DI by type, no string switch) | `IKycProviderStrategy` (Didit*, Manual), `IPaymentProviderStrategy` (Stripe, BankTransfer). Handlers receive `IEnumerable<T>` and pick by `ProviderType`. |
 | **Repository** | `IRepository<T>` + specialized repos over EF Core; Application never sees `DbContext`. |
 | **Domain Events** | only inter-module channel; delivered via the transactional outbox. |
 | **Adapter** | `S3DocumentStorageAdapter`, `NikitaProSmsAdapter`, `EmailNotificationAdapter`. |
-| **Factory Method** | `InvestorApplicationFactory`, `InvestmentFactory` enforce creation invariants. |
+| **Factory Method** | `InvestmentFactory` enforces creation invariants. |
 
 \* Didit is the primary KYC provider.
 
@@ -66,7 +66,7 @@ Notifications · Audit · **Compliance (Web3)** · Outbox.
 - **Idempotency / exactly-once** — every money/token effect (payment confirmation, token
   allocation, allowlist) guards on `IProcessedEventStore` keyed by event id, so retries
   produce the effect once. Covered by an Application test.
-- **Optimistic concurrency** — `KycProfile`, `InvestorApplication`, `Investment` use the
+- **Optimistic concurrency** — `KycProfile`, `Investment` use the
   PostgreSQL `xmin` system column as a concurrency token (no extra migration column).
 - **Reliable on-chain ops** — `BlockchainOperation` rows (`Created → Submitted → Confirmed
   → Failed`) are processed by `BlockchainOperationWorker` with retries, status tracking and
@@ -201,9 +201,8 @@ local override that publishes 5432); only the API port **8080** is reachable.
 ```
 Auth        POST register/phone/request-otp · register/phone/verify-otp · refresh   (phone-only, KG +996; no email/password)
 KYC         POST kyc/submit [Investor] · GET kyc/me [Investor] · POST kyc/{id}/review [Compliance]
-Applications POST applications [Investor] · GET me · GET {id} · POST {id}/submit · {id}/approve [Compliance] · {id}/reject [Compliance]
 Properties  GET properties · GET {id} · POST [Admin]
-Investments POST investments/{applicationId}/payments [Investor] · GET me · GET {id} · GET portfolio
+Investments POST investments [Investor] · POST investments/{investmentId}/payments [Investor] · GET me · GET {id} · GET portfolio
 Documents   POST documents (multipart) [Investor] · GET {id} [owner/Admin/Compliance] · GET me
 Notifications GET notifications/me · POST {id}/read
 Audit       GET audit?entityType=&entityId= [Admin/Compliance]

@@ -8,7 +8,7 @@ public sealed class CreatePaymentSessionCommandValidator : AbstractValidator<Cre
 {
     public CreatePaymentSessionCommandValidator()
     {
-        RuleFor(x => x.ApplicationId).NotEmpty();
+        RuleFor(x => x.InvestmentId).NotEmpty();
         RuleFor(x => x.Provider).IsInEnum();
     }
 }
