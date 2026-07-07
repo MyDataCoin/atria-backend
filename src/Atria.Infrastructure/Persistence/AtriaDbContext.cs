@@ -3,6 +3,7 @@ using Atria.Application.Abstractions;
 using Atria.Domain.Audit;
 using Atria.Domain.Common;
 using Atria.Domain.Compliance;
+using Atria.Domain.Consents;
 using Atria.Domain.Documents;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
@@ -29,6 +30,7 @@ public sealed class AtriaDbContext : DbContext
     // Domain aggregates + child entities.
     public DbSet<User> Users => Set<User>();
     public DbSet<KycProfile> KycProfiles => Set<KycProfile>();
+    public DbSet<Consent> Consents => Set<Consent>();
     public DbSet<Investment> Investments => Set<Investment>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<Property> Properties => Set<Property>();

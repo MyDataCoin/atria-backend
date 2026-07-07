@@ -89,6 +89,7 @@ public static class DependencyInjection
         // Specialized repositories.
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IKycRepository, KycRepository>();
+        services.AddScoped<IConsentRepository, ConsentRepository>();
         services.AddScoped<IInvestmentRepository, InvestmentRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();

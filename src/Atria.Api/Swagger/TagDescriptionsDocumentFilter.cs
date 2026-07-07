@@ -32,6 +32,14 @@ public sealed class TagDescriptionsDocumentFilter : IDocumentFilter
             },
             new OpenApiTag
             {
+                Name = "Consent",
+                Description =
+                    "Records an investor's acceptance of a consent document version (who/what/when) as " +
+                    "regulator evidence. Accepting the personal-data notice (Pdn) of the current version is a " +
+                    "precondition for POST /kyc/submit."
+            },
+            new OpenApiTag
+            {
                 Name = "Webhooks",
                 Description =
                     "Inbound provider callbacks (KYC + payments). Anonymous transport, but the raw body is " +

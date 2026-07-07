@@ -1,3 +1,4 @@
+using Atria.Domain.Consents;
 using Atria.Domain.Documents;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
@@ -46,6 +47,12 @@ public sealed record ReviewKycRequest(bool Approve, string? Reason);
 /// <param name="PropertyId">Identifier of the property to invest in.</param>
 /// <param name="Amount">Amount the investor wishes to commit; must be greater than 0.</param>
 public sealed record CreateInvestmentRequest(Guid PropertyId, decimal Amount);
+
+/// <summary>POST /consent body. Records the caller's acceptance of a consent document version.</summary>
+/// <param name="Type">The consent type, sent by name (e.g. <c>Pdn</c> for the personal-data notice).</param>
+/// <param name="Version">Version of the consent text the user accepted (e.g. <c>1.0</c>).</param>
+/// <param name="Accepted">Must be <c>true</c>; the endpoint only records acceptance.</param>
+public sealed record RecordConsentRequest(ConsentType Type, string Version, bool Accepted);
 
 /// <summary>POST /properties body.</summary>
 /// <param name="Name">Display name of the property; required, max 256 characters.</param>

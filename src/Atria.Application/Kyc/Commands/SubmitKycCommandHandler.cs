@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Application.Kyc.Dtos;
+using Atria.Domain.Consents;
 using Atria.Domain.Kyc;
 
 namespace Atria.Application.Kyc.Commands;
@@ -10,17 +11,20 @@ public sealed class SubmitKycCommandHandler
     : IRequestHandler<SubmitKycCommand, Result<KycSubmissionDto>>
 {
     private readonly IKycRepository _kyc;
+    private readonly IConsentRepository _consents;
     private readonly ICurrentUserService _currentUser;
     private readonly IEnumerable<IKycProviderStrategy> _providers;
     private readonly IUnitOfWork _uow;
 
     public SubmitKycCommandHandler(
         IKycRepository kyc,
+        IConsentRepository consents,
         ICurrentUserService currentUser,
         IEnumerable<IKycProviderStrategy> providers,
         IUnitOfWork uow)
     {
         _kyc = kyc;
+        _consents = consents;
         _currentUser = currentUser;
         _providers = providers;
         _uow = uow;
@@ -32,6 +36,15 @@ public sealed class SubmitKycCommandHandler
         if (_currentUser.UserId is not { } userId)
             return Result.Failure<KycSubmissionDto>(
                 Error.Unauthorized("Kyc.Unauthorized", "Authentication required."));
+
+        // Consent gate: without a recorded acceptance of the CURRENT personal-data notice (ПДН),
+        // the KYC profile must not go into processing. Checked before spending a provider session.
+        var requiredVersion = ConsentPolicy.CurrentVersion(ConsentType.Pdn);
+        var consent = await _consents.GetAsync(userId, ConsentType.Pdn, requiredVersion, ct);
+        if (consent is null)
+            return Result.Failure<KycSubmissionDto>(Error.Conflict(
+                "Kyc.ConsentRequired",
+                $"Personal-data consent (ПДН) v{requiredVersion} must be accepted before KYC submission."));
 
         // Strategy selection by type (never if/else on a string).
         var provider = _providers.FirstOrDefault(p => p.ProviderType == request.Provider);
