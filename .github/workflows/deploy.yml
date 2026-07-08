@@ -63,7 +63,10 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
           source: "deploy.tar.gz"
-          target: "/opt/atria"
+          # Dedicated to this repo only — do NOT point this at /opt/atria. That path is also
+          # the deploy target for the separate atria-admin-dashboard repo (nginx serves it from
+          # /opt/atria/dashboard); the wipe step below once deleted that sibling folder.
+          target: "/opt/atria-backend"
           overwrite: true
 
       - name: Build & restart the stack on the server
@@ -101,11 +104,13 @@ jobs:
               curl -fsSL https://get.docker.com | sh
             fi
 
-            cd /opt/atria
+            cd /opt/atria-backend
             # Remove the previously-deployed source FIRST: tar -x overlays files but never
             # prunes ones deleted in git, so stale files (e.g. removed handlers) would linger
             # in the Docker build context and break the build. Preserve .env (secrets) and the
             # incoming bundle. The Postgres data lives in a Docker volume, not here, so it is safe.
+            # This directory is dedicated to the backend (see the target: comment above) so this
+            # wipe can never again take out the admin dashboard's files.
             find . -maxdepth 1 -mindepth 1 ! -name '.env' ! -name 'deploy.tar.gz' -exec rm -rf {} +
             tar -xzf deploy.tar.gz
             rm -f deploy.tar.gz
