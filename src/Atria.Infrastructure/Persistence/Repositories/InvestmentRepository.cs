@@ -9,11 +9,7 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
 {
     public InvestmentRepository(AtriaDbContext db) : base(db) { }
 
-    // Include payments: callers act on the full aggregate (e.g. confirm/fail payment).
-    public override Task<Investment?> GetByIdAsync(Guid id, CancellationToken ct)
-        => Set.Include(i => i.Payments).FirstOrDefaultAsync(i => i.Id == id, ct);
-
-    // Read-only list view; callers project scalar fields only and never read Payments.
+    // Read-only list view; callers project scalar fields only.
     public async Task<IReadOnlyList<Investment>> GetByInvestorAsync(Guid investorId, CancellationToken ct)
         => await Set.AsNoTracking()
             .Where(i => i.InvestorId == investorId)
@@ -29,20 +25,19 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
         return (totalInvested, activeCount);
     }
 
-    public async Task<IReadOnlyList<(Guid InvestorId, decimal Amount, decimal TokenPrice, KycProfile? Kyc)>>
+    public async Task<IReadOnlyList<(Guid InvestorId, long TokenCount, KycProfile? Kyc)>>
         GetActiveByPropertyAsync(Guid propertyId, CancellationToken ct)
     {
-        // Active investments in the property + the property's token price + the investor's KYC.
-        // The KycProfile entity is MATERIALIZED (not its raw column) so the value converter
-        // decrypts FullName in-memory; aggregation happens in the handler.
+        // Active investments in the property + the investor's KYC. The KycProfile entity is
+        // MATERIALIZED (not its raw column) so the value converter decrypts FullName in-memory;
+        // aggregation happens in the handler.
         var rows = await (
             from i in Db.Investments.AsNoTracking()
-            join p in Db.Properties.AsNoTracking() on i.PropertyId equals p.Id
             join k in Db.KycProfiles.AsNoTracking() on i.InvestorId equals k.UserId into kj
             from k in kj.DefaultIfEmpty()
             where i.PropertyId == propertyId && i.Status == InvestmentStatus.Active
-            select new { i.InvestorId, i.Amount, p.TokenPrice, k }).ToListAsync(ct);
+            select new { i.InvestorId, i.TokenCount, k }).ToListAsync(ct);
 
-        return rows.Select(r => (r.InvestorId, r.Amount, r.TokenPrice, (KycProfile?)r.k)).ToList();
+        return rows.Select(r => (r.InvestorId, r.TokenCount, (KycProfile?)r.k)).ToList();
     }
 }

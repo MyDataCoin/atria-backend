@@ -40,7 +40,7 @@ public sealed class PaymentCallbackReconciliationTests
         // Arrange — an investment owing exactly 1000 USD.
         var investment = InvestmentFactory.CreateForInvestor(
             investorId: Guid.NewGuid(), propertyId: Guid.NewGuid(),
-            amount: 1_000m, currency: Currency);
+            tokenCount: 10, amount: 1_000m, currency: Currency);
 
         _strategy.ProviderType.Returns(PaymentProviderType.Stripe);
         _strategy.VerifySignature(Arg.Any<WebhookPayload>()).Returns(true);
@@ -74,7 +74,7 @@ public sealed class PaymentCallbackReconciliationTests
         // Arrange — control case: paid amount/currency match exactly, so the investment activates.
         var investment = InvestmentFactory.CreateForInvestor(
             investorId: Guid.NewGuid(), propertyId: Guid.NewGuid(),
-            amount: 1_000m, currency: Currency);
+            tokenCount: 10, amount: 1_000m, currency: Currency);
 
         _strategy.ProviderType.Returns(PaymentProviderType.Stripe);
         _strategy.VerifySignature(Arg.Any<WebhookPayload>()).Returns(true);

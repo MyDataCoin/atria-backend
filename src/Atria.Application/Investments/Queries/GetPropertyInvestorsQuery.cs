@@ -9,7 +9,7 @@ public sealed record GetPropertyInvestorsQuery(Guid PropertyId)
     : IRequest<Result<IReadOnlyList<PropertyInvestorDto>>>;
 
 /// <summary>
-/// Aggregates a property's Active investments per investor: tokens = round(Σ amount / token price).
+/// Aggregates a property's Active investments per investor: tokens = Σ the stored TokenCount.
 /// FullName comes from the KYC profile, decrypted by the EF value converter when it is materialized
 /// in the repository (same service as /users). Share percent is intentionally NOT returned — the
 /// client computes it as tokens / totalTokens * 100.
@@ -28,13 +28,9 @@ public sealed class GetPropertyInvestorsQueryHandler
 
         IReadOnlyList<PropertyInvestorDto> dtos = rows
             .GroupBy(r => r.InvestorId)
-            .Select(g =>
-            {
-                var tokens = g.Sum(r => r.TokenPrice > 0 ? r.Amount / r.TokenPrice : 0m);
-                return new PropertyInvestorDto(
-                    g.First().Kyc?.FullName,
-                    (int)Math.Round(tokens, MidpointRounding.AwayFromZero));
-            })
+            .Select(g => new PropertyInvestorDto(
+                g.First().Kyc?.FullName,
+                (int)g.Sum(r => r.TokenCount)))
             .ToList();
 
         return Result.Success(dtos);

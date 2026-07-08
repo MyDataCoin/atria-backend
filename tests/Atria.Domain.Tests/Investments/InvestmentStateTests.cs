@@ -10,7 +10,7 @@ public sealed class InvestmentStateTests
 {
     private static Investment NewPendingInvestment()
         => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 1000m, "USD");
+            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, "USD");
 
     [Fact]
     public void Factory_CreateForInvestor_ProducesPendingPaymentAndCreatedEvent()
@@ -21,13 +21,13 @@ public sealed class InvestmentStateTests
 
         // Act
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId, propertyId, 5000m, "USD");
+            investorId, propertyId, 50, 5000m, "USD");
 
         // Assert
         investment.Status.Should().Be(InvestmentStatus.PendingPayment);
+        investment.TokenCount.Should().Be(50);
         investment.Amount.Should().Be(5000m);
         investment.Currency.Should().Be("USD");
-        investment.Payments.Should().BeEmpty();
         var created = investment.DomainEvents.OfType<InvestmentCreatedEvent>().Single();
         created.InvestmentId.Should().Be(investment.Id);
         created.InvestorId.Should().Be(investorId);
@@ -38,11 +38,24 @@ public sealed class InvestmentStateTests
     [Theory]
     [InlineData(0)]
     [InlineData(-100)]
+    public void Factory_WhenTokenCountNotPositive_ThrowsDomainException(long tokenCount)
+    {
+        // Act
+        var act = () => InvestmentFactory.CreateForInvestor(
+            Guid.NewGuid(), Guid.NewGuid(), tokenCount, 1000m, "USD");
+
+        // Assert
+        act.Should().Throw<DomainException>().WithMessage("*Token count must be positive*");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-100)]
     public void Factory_WhenAmountNotPositive_ThrowsDomainException(decimal amount)
     {
         // Act
         var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), amount, "USD");
+            Guid.NewGuid(), Guid.NewGuid(), 10, amount, "USD");
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*amount must be positive*");
@@ -55,7 +68,7 @@ public sealed class InvestmentStateTests
     {
         // Act
         var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 1000m, currency);
+            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, currency);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*Currency is required*");
@@ -74,25 +87,6 @@ public sealed class InvestmentStateTests
         investment.Status.Should().Be(InvestmentStatus.Active);
         investment.DomainEvents.Should().ContainSingle(e => e is PaymentCompletedEvent);
         investment.DomainEvents.Should().ContainSingle(e => e is InvestmentActivatedEvent);
-    }
-
-    [Fact]
-    public void ConfirmPayment_FromPending_AddsCompletedPaymentTransaction()
-    {
-        // Arrange
-        var investment = NewPendingInvestment();
-
-        // Act
-        investment.ConfirmPayment(PaymentProviderType.Stripe, "pi_123", 1000m, "USD");
-
-        // Assert
-        var payment = investment.Payments.Should().ContainSingle().Subject;
-        payment.Status.Should().Be(PaymentStatus.Completed);
-        payment.Provider.Should().Be(PaymentProviderType.Stripe);
-        payment.ExternalPaymentId.Should().Be("pi_123");
-        payment.Amount.Should().Be(1000m);
-        payment.Currency.Should().Be("USD");
-        payment.InvestmentId.Should().Be(investment.Id);
     }
 
     [Fact]
@@ -125,7 +119,6 @@ public sealed class InvestmentStateTests
         // Assert
         act.Should().Throw<InvalidStateTransitionException>();
         investment.Status.Should().Be(InvestmentStatus.Active);
-        investment.Payments.Should().ContainSingle();
     }
 
     [Fact]
@@ -141,9 +134,6 @@ public sealed class InvestmentStateTests
         investment.Status.Should().Be(InvestmentStatus.Failed);
         var failed = investment.DomainEvents.OfType<PaymentFailedEvent>().Single();
         failed.Reason.Should().Be("card declined");
-        var payment = investment.Payments.Should().ContainSingle().Subject;
-        payment.Status.Should().Be(PaymentStatus.Failed);
-        payment.FailureReason.Should().Be("card declined");
     }
 
     [Fact]

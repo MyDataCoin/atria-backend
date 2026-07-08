@@ -12,10 +12,10 @@ public interface IInvestmentRepository : IRepository<Investment>
     Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, CancellationToken ct);
 
     /// <summary>
-    /// Active investments in a property joined to the property's token price and the investor's
-    /// (optional) KYC profile. The KYC entity is materialized so its encrypted FullName is
-    /// decrypted by the value converter. Admin/Compliance reporting read.
+    /// Active investments in a property with their token counts and the investor's (optional) KYC
+    /// profile. The KYC entity is materialized so its encrypted FullName is decrypted by the value
+    /// converter. Admin/Compliance reporting read.
     /// </summary>
-    Task<IReadOnlyList<(Guid InvestorId, decimal Amount, decimal TokenPrice, KycProfile? Kyc)>>
+    Task<IReadOnlyList<(Guid InvestorId, long TokenCount, KycProfile? Kyc)>>
         GetActiveByPropertyAsync(Guid propertyId, CancellationToken ct);
 }

@@ -27,7 +27,7 @@ public sealed class GetMyInvestmentsQueryHandler
         var investments = await _investments.GetByInvestorAsync(userId.Value, ct);
 
         IReadOnlyList<InvestmentDto> dtos = investments
-            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.Amount, i.Currency, i.Status, i.CreatedAtUtc))
+            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.TokenCount, i.Amount, i.Currency, i.Status, i.CreatedAtUtc))
             .ToList();
 
         return Result.Success(dtos);

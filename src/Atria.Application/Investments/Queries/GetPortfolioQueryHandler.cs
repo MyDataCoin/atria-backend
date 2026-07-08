@@ -30,7 +30,7 @@ public sealed class GetPortfolioQueryHandler
         var investments = await _investments.GetByInvestorAsync(userId.Value, ct);
 
         var dtos = investments
-            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.Amount, i.Currency, i.Status, i.CreatedAtUtc))
+            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.TokenCount, i.Amount, i.Currency, i.Status, i.CreatedAtUtc))
             .ToList();
 
         // Only confirmed (Active) investments count toward invested capital; aggregated DB-side.

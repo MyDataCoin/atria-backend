@@ -37,11 +37,12 @@ public sealed class AllocateTokensOnInvestmentActivatedHandlerTests
     [Fact]
     public async Task Allocates_correct_token_count_and_is_idempotent_on_redelivery()
     {
-        // Arrange — tokenPrice 100, paid 5000 => 50 whole tokens leave supply.
+        // Arrange — 50 tokens bought => 50 whole tokens leave supply.
         var property = CreateProperty(tokenPrice: 100m, totalTokens: 10_000);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
         var evt = new InvestmentActivatedEvent(
-            InvestmentId: Guid.NewGuid(), InvestorId: Guid.NewGuid(), PropertyId: property.Id, Amount: 5_000m);
+            InvestmentId: Guid.NewGuid(), InvestorId: Guid.NewGuid(), PropertyId: property.Id,
+            TokenCount: 50, Amount: 5_000m);
         var sut = CreateSut();
 
         // Act — at-least-once redelivery of the SAME event instance.
@@ -60,8 +61,8 @@ public sealed class AllocateTokensOnInvestmentActivatedHandlerTests
         // Arrange — control case proving the idempotency above is meaningful.
         var property = CreateProperty(tokenPrice: 100m, totalTokens: 10_000);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
-        var first = new InvestmentActivatedEvent(Guid.NewGuid(), Guid.NewGuid(), property.Id, 5_000m);
-        var second = new InvestmentActivatedEvent(Guid.NewGuid(), Guid.NewGuid(), property.Id, 3_000m);
+        var first = new InvestmentActivatedEvent(Guid.NewGuid(), Guid.NewGuid(), property.Id, 50, 5_000m);
+        var second = new InvestmentActivatedEvent(Guid.NewGuid(), Guid.NewGuid(), property.Id, 30, 3_000m);
         var sut = CreateSut();
 
         // Act — two distinct events (distinct EventIds).

@@ -59,9 +59,15 @@ public sealed class CreateInvestmentCommandHandler
             return Result.Failure<Guid>(Error.Conflict(
                 "investment.insufficient_tokens", "Requested amount exceeds the property's remaining token capacity."));
 
+        // Whole tokens the amount buys at the property's unit price.
+        var tokenCount = (long)Math.Floor(request.Amount / property.TokenPrice);
+        if (tokenCount <= 0)
+            return Result.Failure<Guid>(Error.Conflict(
+                "investment.amount_too_low", "The amount must cover at least one token."));
+
         // The property defines the settlement currency for the investment.
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId.Value, request.PropertyId, request.Amount, property.Currency);
+            investorId.Value, request.PropertyId, tokenCount, request.Amount, property.Currency);
 
         await _investments.AddAsync(investment, ct);
         await _unitOfWork.SaveChangesAsync(ct);

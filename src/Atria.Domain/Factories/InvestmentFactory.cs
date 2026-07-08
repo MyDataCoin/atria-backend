@@ -11,14 +11,16 @@ namespace Atria.Domain.Factories;
 public static class InvestmentFactory
 {
     public static Investment CreateForInvestor(
-        Guid investorId, Guid propertyId, decimal amount, string currency)
+        Guid investorId, Guid propertyId, long tokenCount, decimal amount, string currency)
     {
+        if (tokenCount <= 0)
+            throw new DomainException("Token count must be positive.");
         if (amount <= 0)
             throw new DomainException("Investment amount must be positive.");
         if (string.IsNullOrWhiteSpace(currency))
             throw new DomainException("Currency is required.");
 
-        var investment = Investment.CreatePending(investorId, propertyId, amount, currency);
+        var investment = Investment.CreatePending(investorId, propertyId, tokenCount, amount, currency);
 
         investment.RaiseDomainEvent(new InvestmentCreatedEvent(
             investment.Id, investorId, propertyId, amount));

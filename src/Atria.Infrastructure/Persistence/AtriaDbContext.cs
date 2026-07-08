@@ -32,7 +32,6 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<KycProfile> KycProfiles => Set<KycProfile>();
     public DbSet<Consent> Consents => Set<Consent>();
     public DbSet<Investment> Investments => Set<Investment>();
-    public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<DocumentRecord> Documents => Set<DocumentRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();

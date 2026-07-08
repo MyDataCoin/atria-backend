@@ -12,42 +12,42 @@ public sealed class Investment : AggregateRoot
 {
     public Guid InvestorId { get; private set; }
     public Guid PropertyId { get; private set; }
+
+    /// <summary>How many tokens the investor bought.</summary>
+    public long TokenCount { get; private set; }
+
+    /// <summary>The amount the tokens were bought for, in <see cref="Currency"/>.</summary>
     public decimal Amount { get; private set; }
     public string Currency { get; private set; } = null!;
 
     // Persisted status enum; the current state is derived from it on demand (EF-friendly).
     public InvestmentStatus Status { get; private set; }
 
-    private readonly List<PaymentTransaction> _payments = new();
-    public IReadOnlyCollection<PaymentTransaction> Payments => _payments.AsReadOnly();
-
     // private ctor: creation only through the factory
     private Investment() { }
 
     // Used by InvestmentFactory (same assembly) to build a PendingPayment investment.
     internal static Investment CreatePending(
-        Guid investorId, Guid propertyId, decimal amount, string currency)
+        Guid investorId, Guid propertyId, long tokenCount, decimal amount, string currency)
         => new()
         {
             Id = Guid.NewGuid(),
             InvestorId = investorId,
             PropertyId = propertyId,
+            TokenCount = tokenCount,
             Amount = amount,
             Currency = currency,
             Status = InvestmentStatus.PendingPayment
         };
 
-    /// <summary>PendingPayment -> Active: adds a Completed payment and raises completion + activation events.</summary>
+    /// <summary>PendingPayment -> Active: raises payment-completion + activation events.</summary>
     public void ConfirmPayment(PaymentProviderType provider, string externalPaymentId, decimal amount, string currency)
         => Status = InvestmentStateFactory.Create(Status)
             .ConfirmPayment(this, provider, externalPaymentId, amount, currency).Status;
 
-    /// <summary>PendingPayment -> Failed: adds a Failed payment and raises a payment-failed event.</summary>
+    /// <summary>PendingPayment -> Failed: raises a payment-failed event.</summary>
     public void FailPayment(PaymentProviderType provider, string reason)
         => Status = InvestmentStateFactory.Create(Status).FailPayment(this, provider, reason).Status;
-
-    // Lets the state objects (same assembly) append child transactions to this aggregate.
-    internal void AddPayment(PaymentTransaction transaction) => _payments.Add(transaction);
 
     // Lets the state objects raise events through the protected base method.
     internal void RaiseDomainEvent(IDomainEvent e) => base.RaiseEvent(e);

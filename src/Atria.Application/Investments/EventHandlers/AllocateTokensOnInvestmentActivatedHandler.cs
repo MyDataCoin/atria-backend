@@ -37,13 +37,9 @@ public sealed class AllocateTokensOnInvestmentActivatedHandler
             throw new InvalidOperationException(
                 $"Property {domainEvent.PropertyId} not found while allocating tokens for investment {domainEvent.InvestmentId}.");
 
-        // Tokens are priced per unit; allocate the whole units the paid amount covers.
-        var tokenCount = property.TokenPrice > 0m
-            ? (long)Math.Floor(domainEvent.Amount / property.TokenPrice)
-            : 0L;
-
-        if (tokenCount > 0)
-            property.AllocateTokens(tokenCount); // throws if it would oversubscribe the supply
+        // The token count was fixed when the investment was created; allocate exactly that.
+        if (domainEvent.TokenCount > 0)
+            property.AllocateTokens(domainEvent.TokenCount); // throws if it would oversubscribe the supply
 
         _properties.Update(property);
         await _processedEvents.MarkProcessedAsync(key, ct);

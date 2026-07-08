@@ -40,7 +40,7 @@ public sealed class GetInvestmentByIdQueryHandler
                 Error.NotFound("investment.notFound", "Investment not found."));
 
         var dto = new InvestmentDto(
-            investment.Id, investment.PropertyId, investment.Amount,
+            investment.Id, investment.PropertyId, investment.TokenCount, investment.Amount,
             investment.Currency, investment.Status, investment.CreatedAtUtc);
 
         return Result.Success(dto);
