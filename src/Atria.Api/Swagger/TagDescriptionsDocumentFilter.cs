@@ -32,6 +32,13 @@ public sealed class TagDescriptionsDocumentFilter : IDocumentFilter
             },
             new OpenApiTag
             {
+                Name = "Users",
+                Description =
+                    "Admin/Compliance overview: all users left-joined to their KYC profile (id, phone, " +
+                    "decrypted full name, wallet, KYC status, created-at)."
+            },
+            new OpenApiTag
+            {
                 Name = "Consent",
                 Description =
                     "Records an investor's acceptance of a consent document version (who/what/when) as " +

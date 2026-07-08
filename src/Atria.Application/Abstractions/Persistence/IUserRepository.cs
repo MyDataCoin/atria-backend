@@ -1,3 +1,4 @@
+using Atria.Domain.Kyc;
 using Atria.Domain.Users;
 
 namespace Atria.Application.Abstractions;
@@ -9,4 +10,11 @@ namespace Atria.Application.Abstractions;
 public interface IUserRepository : IRepository<User>
 {
     Task<User?> GetByPhoneAsync(string phone, CancellationToken ct);
+
+    /// <summary>
+    /// All users left-joined to their (optional) KYC profile, newest first. The KYC entity is
+    /// materialized so its encrypted FullName is decrypted by the value converter; the profile is
+    /// null for users without one. Admin/Compliance reporting read.
+    /// </summary>
+    Task<IReadOnlyList<(User User, KycProfile? Kyc)>> GetOverviewAsync(CancellationToken ct);
 }
