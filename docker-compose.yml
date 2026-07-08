@@ -3,6 +3,13 @@
 # schema is ready automatically. Dev secrets come from appsettings.json defaults —
 # override them with real values via environment / a secret store for anything real.
 
+# Pinned so the Compose project name (and therefore the auto-named atria-pgdata volume
+# below) stays "atria" no matter which host directory this file is deployed from. Without
+# this, Compose derives the project name from the working directory basename — moving the
+# deploy path (see deploy.yml) would silently create a NEW, empty "<dir>_atria-pgdata"
+# volume instead of reattaching to the existing production data.
+name: atria
+
 services:
   db:
     image: postgres:16-alpine
