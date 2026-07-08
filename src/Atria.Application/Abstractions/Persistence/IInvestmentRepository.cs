@@ -1,4 +1,5 @@
 using Atria.Domain.Investments;
+using Atria.Domain.Kyc;
 
 namespace Atria.Application.Abstractions;
 
@@ -9,4 +10,12 @@ public interface IInvestmentRepository : IRepository<Investment>
 
     /// <summary>DB-side aggregate of the investor's Active investments: total invested and active count.</summary>
     Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, CancellationToken ct);
+
+    /// <summary>
+    /// Active investments in a property joined to the property's token price and the investor's
+    /// (optional) KYC profile. The KYC entity is materialized so its encrypted FullName is
+    /// decrypted by the value converter. Admin/Compliance reporting read.
+    /// </summary>
+    Task<IReadOnlyList<(Guid InvestorId, decimal Amount, decimal TokenPrice, KycProfile? Kyc)>>
+        GetActiveByPropertyAsync(Guid propertyId, CancellationToken ct);
 }

@@ -1,5 +1,6 @@
 using Atria.Application.Abstractions;
 using Atria.Domain.Investments;
+using Atria.Domain.Kyc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Atria.Infrastructure.Persistence.Repositories;
@@ -26,5 +27,22 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
         var totalInvested = await active.SumAsync(i => (decimal?)i.Amount, ct) ?? 0m;
         var activeCount = await active.CountAsync(ct);
         return (totalInvested, activeCount);
+    }
+
+    public async Task<IReadOnlyList<(Guid InvestorId, decimal Amount, decimal TokenPrice, KycProfile? Kyc)>>
+        GetActiveByPropertyAsync(Guid propertyId, CancellationToken ct)
+    {
+        // Active investments in the property + the property's token price + the investor's KYC.
+        // The KycProfile entity is MATERIALIZED (not its raw column) so the value converter
+        // decrypts FullName in-memory; aggregation happens in the handler.
+        var rows = await (
+            from i in Db.Investments.AsNoTracking()
+            join p in Db.Properties.AsNoTracking() on i.PropertyId equals p.Id
+            join k in Db.KycProfiles.AsNoTracking() on i.InvestorId equals k.UserId into kj
+            from k in kj.DefaultIfEmpty()
+            where i.PropertyId == propertyId && i.Status == InvestmentStatus.Active
+            select new { i.InvestorId, i.Amount, p.TokenPrice, k }).ToListAsync(ct);
+
+        return rows.Select(r => (r.InvestorId, r.Amount, r.TokenPrice, (KycProfile?)r.k)).ToList();
     }
 }
