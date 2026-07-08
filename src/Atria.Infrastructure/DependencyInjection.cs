@@ -59,6 +59,9 @@ public static class DependencyInjection
         // Admin static-login options are OPTIONAL (disabled when Password is empty) — bind
         // without DataAnnotations validation so a stack with no admin password still boots.
         services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
+
+        // Public media storage location (property photos/documents).
+        services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
         BindValidated<DiditOptions>(services, configuration, DiditOptions.SectionName);
         BindValidated<StripeOptions>(services, configuration, StripeOptions.SectionName);
         BindValidated<BankTransferOptions>(services, configuration, BankTransferOptions.SectionName);
@@ -178,6 +181,9 @@ public static class DependencyInjection
             return new AmazonS3Client(config);
         });
         services.AddScoped<IDocumentStorage, S3DocumentStorageAdapter>();
+
+        // Public media (property photos/documents) copied to a remote host over SCP, served by nginx.
+        services.AddScoped<IMediaStorage, ScpMediaStorage>();
     }
 
     // --- Compliance / web3 ---

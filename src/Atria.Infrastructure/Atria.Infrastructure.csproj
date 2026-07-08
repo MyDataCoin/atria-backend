@@ -35,6 +35,7 @@
     <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Stripe.net" />
+    <PackageReference Include="SSH.NET" />
   </ItemGroup>
 
 </Project>

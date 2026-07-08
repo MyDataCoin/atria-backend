@@ -54,6 +54,16 @@ services:
       Database__MigrateOnStartup: "true"
       # Seed demo tokenization objects (Properties) on first run (idempotent).
       Database__SeedOnStartup: "true"
+      # Public media (property photos/documents): the API copies files to the media host over SCP
+      # and stores an absolute URL served by that host's nginx. Username/password are secrets (from
+      # .env locally / GitHub Actions secrets on deploy). Non-secret bits are pinned here.
+      Media__PublicBaseUrl: https://atria-api.eaysdev.online
+      Media__PublicBasePath: /media
+      Media__RemoteRoot: /media
+      Media__ScpHost: ${MEDIA_SCP_HOST:-84.54.12.242}
+      Media__ScpPort: "22"
+      Media__ScpUsername: ${MEDIA_SCP_USERNAME:-}
+      Media__ScpPassword: ${MEDIA_SCP_PASSWORD:-}
       # Nikita Pro SMS gateway credentials, mapped from the NIKITA_PRO_* variables. On deploy
       # those come from GitHub Actions secrets exported into the SSH session (see deploy.yml);
       # for a local `docker compose up` they come from the project .env (compose interpolates

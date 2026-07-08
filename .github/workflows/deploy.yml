@@ -81,13 +81,17 @@ jobs:
           ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           ADMIN_USER_ID: ${{ secrets.ADMIN_USER_ID }}
+          # SCP media host credentials (the API copies property photos/documents there).
+          MEDIA_SCP_HOST: ${{ secrets.MEDIA_SCP_HOST }}
+          MEDIA_SCP_USERNAME: ${{ secrets.MEDIA_SCP_USERNAME }}
+          MEDIA_SCP_PASSWORD: ${{ secrets.MEDIA_SCP_PASSWORD }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
-          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID
+          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,MEDIA_SCP_HOST,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
           script: |
             set -euo pipefail
 

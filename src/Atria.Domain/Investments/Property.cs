@@ -8,6 +8,9 @@ namespace Atria.Domain.Investments;
 /// </summary>
 public sealed class Property : AggregateRoot
 {
+    /// <summary>Maximum photos a property may have.</summary>
+    public const int MaxImages = 3;
+
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
     public string? Address { get; private set; }
@@ -17,6 +20,12 @@ public sealed class Property : AggregateRoot
     public long AvailableTokens { get; private set; }
     public string Currency { get; private set; } = null!;
     public bool IsActive { get; private set; }
+
+    private readonly List<PropertyImage> _images = new();
+    public IReadOnlyCollection<PropertyImage> Images => _images.AsReadOnly();
+
+    private readonly List<PropertyDocument> _documents = new();
+    public IReadOnlyCollection<PropertyDocument> Documents => _documents.AsReadOnly();
 
     // private ctor: creation only through the factory method
     private Property() { }
@@ -60,5 +69,47 @@ public sealed class Property : AggregateRoot
             throw new DomainException("Cannot allocate more tokens than are available.");
 
         AvailableTokens -= count;
+    }
+
+    /// <summary>Adds a photo (max <see cref="MaxImages"/>). Returns the created child.</summary>
+    public PropertyImage AddImage(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            throw new DomainException("Image URL is required.");
+        if (_images.Count >= MaxImages)
+            throw new DomainException($"A property can have at most {MaxImages} images.");
+
+        var image = PropertyImage.Create(Id, url);
+        _images.Add(image);
+        return image;
+    }
+
+    /// <summary>Removes a photo by id; returns the removed child (with its URL) or null if not found.</summary>
+    public PropertyImage? RemoveImage(Guid imageId)
+    {
+        var image = _images.FirstOrDefault(i => i.Id == imageId);
+        if (image is not null)
+            _images.Remove(image);
+        return image;
+    }
+
+    /// <summary>Adds a document. Returns the created child.</summary>
+    public PropertyDocument AddDocument(string url, string fileName, string contentType)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            throw new DomainException("Document URL is required.");
+
+        var document = PropertyDocument.Create(Id, url, fileName, contentType);
+        _documents.Add(document);
+        return document;
+    }
+
+    /// <summary>Removes a document by id; returns the removed child (with its URL) or null if not found.</summary>
+    public PropertyDocument? RemoveDocument(Guid documentId)
+    {
+        var document = _documents.FirstOrDefault(d => d.Id == documentId);
+        if (document is not null)
+            _documents.Remove(document);
+        return document;
     }
 }

@@ -96,4 +96,80 @@ public sealed class PropertiesController : ApiControllerBase
             request.TokenPrice, request.TotalTokens, request.Currency), ct);
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
+
+    /// <summary>Uploads a photo for a property (max 3). Admin only. Returns the image id + public URL.</summary>
+    /// <remarks>
+    /// <c>multipart/form-data</c> with a single <c>file</c> part (JPEG/PNG/WebP, ≤ 10 MB). The file is
+    /// stored on the backend under a UUID name and served statically; only its URL is persisted. A property
+    /// may hold at most 3 photos (<c>409</c> beyond that).
+    /// </remarks>
+    /// <param name="id">The property's id.</param>
+    /// <param name="file">The image file part.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/images")]
+    [Authorize(Roles = "Admin")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType<PropertyImageDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UploadImage(Guid id, IFormFile file, CancellationToken ct)
+    {
+        await using var stream = file.OpenReadStream();
+        var result = await Sender.Send(
+            new AddPropertyImageCommand(id, stream, file.FileName, file.ContentType, file.Length), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Deletes a property photo. Admin only.</summary>
+    /// <param name="id">The property's id.</param>
+    /// <param name="imageId">The image's id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpDelete("{id:guid}/images/{imageId:guid}")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteImage(Guid id, Guid imageId, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new RemovePropertyImageCommand(id, imageId), ct));
+
+    /// <summary>Uploads a document for a property. Admin only. Returns the document id + public URL.</summary>
+    /// <remarks>
+    /// <c>multipart/form-data</c> with a single <c>file</c> part (PDF or image, ≤ 25 MB). Stored under a UUID
+    /// name and served statically; only its URL + metadata are persisted.
+    /// </remarks>
+    /// <param name="id">The property's id.</param>
+    /// <param name="file">The document file part.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/documents")]
+    [Authorize(Roles = "Admin")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType<PropertyDocumentDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UploadDocument(Guid id, IFormFile file, CancellationToken ct)
+    {
+        await using var stream = file.OpenReadStream();
+        var result = await Sender.Send(
+            new AddPropertyDocumentCommand(id, stream, file.FileName, file.ContentType, file.Length), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Deletes a property document. Admin only.</summary>
+    /// <param name="id">The property's id.</param>
+    /// <param name="documentId">The document's id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpDelete("{id:guid}/documents/{documentId:guid}")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDocument(Guid id, Guid documentId, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new RemovePropertyDocumentCommand(id, documentId), ct));
 }

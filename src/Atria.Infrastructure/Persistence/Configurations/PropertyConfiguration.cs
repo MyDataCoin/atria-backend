@@ -20,5 +20,22 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.AvailableTokens).IsRequired();
         b.Property(p => p.Currency).HasMaxLength(8).IsRequired();
         b.Property(p => p.IsActive).IsRequired();
+
+        // Child media collections mapped via backing fields, owned by the Property aggregate.
+        b.HasMany(p => p.Images)
+            .WithOne()
+            .HasForeignKey(i => i.PropertyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.Navigation(p => p.Images)
+            .HasField("_images")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        b.HasMany(p => p.Documents)
+            .WithOne()
+            .HasForeignKey(d => d.PropertyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.Navigation(p => p.Documents)
+            .HasField("_documents")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

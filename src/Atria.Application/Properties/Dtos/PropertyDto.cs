@@ -9,6 +9,8 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="TotalTokens">Total number of tokens the property was issued with.</param>
 /// <param name="Currency">3-letter ISO currency code of the token price (e.g. USD, KGS).</param>
 /// <param name="IsActive">Whether the property is active and open for new applications.</param>
+/// <param name="Images">The property's photos (max 3), each with a public URL.</param>
+/// <param name="Documents">The property's documents, each with a public URL.</param>
 public sealed record PropertyDto(
     Guid Id,
     string Name,
@@ -17,4 +19,6 @@ public sealed record PropertyDto(
     long AvailableTokens,
     long TotalTokens,
     string Currency,
-    bool IsActive);
+    bool IsActive,
+    IReadOnlyList<PropertyImageDto> Images,
+    IReadOnlyList<PropertyDocumentDto> Documents);

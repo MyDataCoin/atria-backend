@@ -21,7 +21,9 @@ public sealed class GetPropertyByIdQueryHandler
 
         var dto = new PropertyDto(
             property.Id, property.Name, property.Description, property.TokenPrice,
-            property.AvailableTokens, property.TotalTokens, property.Currency, property.IsActive);
+            property.AvailableTokens, property.TotalTokens, property.Currency, property.IsActive,
+            property.Images.Select(i => new PropertyImageDto(i.Id, i.Url)).ToList(),
+            property.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList());
 
         return Result.Success(dto);
     }

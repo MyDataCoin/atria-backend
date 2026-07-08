@@ -63,6 +63,7 @@
   <ItemGroup Label="External SDKs (Strategy / Adapter targets)">
     <PackageVersion Include="AWSSDK.S3" Version="3.7.511.8" />
     <PackageVersion Include="Stripe.net" Version="52.0.0" />
+    <PackageVersion Include="SSH.NET" Version="2024.2.0" />
   </ItemGroup>
 
 </Project>
