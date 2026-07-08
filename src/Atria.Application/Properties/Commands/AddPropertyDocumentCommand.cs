@@ -41,7 +41,8 @@ public sealed class AddPropertyDocumentCommandHandler
         var url = await _storage.SaveAsync(request.Content, request.FileName, request.ContentType, Category, ct);
         var document = property.AddDocument(url, request.FileName, request.ContentType);
 
-        _properties.Update(property);
+        // property is tracked — the change tracker INSERTs the new child on save. Do NOT call
+        // Update() (it would mark the new row Modified -> UPDATE of a missing row -> 0 rows).
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success(new PropertyDocumentDto(

@@ -34,7 +34,7 @@ public sealed class RemovePropertyImageCommandHandler : IRequestHandler<RemovePr
         if (removed is null)
             return Result.Failure(Error.NotFound("property.image_notFound", "Image not found."));
 
-        _properties.Update(property);
+        // property is tracked — removing the child marks it Deleted; the tracker DELETEs it on save.
         await _unitOfWork.SaveChangesAsync(ct);
 
         // Delete the file only after the DB row is gone, so a failed commit never orphans the URL.

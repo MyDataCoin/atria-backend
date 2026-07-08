@@ -49,7 +49,9 @@ public sealed class AddPropertyImageCommandHandler
         var url = await _storage.SaveAsync(request.Content, request.FileName, request.ContentType, Category, ct);
         var image = property.AddImage(url);
 
-        _properties.Update(property);
+        // property is tracked (loaded via GetByIdAsync) — the change tracker INSERTs the new child.
+        // Do NOT call Update(): it marks the whole graph Modified, turning the INSERT into an UPDATE
+        // of a non-existent row (0 rows affected -> DbUpdateConcurrencyException).
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success(new PropertyImageDto(image.Id, image.Url));

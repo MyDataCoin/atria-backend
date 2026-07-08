@@ -31,7 +31,7 @@ public sealed class RemovePropertyDocumentCommandHandler : IRequestHandler<Remov
         if (removed is null)
             return Result.Failure(Error.NotFound("property.document_notFound", "Document not found."));
 
-        _properties.Update(property);
+        // property is tracked — removing the child marks it Deleted; the tracker DELETEs it on save.
         await _unitOfWork.SaveChangesAsync(ct);
 
         _storage.Delete(removed.Url);
