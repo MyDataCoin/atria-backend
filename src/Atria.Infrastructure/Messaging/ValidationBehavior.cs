@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-using System.Reflection;
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using FluentValidation;
@@ -42,8 +40,8 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
 
         // Prefer returning a failed Result; fall back to throwing for non-Result responses.
         var error = BuildError(failures);
-        if (TryMakeFailedResult(error, out var failed))
-            return failed!;
+        if (ResultFactory.TryMakeFailure<TResponse>(error, out var failed))
+            return failed;
 
         throw new ValidationException(failures);
     }
@@ -55,45 +53,5 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
         var code = string.IsNullOrEmpty(first.PropertyName) ? "validation" : first.PropertyName;
         var message = string.Join("; ", failures.Select(f => f.ErrorMessage));
         return Error.Validation(code, message);
-    }
-
-    // Cache the factory per TResponse so reflection runs at most once per response type.
-    private static readonly ConcurrentDictionary<Type, Func<Error, object>?> Factories = new();
-
-    private static bool TryMakeFailedResult(Error error, out TResponse? failed)
-    {
-        var factory = Factories.GetOrAdd(typeof(TResponse), CreateFactory);
-        if (factory is null)
-        {
-            failed = default;
-            return false;
-        }
-
-        failed = (TResponse)factory(error);
-        return true;
-    }
-
-    // Builds a delegate that produces a failed Result / Result<T> for the given Error, or null
-    // when TResponse is neither shape (then the behavior throws instead).
-    private static Func<Error, object>? CreateFactory(Type responseType)
-    {
-        if (responseType == typeof(Result))
-            return error => Result.Failure(error);
-
-        if (responseType.IsGenericType && responseType.GetGenericTypeDefinition() == typeof(Result<>))
-        {
-            var valueType = responseType.GetGenericArguments()[0];
-
-            // Result.Failure<TValue>(Error) -> Result<TValue>
-            var method = typeof(Result)
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .First(m => m is { Name: nameof(Result.Failure), IsGenericMethodDefinition: true }
-                            && m.GetParameters().Length == 1)
-                .MakeGenericMethod(valueType);
-
-            return error => method.Invoke(null, [error])!;
-        }
-
-        return null;
     }
 }

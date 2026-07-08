@@ -117,8 +117,11 @@ public static class DependencyInjection
     {
         services.AddScoped<ISender, Mediator>();
 
-        // Open-generic pipeline behaviors, registered outer-to-inner (validation then logging).
+        // Open-generic pipeline behaviors, registered outer-to-inner: validation, then concurrency
+        // (converts a DbUpdateConcurrencyException to a 409 Result), then logging closest to the
+        // handler so it still records the raw exception before ConcurrencyBehavior converts it.
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ConcurrencyBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
 
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
