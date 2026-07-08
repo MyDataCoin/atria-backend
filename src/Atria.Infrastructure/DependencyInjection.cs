@@ -55,6 +55,10 @@ public static class DependencyInjection
         BindValidated<JwtOptions>(services, configuration, JwtOptions.SectionName);
         BindValidated<EncryptionOptions>(services, configuration, EncryptionOptions.SectionName);
         BindValidated<OtpOptions>(services, configuration, OtpOptions.SectionName);
+
+        // Admin static-login options are OPTIONAL (disabled when Password is empty) — bind
+        // without DataAnnotations validation so a stack with no admin password still boots.
+        services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
         BindValidated<DiditOptions>(services, configuration, DiditOptions.SectionName);
         BindValidated<StripeOptions>(services, configuration, StripeOptions.SectionName);
         BindValidated<BankTransferOptions>(services, configuration, BankTransferOptions.SectionName);
@@ -125,6 +129,7 @@ public static class DependencyInjection
         // IEncryptionService is registered in AddPersistence (also required there by AtriaDbContext).
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IOtpService, OtpService>();
+        services.AddScoped<IAdminAuthenticator, AdminAuthenticator>();
     }
 
     // --- Strategies (registered per concrete type so handlers get IEnumerable<...>) ---

@@ -12,6 +12,11 @@ namespace Atria.Api.Controllers.Requests;
 /// <param name="RefreshToken">A valid, unexpired refresh token previously issued by an auth endpoint.</param>
 public sealed record RefreshTokenRequest(string RefreshToken);
 
+/// <summary>POST /auth/admin/login body. Static admin credentials from server configuration.</summary>
+/// <param name="Username">The configured admin username.</param>
+/// <param name="Password">The configured static admin password.</param>
+public sealed record AdminLoginRequest(string Username, string Password);
+
 /// <summary>POST /auth/register/phone/request-otp body. The IP is captured server-side.</summary>
 /// <param name="Phone">Kyrgyz phone number in <c>+996XXXXXXXXX</c> format, e.g. <c>+996700123456</c>.</param>
 public sealed record RequestOtpRequest(string Phone);
