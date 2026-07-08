@@ -76,13 +76,18 @@ jobs:
           NIKITA_PRO_API_KEY: ${{ secrets.NIKITA_PRO_API_KEY }}
           DIDIT_API_KEY: ${{ secrets.DIDIT_API_KEY }}
           DIDIT_WEBHOOK_SECRET: ${{ secrets.DIDIT_WEBHOOK_SECRET }}
+          # Static admin login. Only ADMIN_PASSWORD is truly secret; username/user-id are not,
+          # but are forwarded the same way so all three reach `docker compose` on the server.
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_USER_ID: ${{ secrets.ADMIN_USER_ID }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
-          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET
+          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID
           script: |
             set -euo pipefail
 
