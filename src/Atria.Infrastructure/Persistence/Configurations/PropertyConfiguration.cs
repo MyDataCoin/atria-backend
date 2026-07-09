@@ -19,7 +19,7 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.TotalTokens).IsRequired();
         b.Property(p => p.AvailableTokens).IsRequired();
         b.Property(p => p.Currency).HasMaxLength(8).IsRequired();
-        b.Property(p => p.IsActive).IsRequired();
+        b.Property(p => p.Status).HasConversion<int>().IsRequired();
 
         // Child media collections mapped via backing fields, owned by the Property aggregate.
         b.HasMany(p => p.Images)

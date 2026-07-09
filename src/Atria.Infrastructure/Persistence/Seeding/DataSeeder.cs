@@ -44,6 +44,10 @@ public static class DataSeeder
                 "Karakol, Issyk-Kul Region", 35_000_000m, 3_500m, 10_000, "KGS"),
         };
 
+        // Demo objects are meant to be live on the public site, so publish them (Draft -> Open).
+        foreach (var property in properties)
+            property.Publish();
+
         await db.Properties.AddRangeAsync(properties, ct);
         await db.SaveChangesAsync(ct);
 

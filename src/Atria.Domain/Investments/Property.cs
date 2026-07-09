@@ -1,4 +1,5 @@
 using Atria.Domain.Common;
+using Atria.Domain.Investments.States;
 
 namespace Atria.Domain.Investments;
 
@@ -19,7 +20,9 @@ public sealed class Property : AggregateRoot
     public long TotalTokens { get; private set; }
     public long AvailableTokens { get; private set; }
     public string Currency { get; private set; } = null!;
-    public bool IsActive { get; private set; }
+
+    // Persisted status enum; the current state is derived from it on demand (EF-friendly).
+    public PropertyStatus Status { get; private set; }
 
     private readonly List<PropertyImage> _images = new();
     public IReadOnlyCollection<PropertyImage> Images => _images.AsReadOnly();
@@ -56,9 +59,21 @@ public sealed class Property : AggregateRoot
             TotalTokens = totalTokens,
             AvailableTokens = totalTokens, // full supply available at creation
             Currency = currency,
-            IsActive = true
+            Status = PropertyStatus.Draft // created as a draft; goes live via Publish()
         };
     }
+
+    /// <summary>
+    /// Publishes the property, opening it to investors (Draft -> Open). A freshly created property
+    /// is a draft and surfaces on the public site under "coming soon" until an admin publishes its
+    /// offering.
+    /// </summary>
+    public void Publish()
+        => Status = PropertyStateFactory.Create(Status).Publish(this).Status;
+
+    /// <summary>Completes the property's offering (Open -> Completed). Terminal.</summary>
+    public void Complete()
+        => Status = PropertyStateFactory.Create(Status).Complete(this).Status;
 
     /// <summary>Reserves <paramref name="count"/> tokens, reducing the available supply.</summary>
     public void AllocateTokens(long count)

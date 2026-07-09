@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Domain.Factories;
+using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
 
 namespace Atria.Application.Investments.Commands;
@@ -47,12 +48,12 @@ public sealed class CreateInvestmentCommandHandler
         if (kyc is null || kyc.Status != KycStatus.Approved)
             return Result.Failure<Guid>(Error.Forbidden("investment.kyc_required", "Approved KYC is required to invest."));
 
-        // Property must exist, be active, and have enough remaining token capacity for the
-        // requested amount. This is an early UX guard; the authoritative supply decrement
+        // Property must exist, be open for investment, and have enough remaining token capacity
+        // for the requested amount. This is an early UX guard; the authoritative supply decrement
         // happens on activation (AllocateTokensOnInvestmentActivatedHandler).
         var property = await _properties.GetByIdAsync(request.PropertyId, ct);
-        if (property is null || !property.IsActive)
-            return Result.Failure<Guid>(Error.NotFound("investment.property_unavailable", "Property not found or inactive."));
+        if (property is null || property.Status != PropertyStatus.Open)
+            return Result.Failure<Guid>(Error.NotFound("investment.property_unavailable", "Property not found or not open for investment."));
 
         var remainingCapacity = property.AvailableTokens * property.TokenPrice;
         if (request.Amount > remainingCapacity)

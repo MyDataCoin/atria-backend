@@ -97,6 +97,47 @@ public sealed class PropertiesController : ApiControllerBase
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
+    /// <summary>Publishes a property's offering, opening it to investors. Admin only.</summary>
+    /// <remarks>
+    /// Flips the property to active. A freshly created property is a draft that surfaces on the
+    /// public site under "coming soon"; publishing moves it to "open for purchase". Requires the
+    /// <b>Admin</b> role. Responds with 404 when the property does not exist.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/publish")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Publish(Guid id, CancellationToken ct)
+    {
+        var result = await Sender.Send(new PublishPropertyCommand(id), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Completes a property's offering, closing it. Admin only.</summary>
+    /// <remarks>
+    /// Moves an <b>open</b> property to <b>completed</b> (its offering is finished). Requires the
+    /// <b>Admin</b> role. Responds with 404 when the property does not exist and 409 when the
+    /// property is not currently open.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/complete")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Complete(Guid id, CancellationToken ct)
+    {
+        var result = await Sender.Send(new CompletePropertyCommand(id), ct);
+        return ToActionResult(result);
+    }
+
     /// <summary>Uploads a photo for a property (max 3). Admin only. Returns the image id + public URL.</summary>
     /// <remarks>
     /// <c>multipart/form-data</c> with a single <c>file</c> part (JPEG/PNG/WebP, ≤ 10 MB). The file is

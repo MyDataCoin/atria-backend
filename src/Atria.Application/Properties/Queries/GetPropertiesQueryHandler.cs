@@ -19,7 +19,7 @@ public sealed class GetPropertiesQueryHandler
         IReadOnlyList<PropertyDto> dtos = properties
             .Select(p => new PropertyDto(
                 p.Id, p.Name, p.Description, p.TokenPrice,
-                p.AvailableTokens, p.TotalTokens, p.Currency, p.IsActive,
+                p.AvailableTokens, p.TotalTokens, p.Currency, PropertyDto.ToWireStatus(p.Status),
                 p.Images.Select(i => new PropertyImageDto(i.Id, i.Url)).ToList(),
                 p.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList()))
             .ToList();

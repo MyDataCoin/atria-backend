@@ -1,4 +1,5 @@
 using Atria.Application.Abstractions;
+using Atria.Domain.Investments;
 using Atria.Infrastructure.Persistence;
 using Atria.Infrastructure.Persistence.Seeding;
 using FluentAssertions;
@@ -25,7 +26,7 @@ public sealed class DataSeederTests
 
         var properties = await db.Properties.ToListAsync();
         properties.Should().HaveCountGreaterThan(0);
-        properties.Should().OnlyContain(p => p.IsActive);
+        properties.Should().OnlyContain(p => p.Status == PropertyStatus.Open);
         properties.Should().OnlyContain(p => p.AvailableTokens == p.TotalTokens);
         properties.Should().OnlyContain(p => p.TokenPrice > 0 && p.TotalValue > 0);
     }
