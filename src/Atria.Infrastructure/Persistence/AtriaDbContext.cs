@@ -9,6 +9,7 @@ using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
 using Atria.Domain.Notifications;
 using Atria.Domain.Outbox;
+using Atria.Domain.Support;
 using Atria.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,6 +39,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
     public DbSet<ComplianceProfile> ComplianceProfiles => Set<ComplianceProfile>();
     public DbSet<BlockchainOperation> BlockchainOperations => Set<BlockchainOperation>();
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // Infra-only EF entities.

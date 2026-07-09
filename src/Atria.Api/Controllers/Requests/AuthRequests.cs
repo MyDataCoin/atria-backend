@@ -84,3 +84,13 @@ public sealed record CreatePaymentRequest(PaymentProviderType Provider);
 /// <param name="File">The document file uploaded as a multipart/form-data part.</param>
 /// <param name="Type">Kind of document being uploaded, sent by name.</param>
 public sealed record UploadDocumentRequest(IFormFile File, DocumentType Type);
+
+/// <summary>POST /support/tickets body. Opens a new ticket with a first message.</summary>
+/// <param name="Subject">Short subject line; required, max 120 characters.</param>
+/// <param name="Category">Category label chosen on the client (e.g. <c>KYC</c>, <c>Платежи</c>).</param>
+/// <param name="Body">The opening message text; required.</param>
+public sealed record CreateTicketRequest(string Subject, string Category, string Body);
+
+/// <summary>POST /support/tickets/{id}/messages body. The author is derived from the caller's role.</summary>
+/// <param name="Body">The reply text; required.</param>
+public sealed record AddTicketMessageRequest(string Body);

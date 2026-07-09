@@ -43,10 +43,16 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 ["ConnectionStrings:Postgres"] =
                     "Host=localhost;Port=5432;Database=atria_test;Username=test;Password=test",
 
-                // Jwt (section "Jwt"): SigningKey must be >= 32 bytes for HS256.
-                ["Jwt:Issuer"] = "https://atria.tests",
-                ["Jwt:Audience"] = "atria-api-tests",
-                ["Jwt:SigningKey"] = "integration-tests-signing-key-32bytes-minimum-0123456789",
+                // Jwt (section "Jwt"). NOTE: Program.cs reads these EAGERLY
+                // (Configuration.Get<JwtOptions>()) to build the bearer VALIDATION parameters,
+                // which happens before this in-memory source is merged — so validation uses
+                // appsettings.json's Jwt values. Token SIGNING, by contrast, uses
+                // IOptions<JwtOptions> resolved lazily at request time and DOES see these overrides.
+                // Keep Issuer/Audience/SigningKey identical to appsettings.json so the signing and
+                // validation sides agree and tokens issued in tests validate on protected routes.
+                ["Jwt:Issuer"] = "https://atria.local",
+                ["Jwt:Audience"] = "atria-api",
+                ["Jwt:SigningKey"] = "dev-only-signing-key-not-a-real-secret-change-me-32+bytes",
                 ["Jwt:AccessTokenMinutes"] = "15",
                 ["Jwt:RefreshTokenDays"] = "30",
 
