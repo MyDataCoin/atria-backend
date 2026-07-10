@@ -63,10 +63,13 @@ public sealed class Property : AggregateRoot
         };
     }
 
+    /// <summary>Announces the property as "coming soon" (Draft -> ComingSoon).</summary>
+    public void Announce()
+        => Status = PropertyStateFactory.Create(Status).Announce(this).Status;
+
     /// <summary>
-    /// Publishes the property, opening it to investors (Draft -> Open). A freshly created property
-    /// is a draft and surfaces on the public site under "coming soon" until an admin publishes its
-    /// offering.
+    /// Publishes the property, opening it to investors (Draft or ComingSoon -> Open). A property can
+    /// be published straight from draft, or after being teased as "coming soon".
     /// </summary>
     public void Publish()
         => Status = PropertyStateFactory.Create(Status).Publish(this).Status;

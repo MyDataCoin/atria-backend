@@ -11,6 +11,7 @@ public static class PropertyStateFactory
     public static IPropertyState Create(PropertyStatus status) => status switch
     {
         PropertyStatus.Draft => DraftPropertyState.Instance,
+        PropertyStatus.ComingSoon => ComingSoonPropertyState.Instance,
         PropertyStatus.Open => OpenPropertyState.Instance,
         PropertyStatus.Completed => CompletedPropertyState.Instance,
         _ => throw new InvalidStateTransitionException($"Unknown property status: {status}.")

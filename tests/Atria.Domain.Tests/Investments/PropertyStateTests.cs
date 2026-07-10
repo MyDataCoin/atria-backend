@@ -28,6 +28,60 @@ public sealed class PropertyStateTests
     }
 
     [Fact]
+    public void Announce_MovesDraftToComingSoon()
+    {
+        var property = NewProperty();
+
+        property.Announce();
+
+        property.Status.Should().Be(PropertyStatus.ComingSoon);
+    }
+
+    [Fact]
+    public void Publish_MovesComingSoonToOpen()
+    {
+        var property = NewProperty();
+        property.Announce();
+
+        property.Publish();
+
+        property.Status.Should().Be(PropertyStatus.Open);
+    }
+
+    [Fact]
+    public void Announce_WhenAlreadyComingSoon_Throws()
+    {
+        var property = NewProperty();
+        property.Announce();
+
+        var act = () => property.Announce();
+
+        act.Should().Throw<InvalidStateTransitionException>();
+    }
+
+    [Fact]
+    public void Announce_WhenOpen_Throws()
+    {
+        var property = NewProperty();
+        property.Publish();
+
+        var act = () => property.Announce();
+
+        act.Should().Throw<InvalidStateTransitionException>();
+    }
+
+    [Fact]
+    public void Complete_FromComingSoon_Throws()
+    {
+        var property = NewProperty();
+        property.Announce();
+
+        var act = () => property.Complete();
+
+        act.Should().Throw<InvalidStateTransitionException>();
+    }
+
+    [Fact]
     public void Complete_MovesOpenToCompleted()
     {
         var property = NewProperty();

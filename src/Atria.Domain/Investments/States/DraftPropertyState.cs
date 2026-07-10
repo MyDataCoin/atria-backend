@@ -7,6 +7,8 @@ public sealed class DraftPropertyState : IPropertyState
 {
     public PropertyStatus Status => PropertyStatus.Draft;
 
+    public IPropertyState Announce(Property property) => ComingSoonPropertyState.Instance;
+
     public IPropertyState Publish(Property property) => OpenPropertyState.Instance;
 
     public IPropertyState Complete(Property property)

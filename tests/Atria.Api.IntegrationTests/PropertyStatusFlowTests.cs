@@ -65,6 +65,53 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task Property_FullLifecycle_DraftComingSoonOpenCompleted()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var anon = _factory.CreateClient();
+
+        var id = await CreatePropertyAsync(admin);
+        (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("draft");
+
+        // Announce (Draft -> ComingSoon), Admin only.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/announce", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("coming_soon");
+
+        // Announcing again is a conflict (not draft anymore).
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/announce", null))
+            .StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        // Publish works from coming_soon (ComingSoon -> Open).
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("open");
+
+        // Complete (Open -> Completed).
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/complete", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("completed");
+    }
+
+    [Fact]
+    public async Task Announce_RequiresAdminRole()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var id = await CreatePropertyAsync(admin);
+
+        var anon = _factory.CreateClient();
+        (await anon.PostAsync($"{PropertiesRoute}/{id}/announce", null))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var investor = _factory.CreateClient();
+        await AuthenticateInvestorAsync(investor);
+        (await investor.PostAsync($"{PropertiesRoute}/{id}/announce", null))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Publish_RequiresAdminRole()
     {
         var admin = _factory.CreateClient();

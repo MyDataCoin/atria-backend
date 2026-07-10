@@ -5,15 +5,15 @@ using Atria.Domain.Users;
 
 namespace Atria.Application.Properties.Commands;
 
-/// <summary>Publishes a property's offering (flips it to active / open). Restricted to Admins.</summary>
-public sealed class PublishPropertyCommandHandler
-    : IRequestHandler<PublishPropertyCommand, Result>
+/// <summary>Announces a property as "coming soon" (Draft -> ComingSoon). Restricted to Admins.</summary>
+public sealed class AnnouncePropertyCommandHandler
+    : IRequestHandler<AnnouncePropertyCommand, Result>
 {
     private readonly IPropertyRepository _properties;
     private readonly ICurrentUserService _currentUser;
     private readonly IUnitOfWork _unitOfWork;
 
-    public PublishPropertyCommandHandler(
+    public AnnouncePropertyCommandHandler(
         IPropertyRepository properties,
         ICurrentUserService currentUser,
         IUnitOfWork unitOfWork)
@@ -23,7 +23,7 @@ public sealed class PublishPropertyCommandHandler
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<Result> Handle(PublishPropertyCommand request, CancellationToken ct)
+    public async Task<Result> Handle(AnnouncePropertyCommand request, CancellationToken ct)
     {
         if (!_currentUser.IsAuthenticated)
             return Result.Failure(
@@ -31,18 +31,18 @@ public sealed class PublishPropertyCommandHandler
 
         if (!_currentUser.IsInRole(Role.Admin))
             return Result.Failure(
-                Error.Forbidden("property.forbidden", "Only administrators can publish properties."));
+                Error.Forbidden("property.forbidden", "Only administrators can announce properties."));
 
         var property = await _properties.GetByIdAsync(request.Id, ct);
         if (property is null)
             return Result.Failure(
                 Error.NotFound("property.notFound", "Property not found."));
 
-        if (property.Status is not (PropertyStatus.Draft or PropertyStatus.ComingSoon))
+        if (property.Status != PropertyStatus.Draft)
             return Result.Failure(
-                Error.Conflict("property.not_publishable", "Only a draft or coming-soon property can be published."));
+                Error.Conflict("property.not_draft", "Only a draft property can be announced as coming soon."));
 
-        property.Publish();
+        property.Announce();
         _properties.Update(property);
         await _unitOfWork.SaveChangesAsync(ct);
 

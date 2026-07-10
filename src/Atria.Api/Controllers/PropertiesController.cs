@@ -97,11 +97,32 @@ public sealed class PropertiesController : ApiControllerBase
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
+    /// <summary>Announces a property as "coming soon". Admin only.</summary>
+    /// <remarks>
+    /// Moves a <b>draft</b> property to <b>coming soon</b>, so it is teased on the public site before
+    /// it opens for investment. Requires the <b>Admin</b> role. Responds with 404 when the property
+    /// does not exist and 409 when the property is not a draft.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/announce")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Announce(Guid id, CancellationToken ct)
+    {
+        var result = await Sender.Send(new AnnouncePropertyCommand(id), ct);
+        return ToActionResult(result);
+    }
+
     /// <summary>Publishes a property's offering, opening it to investors. Admin only.</summary>
     /// <remarks>
-    /// Flips the property to active. A freshly created property is a draft that surfaces on the
-    /// public site under "coming soon"; publishing moves it to "open for purchase". Requires the
-    /// <b>Admin</b> role. Responds with 404 when the property does not exist.
+    /// Opens the property for purchase from either <b>draft</b> or <b>coming soon</b>. Requires the
+    /// <b>Admin</b> role. Responds with 404 when the property does not exist and 409 when the
+    /// property is already open or completed.
     /// </remarks>
     /// <param name="id">The property's unique identifier.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -111,6 +132,7 @@ public sealed class PropertiesController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Publish(Guid id, CancellationToken ct)
     {
         var result = await Sender.Send(new PublishPropertyCommand(id), ct);

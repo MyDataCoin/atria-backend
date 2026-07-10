@@ -7,6 +7,9 @@ public sealed class CompletedPropertyState : IPropertyState
 {
     public PropertyStatus Status => PropertyStatus.Completed;
 
+    public IPropertyState Announce(Property property)
+        => throw new InvalidStateTransitionException("A completed property cannot be announced as coming soon.");
+
     public IPropertyState Publish(Property property)
         => throw new InvalidStateTransitionException("A completed property cannot be published again.");
 
