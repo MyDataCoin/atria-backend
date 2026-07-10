@@ -7,8 +7,7 @@ public sealed class OpenPropertyState : IPropertyState
 {
     public PropertyStatus Status => PropertyStatus.Open;
 
-    public IPropertyState Announce(Property property)
-        => throw new InvalidStateTransitionException("An open property cannot be moved back to coming soon.");
+    public IPropertyState Announce(Property property) => ComingSoonPropertyState.Instance;
 
     public IPropertyState Publish(Property property)
         => throw new InvalidStateTransitionException("Property is already open.");

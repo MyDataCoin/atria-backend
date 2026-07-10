@@ -99,9 +99,10 @@ public sealed class PropertiesController : ApiControllerBase
 
     /// <summary>Announces a property as "coming soon". Admin only.</summary>
     /// <remarks>
-    /// Moves a <b>draft</b> property to <b>coming soon</b>, so it is teased on the public site before
-    /// it opens for investment. Requires the <b>Admin</b> role. Responds with 404 when the property
-    /// does not exist and 409 when the property is not a draft.
+    /// Moves a <b>draft</b> or <b>open</b> property to <b>coming soon</b> — teasing a new draft on the
+    /// public site, or pulling an already-open property back off the market. Requires the <b>Admin</b>
+    /// role. Responds with 404 when the property does not exist and 409 when it is already coming soon
+    /// or completed.
     /// </remarks>
     /// <param name="id">The property's unique identifier.</param>
     /// <param name="ct">Cancellation token.</param>

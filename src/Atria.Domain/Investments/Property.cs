@@ -63,7 +63,10 @@ public sealed class Property : AggregateRoot
         };
     }
 
-    /// <summary>Announces the property as "coming soon" (Draft -> ComingSoon).</summary>
+    /// <summary>
+    /// Announces the property as "coming soon" (Draft or Open -> ComingSoon). Can tease a new draft
+    /// or pull an already-open property back off the market into "coming soon".
+    /// </summary>
     public void Announce()
         => Status = PropertyStateFactory.Create(Status).Announce(this).Status;
 

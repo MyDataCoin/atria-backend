@@ -5,7 +5,7 @@ using Atria.Domain.Users;
 
 namespace Atria.Application.Properties.Commands;
 
-/// <summary>Announces a property as "coming soon" (Draft -> ComingSoon). Restricted to Admins.</summary>
+/// <summary>Announces a property as "coming soon" (Draft or Open -> ComingSoon). Restricted to Admins.</summary>
 public sealed class AnnouncePropertyCommandHandler
     : IRequestHandler<AnnouncePropertyCommand, Result>
 {
@@ -38,9 +38,9 @@ public sealed class AnnouncePropertyCommandHandler
             return Result.Failure(
                 Error.NotFound("property.notFound", "Property not found."));
 
-        if (property.Status != PropertyStatus.Draft)
+        if (property.Status is not (PropertyStatus.Draft or PropertyStatus.Open))
             return Result.Failure(
-                Error.Conflict("property.not_draft", "Only a draft property can be announced as coming soon."));
+                Error.Conflict("property.not_announceable", "Only a draft or open property can be announced as coming soon."));
 
         property.Announce();
         _properties.Update(property);

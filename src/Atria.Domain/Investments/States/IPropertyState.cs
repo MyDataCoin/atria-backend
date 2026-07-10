@@ -9,7 +9,7 @@ public interface IPropertyState
 {
     PropertyStatus Status { get; }
 
-    /// <summary>Draft -> ComingSoon: teases the property on the public site before it opens.</summary>
+    /// <summary>Draft or Open -> ComingSoon: teases the property (or pulls an open one back to "coming soon").</summary>
     IPropertyState Announce(Property property);
 
     /// <summary>Draft or ComingSoon -> Open: publishes the offering, opening it to investors.</summary>

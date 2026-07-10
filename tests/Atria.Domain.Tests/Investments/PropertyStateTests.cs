@@ -60,10 +60,22 @@ public sealed class PropertyStateTests
     }
 
     [Fact]
-    public void Announce_WhenOpen_Throws()
+    public void Announce_MovesOpenToComingSoon()
+    {
+        var property = NewProperty();
+        property.Publish(); // Draft -> Open
+
+        property.Announce(); // Open -> ComingSoon
+
+        property.Status.Should().Be(PropertyStatus.ComingSoon);
+    }
+
+    [Fact]
+    public void Announce_WhenCompleted_Throws()
     {
         var property = NewProperty();
         property.Publish();
+        property.Complete();
 
         var act = () => property.Announce();
 

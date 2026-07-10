@@ -95,6 +95,26 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task Announce_PullsAnOpenPropertyBackToComingSoon()
+    {
+        // Reproduces the admin report: an already-open property ("Тест 1") must be markable as
+        // coming_soon, and GET must then return the lowercase "coming_soon" (not "open").
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var anon = _factory.CreateClient();
+
+        var id = await CreatePropertyAsync(admin);
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("open");
+
+        // Announce from open -> coming_soon.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/announce", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("coming_soon");
+    }
+
+    [Fact]
     public async Task Announce_RequiresAdminRole()
     {
         var admin = _factory.CreateClient();
