@@ -142,6 +142,48 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task Unannounce_MovesComingSoonBackToDraft_AndHidesFromPublic()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var anon = _factory.CreateClient();
+
+        var id = await CreatePropertyAsync(admin);
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/announce", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("coming_soon");
+
+        // Unannounce (ComingSoon -> Draft): back to admin-only draft, hidden from the public site.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/unannounce", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(admin, id)).GetProperty("status").GetString().Should().Be("draft");
+        (await anon.GetAsync($"{PropertiesRoute}/{id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Unannouncing a draft (not coming soon) -> 409.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/unannounce", null))
+            .StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Unannounce_RequiresAdminRole()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var id = await CreatePropertyAsync(admin);
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/announce", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var anon = _factory.CreateClient();
+        (await anon.PostAsync($"{PropertiesRoute}/{id}/unannounce", null))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var investor = _factory.CreateClient();
+        await AuthenticateInvestorAsync(investor);
+        (await investor.PostAsync($"{PropertiesRoute}/{id}/unannounce", null))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Announce_RequiresAdminRole()
     {
         var admin = _factory.CreateClient();

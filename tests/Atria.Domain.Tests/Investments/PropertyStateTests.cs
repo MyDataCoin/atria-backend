@@ -71,6 +71,38 @@ public sealed class PropertyStateTests
     }
 
     [Fact]
+    public void Unannounce_MovesComingSoonToDraft()
+    {
+        var property = NewProperty();
+        property.Announce(); // Draft -> ComingSoon
+
+        property.Unannounce(); // ComingSoon -> Draft
+
+        property.Status.Should().Be(PropertyStatus.Draft);
+    }
+
+    [Fact]
+    public void Unannounce_WhenDraft_Throws()
+    {
+        var property = NewProperty();
+
+        var act = () => property.Unannounce();
+
+        act.Should().Throw<InvalidStateTransitionException>();
+    }
+
+    [Fact]
+    public void Unannounce_WhenOpen_Throws()
+    {
+        var property = NewProperty();
+        property.Publish();
+
+        var act = () => property.Unannounce();
+
+        act.Should().Throw<InvalidStateTransitionException>();
+    }
+
+    [Fact]
     public void Announce_WhenCompleted_Throws()
     {
         var property = NewProperty();

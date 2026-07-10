@@ -119,6 +119,27 @@ public sealed class PropertiesController : ApiControllerBase
         return ToActionResult(result);
     }
 
+    /// <summary>Reverses a "coming soon" announcement, hiding the property again. Admin only.</summary>
+    /// <remarks>
+    /// Moves a <b>coming soon</b> property back to <b>draft</b>, removing it from the public site.
+    /// Requires the <b>Admin</b> role. Responds with 404 when the property does not exist and 409
+    /// when the property is not currently coming soon.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/unannounce")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Unannounce(Guid id, CancellationToken ct)
+    {
+        var result = await Sender.Send(new UnannouncePropertyCommand(id), ct);
+        return ToActionResult(result);
+    }
+
     /// <summary>Publishes a property's offering, opening it to investors. Admin only.</summary>
     /// <remarks>
     /// Opens the property for purchase from either <b>draft</b> or <b>coming soon</b>. Requires the

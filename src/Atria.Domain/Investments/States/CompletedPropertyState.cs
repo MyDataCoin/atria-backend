@@ -10,6 +10,9 @@ public sealed class CompletedPropertyState : IPropertyState
     public IPropertyState Announce(Property property)
         => throw new InvalidStateTransitionException("A completed property cannot be announced as coming soon.");
 
+    public IPropertyState Unannounce(Property property)
+        => throw new InvalidStateTransitionException("A completed property cannot be unannounced.");
+
     public IPropertyState Publish(Property property)
         => throw new InvalidStateTransitionException("A completed property cannot be published again.");
 

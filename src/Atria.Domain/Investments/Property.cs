@@ -70,6 +70,10 @@ public sealed class Property : AggregateRoot
     public void Announce()
         => Status = PropertyStateFactory.Create(Status).Announce(this).Status;
 
+    /// <summary>Reverses an announcement (ComingSoon -> Draft), hiding the property from the site again.</summary>
+    public void Unannounce()
+        => Status = PropertyStateFactory.Create(Status).Unannounce(this).Status;
+
     /// <summary>
     /// Publishes the property, opening it to investors (Draft or ComingSoon -> Open). A property can
     /// be published straight from draft, or after being teased as "coming soon".

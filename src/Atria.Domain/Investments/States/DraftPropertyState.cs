@@ -9,6 +9,9 @@ public sealed class DraftPropertyState : IPropertyState
 
     public IPropertyState Announce(Property property) => ComingSoonPropertyState.Instance;
 
+    public IPropertyState Unannounce(Property property)
+        => throw new InvalidStateTransitionException("Property is already a draft.");
+
     public IPropertyState Publish(Property property) => OpenPropertyState.Instance;
 
     public IPropertyState Complete(Property property)

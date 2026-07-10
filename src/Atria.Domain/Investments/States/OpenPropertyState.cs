@@ -9,6 +9,9 @@ public sealed class OpenPropertyState : IPropertyState
 
     public IPropertyState Announce(Property property) => ComingSoonPropertyState.Instance;
 
+    public IPropertyState Unannounce(Property property)
+        => throw new InvalidStateTransitionException("An open property is not coming soon; complete it or announce it first.");
+
     public IPropertyState Publish(Property property)
         => throw new InvalidStateTransitionException("Property is already open.");
 

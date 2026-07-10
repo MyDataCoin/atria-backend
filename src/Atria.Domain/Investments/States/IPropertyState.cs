@@ -12,6 +12,9 @@ public interface IPropertyState
     /// <summary>Draft or Open -> ComingSoon: teases the property (or pulls an open one back to "coming soon").</summary>
     IPropertyState Announce(Property property);
 
+    /// <summary>ComingSoon -> Draft: hides the property from the public site again.</summary>
+    IPropertyState Unannounce(Property property);
+
     /// <summary>Draft or ComingSoon -> Open: publishes the offering, opening it to investors.</summary>
     IPropertyState Publish(Property property);
 

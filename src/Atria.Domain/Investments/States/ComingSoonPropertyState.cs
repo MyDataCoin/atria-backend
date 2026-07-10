@@ -10,6 +10,8 @@ public sealed class ComingSoonPropertyState : IPropertyState
     public IPropertyState Announce(Property property)
         => throw new InvalidStateTransitionException("Property is already announced as coming soon.");
 
+    public IPropertyState Unannounce(Property property) => DraftPropertyState.Instance;
+
     public IPropertyState Publish(Property property) => OpenPropertyState.Instance;
 
     public IPropertyState Complete(Property property)
