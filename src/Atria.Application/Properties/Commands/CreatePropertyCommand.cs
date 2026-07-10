@@ -11,4 +11,9 @@ public sealed record CreatePropertyCommand(
     decimal TotalValue,
     decimal TokenPrice,
     long TotalTokens,
-    string Currency) : IRequest<Result<Guid>>;
+    string Currency,
+    string? PropertyType = null,
+    string? City = null,
+    int? YearBuilt = null,
+    string? Developer = null,
+    int? Floors = null) : IRequest<Result<Guid>>;

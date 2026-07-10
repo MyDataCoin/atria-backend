@@ -14,6 +14,11 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Name).HasMaxLength(256).IsRequired();
         b.Property(p => p.Description).HasMaxLength(4096);
         b.Property(p => p.Address).HasMaxLength(512);
+        b.Property(p => p.PropertyType).HasMaxLength(64);
+        b.Property(p => p.City).HasMaxLength(128);
+        b.Property(p => p.YearBuilt);
+        b.Property(p => p.Developer).HasMaxLength(256);
+        b.Property(p => p.Floors);
         b.Property(p => p.TotalValue).HasPrecision(18, 2).IsRequired();
         b.Property(p => p.TokenPrice).HasPrecision(18, 2).IsRequired();
         b.Property(p => p.TotalTokens).IsRequired();

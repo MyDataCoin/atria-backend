@@ -93,7 +93,8 @@ public sealed class PropertiesController : ApiControllerBase
     {
         var result = await Sender.Send(new CreatePropertyCommand(
             request.Name, request.Description, request.Address, request.TotalValue,
-            request.TokenPrice, request.TotalTokens, request.Currency), ct);
+            request.TokenPrice, request.TotalTokens, request.Currency,
+            request.PropertyType, request.City, request.YearBuilt, request.Developer, request.Floors), ct);
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 

@@ -184,6 +184,45 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task Create_PersistsCharacteristics_ReturnedInReadModel()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+
+        var create = await admin.PostAsJsonAsync(PropertiesRoute, new
+        {
+            name = "Ala-Too Business Center",
+            description = "Class-A office tower",
+            address = "Chuy Ave 136, Bishkek",
+            totalValue = 5_000_000m,
+            tokenPrice = 500m,
+            totalTokens = 10_000L,
+            currency = "KGS",
+            propertyType = "commercial",
+            city = "Bishkek",
+            yearBuilt = 2019,
+            developer = "Ala-Too Development",
+            floors = 24,
+        });
+        create.StatusCode.Should().Be(HttpStatusCode.Created);
+        using var createdDoc = JsonDocument.Parse(await create.Content.ReadAsStringAsync());
+        var id = createdDoc.RootElement.GetString()!;
+
+        // Publish so the anonymous public site can read the object, then assert every characteristic.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var anon = _factory.CreateClient();
+        var dto = await GetPropertyAsync(anon, id);
+        dto.GetProperty("address").GetString().Should().Be("Chuy Ave 136, Bishkek");
+        dto.GetProperty("propertyType").GetString().Should().Be("commercial");
+        dto.GetProperty("city").GetString().Should().Be("Bishkek");
+        dto.GetProperty("yearBuilt").GetInt32().Should().Be(2019);
+        dto.GetProperty("developer").GetString().Should().Be("Ala-Too Development");
+        dto.GetProperty("floors").GetInt32().Should().Be(24);
+    }
+
+    [Fact]
     public async Task PauseAndResume_ToggleSalesPaused_ExposedAnonymously()
     {
         var admin = _factory.CreateClient();

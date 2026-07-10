@@ -35,6 +35,7 @@ public sealed class GetPropertiesQueryHandler
             .Select(p => new PropertyDto(
                 p.Id, p.Name, p.Description, p.TokenPrice,
                 p.AvailableTokens, p.TotalTokens, p.Currency, PropertyDto.ToWireStatus(p.Status), p.SalesPaused,
+                p.Address, p.PropertyType, p.City, p.YearBuilt, p.Developer, p.Floors,
                 p.Images.Select(i => new PropertyImageDto(i.Id, i.Url)).ToList(),
                 p.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList()))
             .ToList();

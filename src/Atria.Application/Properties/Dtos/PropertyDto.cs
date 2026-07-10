@@ -12,6 +12,12 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="Currency">3-letter ISO currency code of the token price (e.g. USD, KGS).</param>
 /// <param name="Status">Lifecycle status, lowercase: <c>draft</c> | <c>coming_soon</c> | <c>open</c> | <c>completed</c>.</param>
 /// <param name="SalesPaused">Whether purchases are paused (blocks "buy" on the public site); orthogonal to status.</param>
+/// <param name="Address">Physical address; <c>null</c> when unset.</param>
+/// <param name="PropertyType">Kind of property (e.g. residential, commercial); <c>null</c> when unset.</param>
+/// <param name="City">City the property is in; <c>null</c> when unset.</param>
+/// <param name="YearBuilt">Year the property was built; <c>null</c> when unset.</param>
+/// <param name="Developer">Developer / builder name; <c>null</c> when unset.</param>
+/// <param name="Floors">Number of floors; <c>null</c> when unset.</param>
 /// <param name="Images">The property's photos (max 3), each with a public URL.</param>
 /// <param name="Documents">The property's documents, each with a public URL.</param>
 public sealed record PropertyDto(
@@ -24,6 +30,12 @@ public sealed record PropertyDto(
     string Currency,
     string Status,
     bool SalesPaused,
+    string? Address,
+    string? PropertyType,
+    string? City,
+    int? YearBuilt,
+    string? Developer,
+    int? Floors,
     IReadOnlyList<PropertyImageDto> Images,
     IReadOnlyList<PropertyDocumentDto> Documents)
 {

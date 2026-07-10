@@ -15,6 +15,14 @@ public sealed class Property : AggregateRoot
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
     public string? Address { get; private set; }
+
+    // Descriptive characteristics captured on creation (admin form). All optional.
+    public string? PropertyType { get; private set; }
+    public string? City { get; private set; }
+    public int? YearBuilt { get; private set; }
+    public string? Developer { get; private set; }
+    public int? Floors { get; private set; }
+
     public decimal TotalValue { get; private set; }
     public decimal TokenPrice { get; private set; }
     public long TotalTokens { get; private set; }
@@ -43,7 +51,9 @@ public sealed class Property : AggregateRoot
 
     public static Property Create(
         string name, string? description, string? address, decimal totalValue,
-        decimal tokenPrice, long totalTokens, string currency)
+        decimal tokenPrice, long totalTokens, string currency,
+        string? propertyType = null, string? city = null, int? yearBuilt = null,
+        string? developer = null, int? floors = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Property name is required.");
@@ -62,6 +72,11 @@ public sealed class Property : AggregateRoot
             Name = name,
             Description = description,
             Address = address,
+            PropertyType = propertyType,
+            City = city,
+            YearBuilt = yearBuilt,
+            Developer = developer,
+            Floors = floors,
             TotalValue = totalValue,
             TokenPrice = tokenPrice,
             TotalTokens = totalTokens,

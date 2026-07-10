@@ -74,7 +74,12 @@ public sealed record CreatePropertyRequest(
     decimal TotalValue,
     decimal TokenPrice,
     long TotalTokens,
-    string Currency);
+    string Currency,
+    string? PropertyType = null,
+    string? City = null,
+    int? YearBuilt = null,
+    string? Developer = null,
+    int? Floors = null);
 
 /// <summary>POST /investments/{applicationId}/payments body.</summary>
 /// <param name="Provider">Payment provider to create the session with, sent by name (for example <c>Stripe</c> or <c>BankTransfer</c>).</param>

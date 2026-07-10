@@ -15,5 +15,12 @@ public sealed class CreatePropertyCommandValidator : AbstractValidator<CreatePro
         RuleFor(x => x.TokenPrice).GreaterThan(0);
         RuleFor(x => x.TotalTokens).GreaterThan(0);
         RuleFor(x => x.Currency).NotEmpty().Length(3);
+
+        // Optional descriptive characteristics.
+        RuleFor(x => x.PropertyType).MaximumLength(64);
+        RuleFor(x => x.City).MaximumLength(128);
+        RuleFor(x => x.Developer).MaximumLength(256);
+        RuleFor(x => x.YearBuilt).InclusiveBetween(1800, 2100).When(x => x.YearBuilt is not null);
+        RuleFor(x => x.Floors).InclusiveBetween(1, 500).When(x => x.Floors is not null);
     }
 }
