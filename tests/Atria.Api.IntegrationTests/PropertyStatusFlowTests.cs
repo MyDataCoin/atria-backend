@@ -35,9 +35,9 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         // Admin creates a property -> starts as draft.
         var id = await CreatePropertyAsync(admin);
 
-        // Anonymous GET /properties exposes a lowercase status and no isActive field.
+        // Admin GET exposes a lowercase status and no isActive field (drafts are admin-only).
         var anon = _factory.CreateClient();
-        var draft = await GetPropertyAsync(anon, id);
+        var draft = await GetPropertyAsync(admin, id);
         draft.GetProperty("status").GetString().Should().Be("draft");
         draft.TryGetProperty("isActive", out _).Should().BeFalse("the DTO must no longer expose isActive");
 
@@ -72,7 +72,7 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         var anon = _factory.CreateClient();
 
         var id = await CreatePropertyAsync(admin);
-        (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("draft");
+        (await GetPropertyAsync(admin, id)).GetProperty("status").GetString().Should().Be("draft");
 
         // Announce (Draft -> ComingSoon), Admin only.
         (await admin.PostAsync($"{PropertiesRoute}/{id}/announce", null))
@@ -92,6 +92,33 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         (await admin.PostAsync($"{PropertiesRoute}/{id}/complete", null))
             .StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("completed");
+    }
+
+    [Fact]
+    public async Task PublicCatalogue_HidesDrafts_ButShowsComingSoon()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var anon = _factory.CreateClient();
+
+        // One draft (admin-only) and one announced as coming_soon (public).
+        var draftId = await CreatePropertyAsync(admin);
+        var comingSoonId = await CreatePropertyAsync(admin);
+        (await admin.PostAsync($"{PropertiesRoute}/{comingSoonId}/announce", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Anonymous list: contains the coming_soon object, never the draft.
+        var anonIds = await ListPropertyIdsAsync(anon);
+        anonIds.Should().Contain(comingSoonId).And.NotContain(draftId);
+
+        // Anonymous by-id: draft is 404, coming_soon is visible.
+        (await anon.GetAsync($"{PropertiesRoute}/{draftId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await GetPropertyAsync(anon, comingSoonId)).GetProperty("status").GetString().Should().Be("coming_soon");
+
+        // Admin sees both, including the draft.
+        var adminIds = await ListPropertyIdsAsync(admin);
+        adminIds.Should().Contain(draftId).And.Contain(comingSoonId);
+        (await GetPropertyAsync(admin, draftId)).GetProperty("status").GetString().Should().Be("draft");
     }
 
     [Fact]
@@ -165,6 +192,14 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         create.StatusCode.Should().Be(HttpStatusCode.Created);
         using var doc = JsonDocument.Parse(await create.Content.ReadAsStringAsync());
         return doc.RootElement.GetString()!; // body is the new Guid
+    }
+
+    private static async Task<List<string>> ListPropertyIdsAsync(HttpClient client)
+    {
+        var response = await client.GetAsync(PropertiesRoute);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return doc.RootElement.EnumerateArray().Select(p => p.GetProperty("id").GetString()!).ToList();
     }
 
     private static async Task<JsonElement> GetPropertyAsync(HttpClient client, string id)

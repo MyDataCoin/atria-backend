@@ -1,21 +1,33 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Application.Properties.Dtos;
+using Atria.Domain.Investments;
+using Atria.Domain.Users;
 
 namespace Atria.Application.Properties.Queries;
 
-/// <summary>Returns one property by id. Properties are part of the public catalogue.</summary>
+/// <summary>
+/// Returns one property by id. Scoped by role: a draft is admin-only, so it is reported as not
+/// found to the public / non-admin callers (its existence is not leaked).
+/// </summary>
 public sealed class GetPropertyByIdQueryHandler
     : IRequestHandler<GetPropertyByIdQuery, Result<PropertyDto>>
 {
     private readonly IPropertyRepository _properties;
+    private readonly ICurrentUserService _currentUser;
 
-    public GetPropertyByIdQueryHandler(IPropertyRepository properties) => _properties = properties;
+    public GetPropertyByIdQueryHandler(IPropertyRepository properties, ICurrentUserService currentUser)
+    {
+        _properties = properties;
+        _currentUser = currentUser;
+    }
 
     public async Task<Result<PropertyDto>> Handle(GetPropertyByIdQuery request, CancellationToken ct)
     {
         var property = await _properties.GetByIdAsync(request.Id, ct);
-        if (property is null)
+
+        var isAdmin = _currentUser.IsInRole(Role.Admin);
+        if (property is null || (!isAdmin && property.Status == PropertyStatus.Draft))
             return Result.Failure<PropertyDto>(
                 Error.NotFound("property.notFound", "Property not found."));
 
