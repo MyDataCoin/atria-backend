@@ -140,6 +140,47 @@ public sealed class PropertiesController : ApiControllerBase
         return ToActionResult(result);
     }
 
+    /// <summary>Pauses new purchases for a property. Admin only.</summary>
+    /// <remarks>
+    /// Freezes buying (sets <c>salesPaused = true</c>) without changing the lifecycle status, so the
+    /// public site blocks "buy" and new investments are rejected. Requires the <b>Admin</b> role.
+    /// Responds with 404 when the property does not exist and 409 when sales are already paused.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/pause")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Pause(Guid id, CancellationToken ct)
+    {
+        var result = await Sender.Send(new PausePropertyCommand(id), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Resumes purchases for a paused property. Admin only.</summary>
+    /// <remarks>
+    /// Unfreezes buying (sets <c>salesPaused = false</c>). Requires the <b>Admin</b> role. Responds
+    /// with 404 when the property does not exist and 409 when sales are not currently paused.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/resume")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Resume(Guid id, CancellationToken ct)
+    {
+        var result = await Sender.Send(new ResumePropertyCommand(id), ct);
+        return ToActionResult(result);
+    }
+
     /// <summary>Publishes a property's offering, opening it to investors. Admin only.</summary>
     /// <remarks>
     /// Opens the property for purchase from either <b>draft</b> or <b>coming soon</b>. Requires the

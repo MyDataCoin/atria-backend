@@ -34,7 +34,7 @@ public sealed class GetPropertiesQueryHandler
             .Where(p => isAdmin || p.Status != PropertyStatus.Draft)
             .Select(p => new PropertyDto(
                 p.Id, p.Name, p.Description, p.TokenPrice,
-                p.AvailableTokens, p.TotalTokens, p.Currency, PropertyDto.ToWireStatus(p.Status),
+                p.AvailableTokens, p.TotalTokens, p.Currency, PropertyDto.ToWireStatus(p.Status), p.SalesPaused,
                 p.Images.Select(i => new PropertyImageDto(i.Id, i.Url)).ToList(),
                 p.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList()))
             .ToList();

@@ -55,6 +55,10 @@ public sealed class CreateInvestmentCommandHandler
         if (property is null || property.Status != PropertyStatus.Open)
             return Result.Failure<Guid>(Error.NotFound("investment.property_unavailable", "Property not found or not open for investment."));
 
+        // Sales can be frozen independently of the lifecycle status.
+        if (property.SalesPaused)
+            return Result.Failure<Guid>(Error.Conflict("investment.sales_paused", "Purchases are currently paused for this property."));
+
         var remainingCapacity = property.AvailableTokens * property.TokenPrice;
         if (request.Amount > remainingCapacity)
             return Result.Failure<Guid>(Error.Conflict(

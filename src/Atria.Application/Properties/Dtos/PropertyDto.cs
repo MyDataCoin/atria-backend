@@ -11,6 +11,7 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="TotalTokens">Total number of tokens the property was issued with.</param>
 /// <param name="Currency">3-letter ISO currency code of the token price (e.g. USD, KGS).</param>
 /// <param name="Status">Lifecycle status, lowercase: <c>draft</c> | <c>coming_soon</c> | <c>open</c> | <c>completed</c>.</param>
+/// <param name="SalesPaused">Whether purchases are paused (blocks "buy" on the public site); orthogonal to status.</param>
 /// <param name="Images">The property's photos (max 3), each with a public URL.</param>
 /// <param name="Documents">The property's documents, each with a public URL.</param>
 public sealed record PropertyDto(
@@ -22,6 +23,7 @@ public sealed record PropertyDto(
     long TotalTokens,
     string Currency,
     string Status,
+    bool SalesPaused,
     IReadOnlyList<PropertyImageDto> Images,
     IReadOnlyList<PropertyDocumentDto> Documents)
 {

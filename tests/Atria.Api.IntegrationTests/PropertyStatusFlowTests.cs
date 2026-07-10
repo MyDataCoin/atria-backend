@@ -184,6 +184,58 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task PauseAndResume_ToggleSalesPaused_ExposedAnonymously()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var anon = _factory.CreateClient();
+
+        var id = await CreatePropertyAsync(admin);
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Fresh open property: salesPaused is false and visible to the public site.
+        (await GetPropertyAsync(anon, id)).GetProperty("salesPaused").GetBoolean().Should().BeFalse();
+
+        // Pause -> salesPaused true (anonymously visible), so the site can block "buy".
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/pause", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(anon, id)).GetProperty("salesPaused").GetBoolean().Should().BeTrue();
+
+        // Pausing again -> 409.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/pause", null))
+            .StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        // Resume -> salesPaused false.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/resume", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetPropertyAsync(anon, id)).GetProperty("salesPaused").GetBoolean().Should().BeFalse();
+
+        // Resuming when not paused -> 409.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/resume", null))
+            .StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task PauseAndResume_RequireAdminRole()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var id = await CreatePropertyAsync(admin);
+
+        var anon = _factory.CreateClient();
+        (await anon.PostAsync($"{PropertiesRoute}/{id}/pause", null))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anon.PostAsync($"{PropertiesRoute}/{id}/resume", null))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var investor = _factory.CreateClient();
+        await AuthenticateInvestorAsync(investor);
+        (await investor.PostAsync($"{PropertiesRoute}/{id}/pause", null))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Announce_RequiresAdminRole()
     {
         var admin = _factory.CreateClient();

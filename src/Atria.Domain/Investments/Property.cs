@@ -24,6 +24,14 @@ public sealed class Property : AggregateRoot
     // Persisted status enum; the current state is derived from it on demand (EF-friendly).
     public PropertyStatus Status { get; private set; }
 
+    /// <summary>
+    /// Whether new purchases are paused. Orthogonal to <see cref="Status"/>: an admin can freeze
+    /// buying on an open offering without changing its lifecycle. The public site blocks "buy" while
+    /// this is true, and <see cref="Atria.Domain.Factories.InvestmentFactory"/> callers reject new
+    /// investments.
+    /// </summary>
+    public bool SalesPaused { get; private set; }
+
     private readonly List<PropertyImage> _images = new();
     public IReadOnlyCollection<PropertyImage> Images => _images.AsReadOnly();
 
@@ -73,6 +81,12 @@ public sealed class Property : AggregateRoot
     /// <summary>Reverses an announcement (ComingSoon -> Draft), hiding the property from the site again.</summary>
     public void Unannounce()
         => Status = PropertyStateFactory.Create(Status).Unannounce(this).Status;
+
+    /// <summary>Freezes new purchases (orthogonal to the lifecycle status).</summary>
+    public void PauseSales() => SalesPaused = true;
+
+    /// <summary>Resumes new purchases.</summary>
+    public void ResumeSales() => SalesPaused = false;
 
     /// <summary>
     /// Publishes the property, opening it to investors (Draft or ComingSoon -> Open). A property can

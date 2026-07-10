@@ -18,6 +18,29 @@ public sealed class PropertyStateTests
     }
 
     [Fact]
+    public void Create_SalesNotPausedByDefault()
+    {
+        var property = NewProperty();
+
+        property.SalesPaused.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PauseAndResumeSales_ToggleTheFlag_IndependentOfStatus()
+    {
+        var property = NewProperty();
+        property.Publish(); // Open
+
+        property.PauseSales();
+        property.SalesPaused.Should().BeTrue();
+        property.Status.Should().Be(PropertyStatus.Open); // status untouched
+
+        property.ResumeSales();
+        property.SalesPaused.Should().BeFalse();
+        property.Status.Should().Be(PropertyStatus.Open);
+    }
+
+    [Fact]
     public void Publish_MovesDraftToOpen()
     {
         var property = NewProperty();
