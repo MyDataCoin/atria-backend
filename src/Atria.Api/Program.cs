@@ -56,6 +56,21 @@ builder.Services
     .AddJsonOptions(o =>
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+// --- CORS: let browsers on the configured origins call the API directly. The public marketing
+//     site has no dev-proxy (unlike the admin dashboard), so it needs cross-origin access to the
+//     anonymous catalogue (GET /properties). Origins come from Cors:AllowedOrigins, falling back
+//     to the public site. Auth is via the Authorization header (bearer), not cookies, so
+//     AllowCredentials is not needed. ---
+const string CorsPolicy = "AtriaCors";
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() is { Length: > 0 } configured
+    ? configured
+    : new[] { "https://atria.eaysdev.online" };
+builder.Services.AddCors(options =>
+    options.AddPolicy(CorsPolicy, policy => policy
+        .WithOrigins(corsOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
+
 // --- API versioning: default v1.0, URL segment reader, grouped explorer for Swagger. ---
 builder.Services
     .AddApiVersioning(o =>
@@ -223,6 +238,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
+
+// CORS must sit between routing and auth so preflight (OPTIONS) is answered before auth runs.
+app.UseCors(CorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();

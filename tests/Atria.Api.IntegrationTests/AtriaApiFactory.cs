@@ -56,6 +56,12 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 ["Jwt:AccessTokenMinutes"] = "15",
                 ["Jwt:RefreshTokenDays"] = "30",
 
+                // Admin (section "Admin"): static admin login is enabled when Password is non-empty,
+                // so tests can obtain an Admin bearer token via POST /auth/admin/login.
+                ["Admin:Username"] = "admin",
+                ["Admin:Password"] = "admin-test-password",
+                ["Admin:UserId"] = "11111111-1111-1111-1111-111111111111",
+
                 // Encryption (section "Encryption"): base64 of exactly 32 bytes.
                 ["Encryption:Key"] = encryptionKey,
 
