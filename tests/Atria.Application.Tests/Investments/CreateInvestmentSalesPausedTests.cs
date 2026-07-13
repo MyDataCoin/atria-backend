@@ -18,11 +18,13 @@ public sealed class CreateInvestmentSalesPausedTests
     private readonly IInvestmentRepository _investments = Substitute.For<IInvestmentRepository>();
     private readonly IKycRepository _kyc = Substitute.For<IKycRepository>();
     private readonly IPropertyRepository _properties = Substitute.For<IPropertyRepository>();
+    private readonly IDealRepository _deals = Substitute.For<IDealRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly ICurrentUserService _currentUser = Substitute.For<ICurrentUserService>();
+    private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
 
     private CreateInvestmentCommandHandler CreateSut() =>
-        new(_investments, _kyc, _properties, _uow, _currentUser);
+        new(_investments, _kyc, _properties, _deals, _uow, _currentUser, _clock);
 
     private static KycProfile ApprovedKyc(Guid userId)
     {

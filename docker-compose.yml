@@ -90,6 +90,15 @@ services:
       Admin__Username: ${ADMIN_USERNAME:-}
       Admin__Password: ${ADMIN_PASSWORD:-}
       Admin__UserId: ${ADMIN_USER_ID:-00000000-0000-0000-0000-000000000000}
+      # Static realtor login (POST /auth/realtor/login). DISABLED unless Realtor__Password is set.
+      # Same shape as the admin login; Realtor__UserId becomes the token subject and the RealtorId
+      # on every deal the account creates.
+      Realtor__Username: ${REALTOR_USERNAME:-}
+      Realtor__Password: ${REALTOR_PASSWORD:-}
+      Realtor__UserId: ${REALTOR_USER_ID:-00000000-0000-0000-0000-000000000000}
+      # Base URL for realtor referral links (token appended as ?ref=...). Points at the investor
+      # frontend's invest landing. Optional — a relative /invest?ref= link is returned when unset.
+      Referral__BaseUrl: ${REFERRAL_BASE_URL:-}
       # Didit hosted-KYC secrets, mapped from the DIDIT_* variables (same flow as NIKITA_PRO_*:
       # GitHub Actions secrets exported into the SSH session, see deploy.yml; local `docker
       # compose up` reads them from the project .env). The :? guard fails the deploy with a

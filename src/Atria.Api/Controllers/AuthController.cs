@@ -45,6 +45,29 @@ public sealed class AuthController : ApiControllerBase
         return ToActionResult(result);
     }
 
+    /// <summary>Logs a realtor in with a static username/password and returns a token pair.</summary>
+    /// <remarks>
+    /// Anonymous endpoint, separate from the phone flow (realtors have no SMS login). Credentials are
+    /// the static <c>Realtor__Username</c> / <c>Realtor__Password</c> from server configuration and are
+    /// checked in constant time; on success a <c>Realtor</c> access token + refresh token are issued
+    /// for the configured realtor user. The feature is disabled (always <c>401</c>) when no realtor
+    /// password is configured. Invalid credentials return <c>401</c> without revealing which field failed.
+    /// </remarks>
+    /// <param name="request">The realtor username and static password.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="200">Credentials accepted; access and refresh tokens returned.</response>
+    /// <response code="400">The request failed validation (missing username or password).</response>
+    /// <response code="401">Realtor login is disabled or the credentials are invalid.</response>
+    [HttpPost("realtor/login")]
+    [ProducesResponseType<AuthTokensDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RealtorLogin(RealtorLoginRequest request, CancellationToken ct)
+    {
+        var result = await Sender.Send(new RealtorLoginCommand(request.Username, request.Password), ct);
+        return ToActionResult(result);
+    }
+
     /// <summary>Rotates a refresh token into a fresh access + refresh pair.</summary>
     /// <remarks>
     /// Anonymous endpoint. Exchanges a valid refresh token for a brand-new access + refresh

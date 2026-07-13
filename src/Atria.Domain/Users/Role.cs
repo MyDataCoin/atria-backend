@@ -5,5 +5,6 @@ public enum Role
 {
     Admin = 0,
     Investor = 1,
-    Compliance = 2
+    Compliance = 2,
+    Realtor = 3
 }

@@ -7,7 +7,11 @@ using Atria.Domain.Kyc;
 namespace Atria.Application.Investments.Commands;
 
 /// <summary>Creates a PendingPayment investment for the current investor.</summary>
-public sealed record CreateInvestmentCommand(Guid PropertyId, decimal Amount) : IRequest<Result<Guid>>;
+/// <param name="PropertyId">The property to invest in.</param>
+/// <param name="Amount">The amount to commit.</param>
+/// <param name="ReferralToken">Optional realtor referral token the investor arrived with.</param>
+public sealed record CreateInvestmentCommand(Guid PropertyId, decimal Amount, string? ReferralToken = null)
+    : IRequest<Result<Guid>>;
 
 /// <summary>
 /// Enforces approved-KYC and property availability, then creates the investment
@@ -20,21 +24,27 @@ public sealed class CreateInvestmentCommandHandler
     private readonly IInvestmentRepository _investments;
     private readonly IKycRepository _kyc;
     private readonly IPropertyRepository _properties;
+    private readonly IDealRepository _deals;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUser;
+    private readonly IDateTimeProvider _clock;
 
     public CreateInvestmentCommandHandler(
         IInvestmentRepository investments,
         IKycRepository kyc,
         IPropertyRepository properties,
+        IDealRepository deals,
         IUnitOfWork unitOfWork,
-        ICurrentUserService currentUser)
+        ICurrentUserService currentUser,
+        IDateTimeProvider clock)
     {
         _investments = investments;
         _kyc = kyc;
         _properties = properties;
+        _deals = deals;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
+        _clock = clock;
     }
 
     public async Task<Result<Guid>> Handle(CreateInvestmentCommand request, CancellationToken ct)
@@ -70,9 +80,20 @@ public sealed class CreateInvestmentCommandHandler
             return Result.Failure<Guid>(Error.Conflict(
                 "investment.amount_too_low", "The amount must cover at least one token."));
 
+        // If the investor arrived via a realtor's referral link, keep the token only when it still
+        // resolves to a redeemable deal for THIS property. A missing/expired/mismatched token is
+        // ignored (the purchase proceeds without a referral) rather than blocking the investment.
+        string? referralToken = null;
+        if (!string.IsNullOrWhiteSpace(request.ReferralToken))
+        {
+            var deal = await _deals.GetByReferralTokenAsync(request.ReferralToken, ct);
+            if (deal is not null && deal.PropertyId == request.PropertyId && deal.IsRedeemable(_clock.UtcNow))
+                referralToken = deal.ReferralToken;
+        }
+
         // The property defines the settlement currency for the investment.
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId.Value, request.PropertyId, tokenCount, request.Amount, property.Currency);
+            investorId.Value, request.PropertyId, tokenCount, request.Amount, property.Currency, referralToken);
 
         await _investments.AddAsync(investment, ct);
         await _unitOfWork.SaveChangesAsync(ct);

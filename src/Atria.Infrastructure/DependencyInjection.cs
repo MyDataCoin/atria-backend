@@ -6,6 +6,7 @@ using Atria.Application.Audit.EventHandlers;
 using Atria.Domain.Common;
 using Atria.Infrastructure.Compliance;
 using Atria.Infrastructure.Configuration;
+using Atria.Infrastructure.Deals;
 using Atria.Infrastructure.Events;
 using Atria.Infrastructure.Identity;
 using Atria.Infrastructure.Kyc.Providers;
@@ -60,6 +61,13 @@ public static class DependencyInjection
         // without DataAnnotations validation so a stack with no admin password still boots.
         services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
 
+        // Realtor static-login options are OPTIONAL too (disabled when Password is empty).
+        services.Configure<RealtorOptions>(configuration.GetSection(RealtorOptions.SectionName));
+
+        // Referral link base URL (used to build shareable deal links). Optional; a relative link is
+        // returned when unset.
+        services.Configure<ReferralOptions>(configuration.GetSection(ReferralOptions.SectionName));
+
         // Public media storage location (property photos/documents).
         services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
         BindValidated<DiditOptions>(services, configuration, DiditOptions.SectionName);
@@ -99,6 +107,7 @@ public static class DependencyInjection
         services.AddScoped<IConsentRepository, ConsentRepository>();
         services.AddScoped<IInvestmentRepository, InvestmentRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
+        services.AddScoped<IDealRepository, DealRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IComplianceRepository, ComplianceRepository>();
@@ -137,6 +146,8 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IOtpService, OtpService>();
         services.AddScoped<IAdminAuthenticator, AdminAuthenticator>();
+        services.AddScoped<IRealtorAuthenticator, RealtorAuthenticator>();
+        services.AddScoped<IReferralLinkBuilder, ReferralLinkBuilder>();
     }
 
     // --- Strategies (registered per concrete type so handlers get IEnumerable<...>) ---
@@ -210,6 +221,7 @@ public static class DependencyInjection
     {
         services.AddHostedService<OutboxDispatcherBackgroundService>();
         services.AddHostedService<BlockchainOperationWorker>();
+        services.AddHostedService<DealExpiryBackgroundService>();
     }
 
     // --- Application assembly scan: request handlers, event handlers, validators ---

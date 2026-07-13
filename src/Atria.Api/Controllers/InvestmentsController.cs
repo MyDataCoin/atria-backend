@@ -37,7 +37,8 @@ public sealed class InvestmentsController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Create(CreateInvestmentRequest request, CancellationToken ct)
     {
-        var result = await Sender.Send(new CreateInvestmentCommand(request.PropertyId, request.Amount), ct);
+        var result = await Sender.Send(
+            new CreateInvestmentCommand(request.PropertyId, request.Amount, request.ReferralToken), ct);
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 

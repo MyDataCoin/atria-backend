@@ -62,6 +62,15 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 ["Admin:Password"] = "admin-test-password",
                 ["Admin:UserId"] = "11111111-1111-1111-1111-111111111111",
 
+                // Realtor (section "Realtor"): static realtor login is enabled when Password is
+                // non-empty, so tests can obtain a Realtor bearer token via POST /auth/realtor/login.
+                ["Realtor:Username"] = "realtor",
+                ["Realtor:Password"] = "realtor-test-password",
+                ["Realtor:UserId"] = "22222222-2222-2222-2222-222222222222",
+
+                // Referral (section "Referral"): base URL used to build shareable deal links.
+                ["Referral:BaseUrl"] = "https://atria.test/invest",
+
                 // Encryption (section "Encryption"): base64 of exactly 32 bytes.
                 ["Encryption:Key"] = encryptionKey,
 

@@ -12,6 +12,9 @@ public sealed class UserRepository : Repository<User>, IUserRepository
     public Task<User?> GetByPhoneAsync(string phone, CancellationToken ct)
         => Set.FirstOrDefaultAsync(u => u.PhoneNumber == phone, ct);
 
+    public Task<int> CountByRoleAsync(Role role, CancellationToken ct)
+        => Set.AsNoTracking().CountAsync(u => u.Role == role && u.DeletedAtUtc == null, ct);
+
     public async Task<IReadOnlyList<(User User, KycProfile? Kyc)>> GetOverviewAsync(CancellationToken ct)
     {
         // LEFT JOIN users -> kyc_profiles. Materializing the KycProfile entity (not projecting

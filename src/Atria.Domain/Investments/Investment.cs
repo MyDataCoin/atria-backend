@@ -23,12 +23,19 @@ public sealed class Investment : AggregateRoot
     // Persisted status enum; the current state is derived from it on demand (EF-friendly).
     public InvestmentStatus Status { get; private set; }
 
+    /// <summary>
+    /// Referral token of the deal this purchase was made under, if the investor arrived via a
+    /// realtor's link. Carried so the deal can be settled when the investment activates; null otherwise.
+    /// </summary>
+    public string? ReferralToken { get; private set; }
+
     // private ctor: creation only through the factory
     private Investment() { }
 
     // Used by InvestmentFactory (same assembly) to build a PendingPayment investment.
     internal static Investment CreatePending(
-        Guid investorId, Guid propertyId, long tokenCount, decimal amount, string currency)
+        Guid investorId, Guid propertyId, long tokenCount, decimal amount, string currency,
+        string? referralToken)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -37,7 +44,8 @@ public sealed class Investment : AggregateRoot
             TokenCount = tokenCount,
             Amount = amount,
             Currency = currency,
-            Status = InvestmentStatus.PendingPayment
+            Status = InvestmentStatus.PendingPayment,
+            ReferralToken = referralToken
         };
 
     /// <summary>PendingPayment -> Active: raises payment-completion + activation events.</summary>

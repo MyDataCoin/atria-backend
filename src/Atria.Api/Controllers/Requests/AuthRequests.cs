@@ -17,6 +17,11 @@ public sealed record RefreshTokenRequest(string RefreshToken);
 /// <param name="Password">The configured static admin password.</param>
 public sealed record AdminLoginRequest(string Username, string Password);
 
+/// <summary>POST /auth/realtor/login body. Static realtor credentials from server configuration.</summary>
+/// <param name="Username">The configured realtor username.</param>
+/// <param name="Password">The configured static realtor password.</param>
+public sealed record RealtorLoginRequest(string Username, string Password);
+
 /// <summary>POST /auth/register/phone/request-otp body. The IP is captured server-side.</summary>
 /// <param name="Phone">Kyrgyz phone number in <c>+996XXXXXXXXX</c> format, e.g. <c>+996700123456</c>.</param>
 public sealed record RequestOtpRequest(string Phone);
@@ -51,7 +56,13 @@ public sealed record ReviewKycRequest(bool Approve, string? Reason);
 /// <summary>POST /investments body.</summary>
 /// <param name="PropertyId">Identifier of the property to invest in.</param>
 /// <param name="Amount">Amount the investor wishes to commit; must be greater than 0.</param>
-public sealed record CreateInvestmentRequest(Guid PropertyId, decimal Amount);
+/// <param name="ReferralToken">Optional realtor referral token the investor arrived with; an invalid or expired token is ignored.</param>
+public sealed record CreateInvestmentRequest(Guid PropertyId, decimal Amount, string? ReferralToken = null);
+
+/// <summary>POST /deals body. Creates a realtor referral deal for a property.</summary>
+/// <param name="PropertyId">Identifier of the (open) property the referral link points to.</param>
+/// <param name="CommissionPercent">The realtor's commission as a percent of the investor's purchase (0–100).</param>
+public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercent);
 
 /// <summary>POST /consent body. Records the caller's acceptance of a consent document version.</summary>
 /// <param name="Type">The consent type, sent by name (e.g. <c>Pdn</c> for the personal-data notice).</param>

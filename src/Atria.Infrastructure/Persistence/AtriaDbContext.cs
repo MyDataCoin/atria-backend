@@ -4,6 +4,7 @@ using Atria.Domain.Audit;
 using Atria.Domain.Common;
 using Atria.Domain.Compliance;
 using Atria.Domain.Consents;
+using Atria.Domain.Deals;
 using Atria.Domain.Documents;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
@@ -34,6 +35,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<Consent> Consents => Set<Consent>();
     public DbSet<Investment> Investments => Set<Investment>();
     public DbSet<Property> Properties => Set<Property>();
+    public DbSet<Deal> Deals => Set<Deal>();
     public DbSet<DocumentRecord> Documents => Set<DocumentRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();

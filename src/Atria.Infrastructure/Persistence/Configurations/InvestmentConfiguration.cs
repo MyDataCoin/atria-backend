@@ -17,6 +17,7 @@ internal sealed class InvestmentConfiguration : IEntityTypeConfiguration<Investm
         b.Property(i => i.Amount).HasPrecision(18, 2).IsRequired();
         b.Property(i => i.Currency).HasMaxLength(8).IsRequired();
         b.Property(i => i.Status).HasConversion<int>().IsRequired();
+        b.Property(i => i.ReferralToken).HasMaxLength(64);
 
         b.HasIndex(i => i.InvestorId);
         b.HasIndex(i => i.PropertyId);

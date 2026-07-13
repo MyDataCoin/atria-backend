@@ -26,12 +26,13 @@ public sealed class GetPropertiesQueryHandler
     {
         var properties = await _properties.GetAllAsync(ct);
 
-        // Drafts are admin-only. The public site (anonymous) and investors see coming_soon / open /
-        // completed, but never a draft.
-        var isAdmin = _currentUser.IsInRole(Role.Admin);
+        // Drafts are staff-only. The public site (anonymous) and investors see coming_soon / open /
+        // completed, but never a draft. Admins and realtors (whose dashboard shows the full catalogue)
+        // see every status.
+        var seesDrafts = _currentUser.IsInRole(Role.Admin) || _currentUser.IsInRole(Role.Realtor);
 
         IReadOnlyList<PropertyDto> dtos = properties
-            .Where(p => isAdmin || p.Status != PropertyStatus.Draft)
+            .Where(p => seesDrafts || p.Status != PropertyStatus.Draft)
             .Select(p => new PropertyDto(
                 p.Id, p.Name, p.Description, p.TokenPrice,
                 p.AvailableTokens, p.TotalTokens, p.Currency, PropertyDto.ToWireStatus(p.Status), p.SalesPaused,
