@@ -98,6 +98,29 @@ public sealed class PropertiesController : ApiControllerBase
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
+    /// <summary>Edits a property's details. Admin only.</summary>
+    /// <remarks>
+    /// Requires the <b>Admin</b> role. Only the supplied fields are changed, so a client can PATCH a
+    /// single field. Economics (total value, token price, supply, currency) and the lifecycle status
+    /// are <b>not</b> editable here — changing them after investors have bought in would rewrite the
+    /// terms of a live offering. Responds with 404 when the property does not exist. The edit is
+    /// recorded in the audit journal as <c>PropertyUpdated</c>.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="request">The fields to change.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPatch("{id:guid}")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(Guid id, UpdatePropertyRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new UpdatePropertyCommand(
+            id, request.Name, request.Description, request.Address, request.PropertyType,
+            request.City, request.YearBuilt, request.Developer, request.Floors), ct));
+
     /// <summary>Announces a property as "coming soon". Admin only.</summary>
     /// <remarks>
     /// Moves a <b>draft</b> or <b>open</b> property to <b>coming soon</b> — teasing a new draft on the

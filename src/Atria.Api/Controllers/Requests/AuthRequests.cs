@@ -64,6 +64,25 @@ public sealed record CreateInvestmentRequest(Guid PropertyId, decimal Amount, st
 /// <param name="CommissionPercent">The realtor's commission as a percent of the investor's purchase (0–100).</param>
 public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercent);
 
+/// <summary>PATCH /properties/{id} body. Only the supplied fields are changed.</summary>
+/// <param name="Name">New display name; <c>null</c> to leave unchanged.</param>
+/// <param name="Description">New description; <c>null</c> to leave unchanged.</param>
+/// <param name="Address">New address; <c>null</c> to leave unchanged.</param>
+/// <param name="PropertyType">New kind (e.g. residential); <c>null</c> to leave unchanged.</param>
+/// <param name="City">New city; <c>null</c> to leave unchanged.</param>
+/// <param name="YearBuilt">New build year; <c>null</c> to leave unchanged.</param>
+/// <param name="Developer">New developer; <c>null</c> to leave unchanged.</param>
+/// <param name="Floors">New floor count; <c>null</c> to leave unchanged.</param>
+public sealed record UpdatePropertyRequest(
+    string? Name,
+    string? Description,
+    string? Address,
+    string? PropertyType,
+    string? City,
+    int? YearBuilt,
+    string? Developer,
+    int? Floors);
+
 /// <summary>POST /publications body. Creates and publishes a news-feed item.</summary>
 /// <param name="Type">Kind: <c>financial_report</c> | <c>news_release</c> | <c>valuation_audit</c> | <c>general_news</c>.</param>
 /// <param name="Title">Headline (max 200 chars).</param>

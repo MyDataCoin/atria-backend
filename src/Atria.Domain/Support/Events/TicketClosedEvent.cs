@@ -6,4 +6,4 @@ namespace Atria.Domain.Support.Events;
 public sealed record TicketClosedEvent(
     Guid TicketId,
     Guid AuthorId,
-    string Subject) : DomainEventBase;
+    string Subject) : DomainEventBase, IExplicitlyAudited;

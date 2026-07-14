@@ -87,6 +87,33 @@ public sealed class Property : AggregateRoot
     }
 
     /// <summary>
+    /// Edits the property's descriptive details. Only non-null arguments are applied, so a caller can
+    /// PATCH a single field. Economics (total value, token price/supply, currency) and the lifecycle
+    /// status are NOT editable here — changing them after investors have bought in would rewrite the
+    /// terms of an existing offering.
+    /// </summary>
+    public void UpdateDetails(
+        string? name = null, string? description = null, string? address = null,
+        string? propertyType = null, string? city = null, int? yearBuilt = null,
+        string? developer = null, int? floors = null)
+    {
+        if (name is not null)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new DomainException("Property name is required.");
+            Name = name;
+        }
+
+        Description = description ?? Description;
+        Address = address ?? Address;
+        PropertyType = propertyType ?? PropertyType;
+        City = city ?? City;
+        YearBuilt = yearBuilt ?? YearBuilt;
+        Developer = developer ?? Developer;
+        Floors = floors ?? Floors;
+    }
+
+    /// <summary>
     /// Announces the property as "coming soon" (Draft or Open -> ComingSoon). Can tease a new draft
     /// or pull an already-open property back off the market into "coming soon".
     /// </summary>

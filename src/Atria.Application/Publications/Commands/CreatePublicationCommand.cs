@@ -22,6 +22,7 @@ public sealed class CreatePublicationCommandHandler
 {
     private readonly IPublicationRepository _publications;
     private readonly IPropertyRepository _properties;
+    private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
@@ -29,12 +30,14 @@ public sealed class CreatePublicationCommandHandler
     public CreatePublicationCommandHandler(
         IPublicationRepository publications,
         IPropertyRepository properties,
+        IAuditWriter audit,
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUser,
         IDateTimeProvider clock)
     {
         _publications = publications;
         _properties = properties;
+        _audit = audit;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
         _clock = clock;
@@ -68,6 +71,13 @@ public sealed class CreatePublicationCommandHandler
             type, request.Title, request.Body, request.PropertyId, authorId.Value, _clock.UtcNow);
 
         await _publications.AddAsync(publication, ct);
+
+        var target = propertyName is null ? "общая новость" : $"объект «{propertyName}»";
+        await _audit.WriteAsync(
+            Audit.AuditEntities.Publication, publication.Id, Audit.AuditEvents.PublicationPublished,
+            $"Опубликовано «{publication.Title}» ({target})",
+            Domain.Audit.AuditSeverity.Success, ct);
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success(PublicationDto.From(publication, propertyName));

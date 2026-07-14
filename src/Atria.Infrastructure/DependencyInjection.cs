@@ -4,6 +4,7 @@ using Amazon.S3;
 using Atria.Application.Abstractions;
 using Atria.Application.Audit.EventHandlers;
 using Atria.Domain.Common;
+using Atria.Infrastructure.Audit;
 using Atria.Infrastructure.Compliance;
 using Atria.Infrastructure.Configuration;
 using Atria.Infrastructure.Deals;
@@ -150,6 +151,8 @@ public static class DependencyInjection
         services.AddScoped<IAdminAuthenticator, AdminAuthenticator>();
         services.AddScoped<IRealtorAuthenticator, RealtorAuthenticator>();
         services.AddScoped<IReferralLinkBuilder, ReferralLinkBuilder>();
+        // Audit entries are written from inside commands so they share the action's transaction.
+        services.AddScoped<IAuditWriter, AuditWriter>();
     }
 
     // --- Strategies (registered per concrete type so handlers get IEnumerable<...>) ---

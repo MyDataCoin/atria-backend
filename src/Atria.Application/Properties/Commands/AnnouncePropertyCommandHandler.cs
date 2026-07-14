@@ -1,5 +1,7 @@
 using Atria.Application.Abstractions;
+using Atria.Application.Audit;
 using Atria.Application.Common;
+using Atria.Domain.Audit;
 using Atria.Domain.Investments;
 using Atria.Domain.Users;
 
@@ -11,15 +13,18 @@ public sealed class AnnouncePropertyCommandHandler
 {
     private readonly IPropertyRepository _properties;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _unitOfWork;
 
     public AnnouncePropertyCommandHandler(
         IPropertyRepository properties,
         ICurrentUserService currentUser,
+        IAuditWriter audit,
         IUnitOfWork unitOfWork)
     {
         _properties = properties;
         _currentUser = currentUser;
+        _audit = audit;
         _unitOfWork = unitOfWork;
     }
 
@@ -44,6 +49,12 @@ public sealed class AnnouncePropertyCommandHandler
 
         property.Announce();
         _properties.Update(property);
+
+        await _audit.WriteAsync(
+            AuditEntities.Property, property.Id, AuditEvents.PropertyAnnounced,
+            $"Объект «{property.Name}» анонсирован как «скоро в продаже»",
+            AuditSeverity.Success, ct);
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success();

@@ -18,13 +18,18 @@ public sealed class CreateTicketCommandHandler
     : IRequestHandler<CreateTicketCommand, Result<TicketDto>>
 {
     private readonly ISupportTicketRepository _tickets;
+    private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUser;
 
     public CreateTicketCommandHandler(
-        ISupportTicketRepository tickets, IUnitOfWork unitOfWork, ICurrentUserService currentUser)
+        ISupportTicketRepository tickets,
+        IAuditWriter audit,
+        IUnitOfWork unitOfWork,
+        ICurrentUserService currentUser)
     {
         _tickets = tickets;
+        _audit = audit;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
     }
@@ -43,6 +48,15 @@ public sealed class CreateTicketCommandHandler
             investorId.Value, request.Subject, request.Category, request.Body, authorRole);
 
         await _tickets.AddAsync(ticket, ct);
+
+        // The actor here is the investor/realtor who opened it — not staff. Warning severity: an
+        // inbound ticket is something the desk must act on.
+        await _audit.WriteAsync(
+            Application.Audit.AuditEntities.SupportTicket, ticket.Id,
+            Application.Audit.AuditEvents.TicketOpened,
+            $"Создан тикет «{ticket.Subject}» ({ticket.Category})",
+            Domain.Audit.AuditSeverity.Warning, ct);
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         // The investor sees their own ticket: no investor block, thread included.

@@ -15,13 +15,18 @@ public sealed record CloseTicketCommand(Guid TicketId) : IRequest<Result>;
 public sealed class CloseTicketCommandHandler : IRequestHandler<CloseTicketCommand, Result>
 {
     private readonly ISupportTicketRepository _tickets;
+    private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUser;
 
     public CloseTicketCommandHandler(
-        ISupportTicketRepository tickets, IUnitOfWork unitOfWork, ICurrentUserService currentUser)
+        ISupportTicketRepository tickets,
+        IAuditWriter audit,
+        IUnitOfWork unitOfWork,
+        ICurrentUserService currentUser)
     {
         _tickets = tickets;
+        _audit = audit;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
     }
@@ -42,6 +47,13 @@ public sealed class CloseTicketCommandHandler : IRequestHandler<CloseTicketComma
             return Result.Failure(Error.Conflict("ticket.already_closed", "Ticket is already closed."));
 
         ticket.Close();
+
+        await _audit.WriteAsync(
+            Application.Audit.AuditEntities.SupportTicket, ticket.Id,
+            Application.Audit.AuditEvents.TicketClosed,
+            $"Тикет «{ticket.Subject}» закрыт",
+            Domain.Audit.AuditSeverity.Success, ct);
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success();

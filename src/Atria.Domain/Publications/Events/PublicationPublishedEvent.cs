@@ -10,4 +10,4 @@ namespace Atria.Domain.Publications.Events;
 public sealed record PublicationPublishedEvent(
     Guid PublicationId,
     Guid? PropertyId,
-    string Title) : DomainEventBase;
+    string Title) : DomainEventBase, IExplicitlyAudited;

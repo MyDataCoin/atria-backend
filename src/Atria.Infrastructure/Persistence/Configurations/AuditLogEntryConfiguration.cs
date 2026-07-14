@@ -16,10 +16,17 @@ internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<Audi
         b.Property(a => a.EventType).HasMaxLength(256).IsRequired();
         b.Property(a => a.DataJson);
         b.Property(a => a.UserId);
+        b.Property(a => a.ActorName).HasMaxLength(256);
+        b.Property(a => a.Summary).HasMaxLength(1024);
+        b.Property(a => a.Severity).HasConversion<int>().IsRequired();
         b.Property(a => a.CorrelationId).HasMaxLength(128);
         b.Property(a => a.OccurredOnUtc).IsRequired();
 
         b.HasIndex(a => a.EntityType);
         b.HasIndex(a => a.EntityId);
+        // The journal is read newest-first and filtered by action / criticality.
+        b.HasIndex(a => a.OccurredOnUtc);
+        b.HasIndex(a => a.EventType);
+        b.HasIndex(a => a.Severity);
     }
 }

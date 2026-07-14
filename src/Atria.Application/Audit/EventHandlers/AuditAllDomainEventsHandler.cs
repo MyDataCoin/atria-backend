@@ -35,6 +35,11 @@ public sealed class AuditAllDomainEventsHandler<TEvent> : IDomainEventHandler<TE
 
     public async Task HandleAsync(TEvent domainEvent, CancellationToken ct)
     {
+        // Events already audited inside their command (with the real actor, a summary and a
+        // severity) must not be logged a second time here as an anonymous duplicate.
+        if (domainEvent is IExplicitlyAudited)
+            return;
+
         var entityType = DeriveEntityType(domainEvent.GetType());
         var entityId = TryReadEntityId(domainEvent);
         var dataJson = TrySerialize(domainEvent);
