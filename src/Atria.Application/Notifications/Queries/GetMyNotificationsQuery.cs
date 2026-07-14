@@ -31,7 +31,8 @@ public sealed class GetMyNotificationsQueryHandler
         var items = await _notifications.GetByUserAsync(userId, ct);
 
         IReadOnlyList<NotificationDto> dtos = items
-            .Select(n => new NotificationDto(n.Id, n.Template, n.Title, n.Body, n.IsRead, n.CreatedAtUtc))
+            .Select(n => new NotificationDto(
+                n.Id, n.Template, n.Title, n.Body, n.IsRead, n.CreatedAtUtc, n.EntityId))
             .ToList();
 
         return Result.Success(dtos);

@@ -10,6 +10,7 @@ using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
 using Atria.Domain.Notifications;
 using Atria.Domain.Outbox;
+using Atria.Domain.Publications;
 using Atria.Domain.Realtors;
 using Atria.Domain.Support;
 using Atria.Domain.Users;
@@ -38,6 +39,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<Deal> Deals => Set<Deal>();
     public DbSet<RealtorProfile> RealtorProfiles => Set<RealtorProfile>();
+    public DbSet<Publication> Publications => Set<Publication>();
     public DbSet<DocumentRecord> Documents => Set<DocumentRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();

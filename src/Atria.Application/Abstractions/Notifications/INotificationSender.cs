@@ -20,9 +20,11 @@ public interface ISmsSender
 /// </summary>
 public interface INotificationSender
 {
+    /// <param name="entityId">Optional entity the notification points at (e.g. a publication id), for deep-linking.</param>
     Task SendAsync(
         Guid userId,
         NotificationTemplate template,
         IReadOnlyDictionary<string, string>? data,
-        CancellationToken ct);
+        CancellationToken ct,
+        Guid? entityId = null);
 }

@@ -9,10 +9,12 @@ namespace Atria.Application.Notifications.Dtos;
 /// <param name="Body">Already-localized body text shown to the user.</param>
 /// <param name="IsRead">Whether the owner has marked the notification as read.</param>
 /// <param name="CreatedAtUtc">UTC timestamp at which the notification was created.</param>
+/// <param name="EntityId">The entity the notification points at (e.g. the published publication), for deep-linking; <c>null</c> when it has no target.</param>
 public sealed record NotificationDto(
     Guid Id,
     NotificationTemplate Template,
     string Title,
     string Body,
     bool IsRead,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    Guid? EntityId);

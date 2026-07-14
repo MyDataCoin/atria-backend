@@ -20,5 +20,8 @@ public enum NotificationTemplate
     // Support tickets (author-facing).
     TicketOpened = 11,
     TicketReplied = 12,
-    TicketClosed = 13
+    TicketClosed = 13,
+
+    // News feed.
+    PublicationPublished = 14
 }

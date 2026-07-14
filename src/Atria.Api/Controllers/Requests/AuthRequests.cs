@@ -64,6 +64,19 @@ public sealed record CreateInvestmentRequest(Guid PropertyId, decimal Amount, st
 /// <param name="CommissionPercent">The realtor's commission as a percent of the investor's purchase (0–100).</param>
 public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercent);
 
+/// <summary>POST /publications body. Creates and publishes a news-feed item.</summary>
+/// <param name="Type">Kind: <c>financial_report</c> | <c>news_release</c> | <c>valuation_audit</c> | <c>general_news</c>.</param>
+/// <param name="Title">Headline (max 200 chars).</param>
+/// <param name="Body">Plain-text body (max 10 000 chars); newlines are preserved.</param>
+/// <param name="PropertyId">Property the item is about; omit or send <c>null</c> for general platform news.</param>
+public sealed record CreatePublicationRequest(string Type, string Title, string Body, Guid? PropertyId);
+
+/// <summary>PATCH /publications/{id} body. Only the supplied fields are changed.</summary>
+/// <param name="Type">New kind; <c>null</c> to leave unchanged.</param>
+/// <param name="Title">New headline; <c>null</c> to leave unchanged.</param>
+/// <param name="Body">New body; <c>null</c> to leave unchanged.</param>
+public sealed record UpdatePublicationRequest(string? Type, string? Title, string? Body);
+
 /// <summary>POST /consent body. Records the caller's acceptance of a consent document version.</summary>
 /// <param name="Type">The consent type, sent by name (e.g. <c>Pdn</c> for the personal-data notice).</param>
 /// <param name="Version">Version of the consent text the user accepted (e.g. <c>1.0</c>).</param>

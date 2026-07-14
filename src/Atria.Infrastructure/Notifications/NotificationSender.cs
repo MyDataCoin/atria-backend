@@ -40,7 +40,8 @@ public sealed class NotificationSender : INotificationSender
         Guid userId,
         NotificationTemplate template,
         IReadOnlyDictionary<string, string>? data,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? entityId = null)
     {
         var channel = ChannelFor(template);
         var (title, body) = Render(template, data);
@@ -48,7 +49,7 @@ public sealed class NotificationSender : INotificationSender
         // Persist the in-app record FIRST, unconditionally, so it always surfaces in /notifications/me
         // (transactional outbox handles durability). This must not depend on a users row: a realtor
         // authenticates from static config and may have no users row, yet still needs its in-app feed.
-        var notification = Notification.Create(userId, template, channel, title, body);
+        var notification = Notification.Create(userId, template, channel, title, body, entityId);
         await _notifications.AddAsync(notification, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
@@ -110,6 +111,9 @@ public sealed class NotificationSender : INotificationSender
         string Commission() => Value("commissionPercent") is { Length: > 0 } c ? c : "0";
         // Ticket subject, rendered as « "subject"» so it drops into a sentence, or empty when absent.
         string Subject() => Value("subject") is { Length: > 0 } s ? $" «{s}»" : string.Empty;
+        // Publication: names the property the item is about, or nothing for general platform news.
+        string PropertySuffix() =>
+            Value("propertyName") is { Length: > 0 } p ? $" Объект: «{p}»." : string.Empty;
 
         return template switch
         {
@@ -147,6 +151,9 @@ public sealed class NotificationSender : INotificationSender
             NotificationTemplate.TicketClosed =>
                 ("Тикет закрыт",
                     $"Ваш тикет{Subject()} закрыт — проблема решена.".TrimEnd()),
+            NotificationTemplate.PublicationPublished =>
+                ("Новая публикация",
+                    $"Опубликовано: «{Value("title")}».{PropertySuffix()}".TrimEnd()),
             _ =>
                 ("Notification", "You have a new notification.")
         };

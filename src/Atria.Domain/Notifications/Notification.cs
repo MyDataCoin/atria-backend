@@ -16,13 +16,20 @@ public sealed class Notification : AggregateRoot
     public bool IsRead { get; private set; }
     public DateTime? ReadAtUtc { get; private set; }
 
+    /// <summary>
+    /// The entity this notification points at (e.g. the published publication), so tapping it in the
+    /// app can deep-link somewhere. Null when the notification has no target.
+    /// </summary>
+    public Guid? EntityId { get; private set; }
+
     // private ctor: creation only through the factory method
     private Notification(
         Guid userId,
         NotificationTemplate template,
         NotificationChannel channel,
         string title,
-        string body)
+        string body,
+        Guid? entityId)
     {
         Id = Guid.NewGuid();
         UserId = userId;
@@ -30,6 +37,7 @@ public sealed class Notification : AggregateRoot
         Channel = channel;
         Title = title;
         Body = body;
+        EntityId = entityId;
         IsRead = false;
     }
 
@@ -38,8 +46,9 @@ public sealed class Notification : AggregateRoot
         NotificationTemplate template,
         NotificationChannel channel,
         string title,
-        string body)
-        => new(userId, template, channel, title, body);
+        string body,
+        Guid? entityId = null)
+        => new(userId, template, channel, title, body, entityId);
 
     /// <summary>Marks the notification as read at the given UTC instant (idempotent).</summary>
     public void MarkRead(DateTime utc)

@@ -17,6 +17,8 @@ internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notif
         b.Property(n => n.Title).HasMaxLength(256).IsRequired();
         b.Property(n => n.Body).HasMaxLength(4096).IsRequired();
         b.Property(n => n.IsRead).IsRequired();
+        // Optional deep-link target (e.g. the published publication).
+        b.Property(n => n.EntityId);
 
         b.HasIndex(n => n.UserId);
     }
