@@ -2,6 +2,7 @@ using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Application.Support.Dtos;
 using Atria.Domain.Support;
+using Role = Atria.Domain.Users.Role;
 
 namespace Atria.Application.Support.Commands;
 
@@ -34,7 +35,12 @@ public sealed class CreateTicketCommandHandler
         if (investorId is null)
             return Result.Failure<TicketDto>(Error.Unauthorized("ticket.unauthorized", "Authentication is required."));
 
-        var ticket = SupportTicket.Open(investorId.Value, request.Subject, request.Category, request.Body);
+        // Capture the opener's role from the JWT so the admin desk can tell a realtor ticket from an
+        // investor one without depending on a users row. Anything non-realtor is treated as investor.
+        var authorRole = _currentUser.Role == Role.Realtor ? Role.Realtor : Role.Investor;
+
+        var ticket = SupportTicket.Open(
+            investorId.Value, request.Subject, request.Category, request.Body, authorRole);
 
         await _tickets.AddAsync(ticket, ct);
         await _unitOfWork.SaveChangesAsync(ct);

@@ -20,16 +20,17 @@ public sealed class SupportTicketRepository : Repository<SupportTicket>, ISuppor
             .Include(t => t.Messages)
             .FirstOrDefaultAsync(t => t.Id == id, ct);
 
-    public async Task<IReadOnlyDictionary<Guid, string?>> GetInvestorNamesAsync(
-        IReadOnlyCollection<Guid> investorIds, CancellationToken ct)
+    public async Task<IReadOnlyDictionary<Guid, string?>> GetAuthorNamesAsync(
+        IReadOnlyCollection<Guid> authorIds, CancellationToken ct)
     {
-        if (investorIds.Count == 0)
+        if (authorIds.Count == 0)
             return new Dictionary<Guid, string?>();
 
         // Materialize the KycProfile entity (not the raw column) so the value converter decrypts
-        // FullName in-memory; same approach as InvestmentRepository.GetActiveByPropertyAsync.
+        // FullName in-memory; same approach as InvestmentRepository.GetActiveByPropertyAsync. A
+        // realtor has no KYC profile, so its name is simply absent (null).
         var profiles = await Db.KycProfiles.AsNoTracking()
-            .Where(k => investorIds.Contains(k.UserId))
+            .Where(k => authorIds.Contains(k.UserId))
             .ToListAsync(ct);
 
         // One profile per user; if duplicates ever exist, the first wins.

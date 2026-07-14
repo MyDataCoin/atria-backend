@@ -36,8 +36,11 @@ public sealed class GetTicketByIdQueryHandler
         TicketInvestorDto? investor = null;
         if (isAdmin)
         {
-            var names = await _tickets.GetInvestorNamesAsync(new[] { ticket.InvestorId }, ct);
-            investor = new TicketInvestorDto(ticket.InvestorId, names.GetValueOrDefault(ticket.InvestorId));
+            var names = await _tickets.GetAuthorNamesAsync(new[] { ticket.InvestorId }, ct);
+            investor = new TicketInvestorDto(
+                ticket.InvestorId,
+                names.GetValueOrDefault(ticket.InvestorId),
+                TicketInvestorDto.ToWireRole(ticket.AuthorRole));
         }
 
         return Result.Success(TicketDto.From(ticket, investor, includeMessages: true));

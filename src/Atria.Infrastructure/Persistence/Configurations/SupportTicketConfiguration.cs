@@ -12,6 +12,7 @@ internal sealed class SupportTicketConfiguration : IEntityTypeConfiguration<Supp
         b.HasKey(t => t.Id);
 
         b.Property(t => t.InvestorId).IsRequired();
+        b.Property(t => t.AuthorRole).HasConversion<int>().IsRequired();
         b.Property(t => t.Subject).HasMaxLength(SupportTicket.MaxSubjectLength).IsRequired();
         b.Property(t => t.Category).HasMaxLength(64).IsRequired();
         b.Property(t => t.Status).HasConversion<int>().IsRequired();

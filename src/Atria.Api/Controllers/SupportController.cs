@@ -11,9 +11,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace Atria.Api.Controllers;
 
 /// <summary>
-/// Support / help-desk tickets, shared by the investor dashboard and the admin panel. Scope is
-/// decided server-side from the JWT role: an Investor sees and touches only their own tickets, an
-/// Admin sees all and replies as <c>support</c>. Message author is never trusted from the body.
+/// Support / help-desk tickets, shared by the investor and realtor dashboards and the admin panel.
+/// Scope is decided server-side from the JWT role: an Investor or Realtor sees and touches only
+/// their own tickets, an Admin sees all and replies as <c>support</c>. Message author is never
+/// trusted from the body.
 /// </summary>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/support/tickets")]
@@ -32,7 +33,7 @@ public sealed class SupportController : ApiControllerBase
     /// <param name="status">Optional status filter: open, pending, or closed.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpGet]
-    [Authorize(Roles = "Investor,Admin")]
+    [Authorize(Roles = "Investor,Realtor,Admin")]
     [ProducesResponseType<IReadOnlyList<TicketDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -51,7 +52,7 @@ public sealed class SupportController : ApiControllerBase
     /// <param name="id">Id of the ticket to fetch.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "Investor,Admin")]
+    [Authorize(Roles = "Investor,Realtor,Admin")]
     [ProducesResponseType<TicketDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -61,16 +62,16 @@ public sealed class SupportController : ApiControllerBase
         return ToActionResult(result);
     }
 
-    /// <summary>Opens a new ticket for the current investor.</summary>
+    /// <summary>Opens a new ticket for the current investor or realtor.</summary>
     /// <remarks>
-    /// Requires the <c>Investor</c> role. The ticket is created <c>open</c> and seeded with the
-    /// supplied body as the first investor message. On success the full ticket (including that
-    /// message) is returned.
+    /// Requires the <c>Investor</c> or <c>Realtor</c> role. The ticket is created <c>open</c> and
+    /// seeded with the supplied body as the first client message. On success the full ticket
+    /// (including that message) is returned.
     /// </remarks>
     /// <param name="request">Subject, category, and opening message.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost]
-    [Authorize(Roles = "Investor")]
+    [Authorize(Roles = "Investor,Realtor")]
     [ProducesResponseType<TicketDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -93,7 +94,7 @@ public sealed class SupportController : ApiControllerBase
     /// <param name="request">The reply body.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("{id:guid}/messages")]
-    [Authorize(Roles = "Investor,Admin")]
+    [Authorize(Roles = "Investor,Realtor,Admin")]
     [ProducesResponseType<TicketMessageDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -113,7 +114,7 @@ public sealed class SupportController : ApiControllerBase
     /// <param name="id">Id of the ticket to close.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("{id:guid}/close")]
-    [Authorize(Roles = "Investor,Admin")]
+    [Authorize(Roles = "Investor,Realtor,Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

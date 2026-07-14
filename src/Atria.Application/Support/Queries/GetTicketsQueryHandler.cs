@@ -39,9 +39,10 @@ public sealed class GetTicketsQueryHandler
             ? await _tickets.GetAllAsync(status, ct)
             : await _tickets.GetByInvestorAsync(userId.Value, status, ct);
 
-        // Only Admin views expose who opened the ticket; resolve all names in one query.
+        // Only Admin views expose who opened the ticket; resolve all names in one query. The role
+        // comes from the ticket itself (captured at creation), not from a users lookup.
         IReadOnlyDictionary<Guid, string?> names = isAdmin
-            ? await _tickets.GetInvestorNamesAsync(
+            ? await _tickets.GetAuthorNamesAsync(
                 tickets.Select(t => t.InvestorId).Distinct().ToList(), ct)
             : new Dictionary<Guid, string?>();
 
@@ -55,7 +56,10 @@ public sealed class GetTicketsQueryHandler
     private static TicketInvestorDto? InvestorFor(
         bool isAdmin, SupportTicket ticket, IReadOnlyDictionary<Guid, string?> names)
         => isAdmin
-            ? new TicketInvestorDto(ticket.InvestorId, names.GetValueOrDefault(ticket.InvestorId))
+            ? new TicketInvestorDto(
+                ticket.InvestorId,
+                names.GetValueOrDefault(ticket.InvestorId),
+                TicketInvestorDto.ToWireRole(ticket.AuthorRole))
             : null;
 
     /// <summary>Parses the optional wire status. Returns false only for a non-empty, unrecognized value.</summary>

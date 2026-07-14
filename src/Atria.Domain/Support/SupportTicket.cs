@@ -1,5 +1,6 @@
 using Atria.Domain.Common;
 using Atria.Domain.Support.States;
+using Atria.Domain.Users;
 
 namespace Atria.Domain.Support;
 
@@ -14,6 +15,14 @@ public sealed class SupportTicket : AggregateRoot
     public const int MaxSubjectLength = 120;
 
     public Guid InvestorId { get; private set; }
+
+    /// <summary>
+    /// Role of whoever opened the ticket (<see cref="Role.Investor"/> or <see cref="Role.Realtor"/>),
+    /// captured from the JWT at creation so the admin desk can tell them apart without depending on a
+    /// <c>users</c> row. Defaults to <see cref="Role.Investor"/> for tickets created before this field.
+    /// </summary>
+    public Role AuthorRole { get; private set; } = Role.Investor;
+
     public string Subject { get; private set; } = null!;
 
     /// <summary>Free-form category label chosen on the client (localized display text).</summary>
@@ -28,8 +37,9 @@ public sealed class SupportTicket : AggregateRoot
     // private ctor: creation only through the factory method
     private SupportTicket() { }
 
-    /// <summary>Opens a new ticket (Open) for an investor, seeded with their first message.</summary>
-    public static SupportTicket Open(Guid investorId, string subject, string category, string body)
+    /// <summary>Opens a new ticket (Open) for a client (investor or realtor), seeded with their first message.</summary>
+    public static SupportTicket Open(
+        Guid investorId, string subject, string category, string body, Role authorRole = Role.Investor)
     {
         if (investorId == Guid.Empty)
             throw new DomainException("Investor is required to open a ticket.");
@@ -44,6 +54,7 @@ public sealed class SupportTicket : AggregateRoot
         {
             Id = Guid.NewGuid(),
             InvestorId = investorId,
+            AuthorRole = authorRole,
             Subject = subject,
             Category = category,
             Status = TicketStatus.Open

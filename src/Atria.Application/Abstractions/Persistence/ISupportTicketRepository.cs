@@ -18,9 +18,10 @@ public interface ISupportTicketRepository : IRepository<SupportTicket>
     Task<SupportTicket?> GetByIdWithMessagesAsync(Guid id, CancellationToken ct);
 
     /// <summary>
-    /// Maps investor ids to their decrypted KYC full name (null when unset or no profile), for the
-    /// Admin panel to show who opened a ticket. Batched to avoid N+1 over a list.
+    /// Maps author user ids to their decrypted KYC full name (null when unset or no profile, e.g. a
+    /// realtor), for the Admin panel to show who opened a ticket. Batched to avoid N+1 over a list.
+    /// The author's role comes from the ticket itself, not this lookup.
     /// </summary>
-    Task<IReadOnlyDictionary<Guid, string?>> GetInvestorNamesAsync(
-        IReadOnlyCollection<Guid> investorIds, CancellationToken ct);
+    Task<IReadOnlyDictionary<Guid, string?>> GetAuthorNamesAsync(
+        IReadOnlyCollection<Guid> authorIds, CancellationToken ct);
 }
