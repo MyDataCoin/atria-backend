@@ -1,3 +1,4 @@
+using System.Linq;
 using Atria.Domain.Common;
 using Atria.Domain.Deals;
 using Atria.Domain.Deals.Events;
@@ -90,6 +91,17 @@ public sealed class DealTests
         deal.Reject();
 
         deal.Status.Should().Be(DealStatus.Rejected);
+    }
+
+    [Fact]
+    public void Reject_RaisesRejectedEvent_Once()
+    {
+        var deal = NewDeal();
+
+        deal.Reject();
+        deal.Reject(); // idempotent: no second event
+
+        deal.DomainEvents.OfType<DealRejectedEvent>().Should().ContainSingle();
     }
 
     [Fact]

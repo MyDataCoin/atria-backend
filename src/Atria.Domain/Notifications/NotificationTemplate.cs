@@ -10,5 +10,10 @@ public enum NotificationTemplate
     ApplicationApproved = 4,
     ApplicationRejected = 5,
     PaymentCompleted = 6,
-    InvestmentActivated = 7
+    InvestmentActivated = 7,
+
+    // Realtor referral deals.
+    DealCreated = 8,
+    DealSucceeded = 9,
+    DealRejected = 10
 }

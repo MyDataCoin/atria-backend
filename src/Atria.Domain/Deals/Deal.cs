@@ -87,6 +87,7 @@ public sealed class Deal : AggregateRoot
             return;
 
         Status = DealStatus.Rejected;
+        RaiseEvent(new DealRejectedEvent(Id, RealtorId, PropertyId, CommissionPercent));
     }
 
     // 32 bytes of entropy, URL-safe base64 (no padding/+//) so it drops straight into a link.

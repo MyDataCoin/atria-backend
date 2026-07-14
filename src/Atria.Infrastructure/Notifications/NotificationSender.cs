@@ -42,24 +42,26 @@ public sealed class NotificationSender : INotificationSender
         IReadOnlyDictionary<string, string>? data,
         CancellationToken ct)
     {
-        var user = await _users.GetByIdAsync(userId, ct);
-        if (user is null)
-        {
-            _logger.LogWarning(
-                "Notification skipped: user not found. UserId={UserId} Template={Template}",
-                userId, template);
-            return;
-        }
-
         var channel = ChannelFor(template);
         var (title, body) = Render(template, data);
 
-        // Persist the in-app record first (transactional outbox handles durability).
+        // Persist the in-app record FIRST, unconditionally, so it always surfaces in /notifications/me
+        // (transactional outbox handles durability). This must not depend on a users row: a realtor
+        // authenticates from static config and may have no users row, yet still needs its in-app feed.
         var notification = Notification.Create(userId, template, channel, title, body);
         await _notifications.AddAsync(notification, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
-        // Then dispatch over the chosen channel using the user's contact details.
+        // Then dispatch over the chosen channel — only when we can resolve the recipient's contact.
+        var user = await _users.GetByIdAsync(userId, ct);
+        if (user is null)
+        {
+            _logger.LogWarning(
+                "Notification persisted in-app but not dispatched: user not found. UserId={UserId} Template={Template}",
+                userId, template);
+            return;
+        }
+
         await DispatchAsync(channel, user, title, body, template, ct);
     }
 
@@ -103,6 +105,11 @@ public sealed class NotificationSender : INotificationSender
         string Value(string key) =>
             data is not null && data.TryGetValue(key, out var v) ? v : string.Empty;
 
+        // Deal notification helpers: fall back gracefully when a field is absent.
+        string Property() => Value("propertyName") is { Length: > 0 } n ? n : "your property";
+        string Commission() => Value("commissionPercent") is { Length: > 0 } c ? c : "0";
+        string DealRef() => Value("dealId") is { Length: > 0 } d ? $"(deal {d})" : string.Empty;
+
         return template switch
         {
             NotificationTemplate.OtpCode =>
@@ -121,6 +128,15 @@ public sealed class NotificationSender : INotificationSender
                 ("Payment received", "We have received your payment. Thank you."),
             NotificationTemplate.InvestmentActivated =>
                 ("Investment activated", "Your investment is now active."),
+            NotificationTemplate.DealCreated =>
+                ("Referral deal created",
+                    $"Your referral link for {Property()} is live (commission {Commission()}%). {DealRef()}".TrimEnd()),
+            NotificationTemplate.DealSucceeded =>
+                ("Referral deal completed",
+                    $"An investor bought through your referral link for {Property()} — you earned your {Commission()}% commission. {DealRef()}".TrimEnd()),
+            NotificationTemplate.DealRejected =>
+                ("Referral link expired",
+                    $"Your referral link for {Property()} expired unused and the deal was cancelled. {DealRef()}".TrimEnd()),
             _ =>
                 ("Notification", "You have a new notification.")
         };
