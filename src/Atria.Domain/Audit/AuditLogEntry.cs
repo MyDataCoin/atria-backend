@@ -102,18 +102,21 @@ public sealed class AuditLogEntry : Entity
         IDomainEvent e,
         string entityType,
         Guid? entityId,
+        string eventType,
+        string? summary,
+        AuditSeverity severity,
         string? dataJson,
         string? correlationId)
         => new(
             entityType,
             entityId,
-            e.GetType().Name,
+            eventType,
             dataJson,
+            // Background (outbox) path: no HTTP context, so the action is attributed to the system.
             userId: null,
-            // Background (outbox) path: no HTTP context, so no actor and no composed summary.
             actorName: null,
-            summary: null,
-            AuditSeverity.Success,
+            summary,
+            severity,
             correlationId,
             e.OccurredOnUtc);
 

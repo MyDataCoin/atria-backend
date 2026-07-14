@@ -8,10 +8,14 @@ using Atria.Domain.Common;
 namespace Atria.Application.Audit.EventHandlers;
 
 /// <summary>
-/// Universal audit handler: writes one <c>AuditLogEntry</c> for EVERY domain event,
-/// regardless of type. The open generic is closed per event type by the dispatcher.
-/// The event payload is serialized as JSON; the entity type and id are derived
-/// heuristically from the event so no per-event wiring is needed.
+/// Background audit handler: writes an <c>AuditLogEntry</c> for domain events that are NOT audited
+/// explicitly inside their command. The open generic is closed per event type by the dispatcher.
+///
+/// Two events are skipped: those marked <see cref="IExplicitlyAudited"/> (already journalled with a
+/// real actor, so logging them here would duplicate the row anonymously), and those
+/// <see cref="AuditNarrator"/> has no Russian description for (KYC and internal plumbing) — the admin
+/// journal is an operations log, not a dump of every event. Everything written here is attributed to
+/// the system: this runs on the outbox worker, where there is no HTTP context and hence no actor.
 /// </summary>
 public sealed class AuditAllDomainEventsHandler<TEvent> : IDomainEventHandler<TEvent>
     where TEvent : IDomainEvent
@@ -40,7 +44,13 @@ public sealed class AuditAllDomainEventsHandler<TEvent> : IDomainEventHandler<TE
         if (domainEvent is IExplicitlyAudited)
             return;
 
-        var entityType = DeriveEntityType(domainEvent.GetType());
+        // Only events the narrator can describe belong in the admin journal — otherwise the row
+        // would show a raw C# class name and an empty details column.
+        if (AuditNarrator.Describe(domainEvent) is not { } narration)
+            return;
+
+        var (summary, severity) = narration;
+        var entityType = AuditNarrator.EntityType(domainEvent);
         var entityId = TryReadEntityId(domainEvent);
         var dataJson = TrySerialize(domainEvent);
 
@@ -48,23 +58,13 @@ public sealed class AuditAllDomainEventsHandler<TEvent> : IDomainEventHandler<TE
             domainEvent,
             entityType,
             entityId,
+            AuditNarrator.ActionName(domainEvent),
+            summary,
+            severity,
             dataJson,
             correlationId: null);
 
         await _repository.AddAsync(entry, ct);
-    }
-
-    /// <summary>
-    /// Entity type derived from the event type name by stripping a trailing
-    /// "Event" suffix (e.g. KycApprovedEvent -> "KycApproved").
-    /// </summary>
-    private static string DeriveEntityType(Type eventType)
-    {
-        var name = eventType.Name;
-        const string suffix = "Event";
-        return name.EndsWith(suffix, StringComparison.Ordinal) && name.Length > suffix.Length
-            ? name[..^suffix.Length]
-            : name;
     }
 
     /// <summary>
