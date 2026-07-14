@@ -11,6 +11,19 @@ namespace Atria.Application.Support.Dtos;
 /// <param name="Role">The author's role, lowercase: <c>investor</c> | <c>realtor</c>, so the panel can tell a realtor ticket from an investor one.</param>
 public sealed record TicketInvestorDto(Guid Id, string? FullName, string Role)
 {
+    /// <summary>Display label shown for a realtor author, who has no KYC full name.</summary>
+    public const string RealtorDisplayName = "Риелтор";
+
     /// <summary>Maps the author's domain role to its lowercase wire value (defaults to <c>investor</c>).</summary>
     public static string ToWireRole(DomainRole role) => role == DomainRole.Realtor ? "realtor" : "investor";
+
+    /// <summary>
+    /// Builds the admin-panel author block: the KYC full name for an investor, or the fixed
+    /// <see cref="RealtorDisplayName"/> label for a realtor (who has no KYC profile).
+    /// </summary>
+    public static TicketInvestorDto ForAdmin(Guid authorId, string? kycFullName, DomainRole authorRole)
+    {
+        var name = authorRole == DomainRole.Realtor ? RealtorDisplayName : kycFullName;
+        return new TicketInvestorDto(authorId, name, ToWireRole(authorRole));
+    }
 }

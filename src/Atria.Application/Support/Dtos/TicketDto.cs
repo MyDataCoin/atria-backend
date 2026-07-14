@@ -23,7 +23,11 @@ public sealed record TicketDto(
 {
     /// <summary>Maps a domain ticket to its wire shape. Pass <paramref name="investor"/> for Admin views and
     /// <paramref name="includeMessages"/> to embed the thread (detail route).</summary>
-    public static TicketDto From(SupportTicket t, TicketInvestorDto? investor = null, bool includeMessages = false)
+    /// <param name="clientAuthorName">Display name for the client's own messages (admin thread view);
+    /// applied to <c>investor</c>-authored messages, not <c>support</c> ones. Null for a client's own view.</param>
+    public static TicketDto From(
+        SupportTicket t, TicketInvestorDto? investor = null, bool includeMessages = false,
+        string? clientAuthorName = null)
         => new(
             t.Id,
             t.Subject,
@@ -33,7 +37,10 @@ public sealed record TicketDto(
             t.UpdatedAtUtc ?? t.CreatedAtUtc,
             investor,
             includeMessages
-                ? t.Messages.OrderBy(m => m.CreatedAtUtc).Select(m => TicketMessageDto.From(m)).ToList()
+                ? t.Messages.OrderBy(m => m.CreatedAtUtc)
+                    .Select(m => TicketMessageDto.From(
+                        m, m.Author == Atria.Domain.Support.MessageAuthor.Investor ? clientAuthorName : null))
+                    .ToList()
                 : null);
 
     internal static string ToWire(TicketStatus status) => status switch

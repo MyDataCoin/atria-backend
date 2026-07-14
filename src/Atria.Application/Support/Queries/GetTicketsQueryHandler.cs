@@ -56,10 +56,8 @@ public sealed class GetTicketsQueryHandler
     private static TicketInvestorDto? InvestorFor(
         bool isAdmin, SupportTicket ticket, IReadOnlyDictionary<Guid, string?> names)
         => isAdmin
-            ? new TicketInvestorDto(
-                ticket.InvestorId,
-                names.GetValueOrDefault(ticket.InvestorId),
-                TicketInvestorDto.ToWireRole(ticket.AuthorRole))
+            ? TicketInvestorDto.ForAdmin(
+                ticket.InvestorId, names.GetValueOrDefault(ticket.InvestorId), ticket.AuthorRole)
             : null;
 
     /// <summary>Parses the optional wire status. Returns false only for a non-empty, unrecognized value.</summary>

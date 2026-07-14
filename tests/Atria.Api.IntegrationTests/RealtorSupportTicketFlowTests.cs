@@ -63,6 +63,13 @@ public sealed class RealtorSupportTicketFlowTests : IClassFixture<AtriaApiFactor
         var investorBlock = adminDoc.RootElement.GetProperty("investor");
         investorBlock.GetProperty("id").GetString().Should().Be(RealtorUserId);
         investorBlock.GetProperty("role").GetString().Should().Be("realtor");
+        // A realtor has no KYC name, so the admin panel shows the fixed realtor label.
+        investorBlock.GetProperty("fullName").GetString().Should().Be("Риелтор");
+
+        // The realtor's own message in the admin thread is labelled with that same name.
+        var clientMsg = adminDoc.RootElement.GetProperty("messages").EnumerateArray()
+            .First(m => m.GetProperty("author").GetString() == "investor");
+        clientMsg.GetProperty("authorName").GetString().Should().Be("Риелтор");
 
         // Admin replies -> the reply is authored as support and moves the ticket to pending.
         var reply = await admin.PostAsJsonAsync($"{TicketsRoute}/{ticketId}/messages",

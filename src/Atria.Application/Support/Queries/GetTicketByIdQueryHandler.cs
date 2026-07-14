@@ -37,12 +37,12 @@ public sealed class GetTicketByIdQueryHandler
         if (isAdmin)
         {
             var names = await _tickets.GetAuthorNamesAsync(new[] { ticket.InvestorId }, ct);
-            investor = new TicketInvestorDto(
-                ticket.InvestorId,
-                names.GetValueOrDefault(ticket.InvestorId),
-                TicketInvestorDto.ToWireRole(ticket.AuthorRole));
+            investor = TicketInvestorDto.ForAdmin(
+                ticket.InvestorId, names.GetValueOrDefault(ticket.InvestorId), ticket.AuthorRole);
         }
 
-        return Result.Success(TicketDto.From(ticket, investor, includeMessages: true));
+        // For the admin thread view, label the client's own messages with the author's name.
+        return Result.Success(TicketDto.From(
+            ticket, investor, includeMessages: true, clientAuthorName: investor?.FullName));
     }
 }
