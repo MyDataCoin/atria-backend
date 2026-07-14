@@ -8,6 +8,9 @@ public interface IInvestmentRepository : IRepository<Investment>
 {
     Task<IReadOnlyList<Investment>> GetByInvestorAsync(Guid investorId, CancellationToken ct);
 
+    /// <summary>Fetches investments by id (batched, read-only). Missing ids are simply absent.</summary>
+    Task<IReadOnlyList<Investment>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
+
     /// <summary>DB-side aggregate of the investor's Active investments: total invested and active count.</summary>
     Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, CancellationToken ct);
 

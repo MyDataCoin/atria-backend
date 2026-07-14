@@ -60,8 +60,20 @@ public sealed class CreateDealCommandHandler : IRequestHandler<CreateDealCommand
         return Result.Success(ToDto(deal, _links));
     }
 
-    internal static DealDto ToDto(Deal deal, IReferralLinkBuilder links)
-        => new(
+    /// <summary>
+    /// Maps a deal to its wire shape. Pass <paramref name="matched"/> (the amount + currency of the
+    /// deal's matched investment) for a successful deal so the realtor's earnings are computed;
+    /// leave it null for pending/rejected deals (no investment yet).
+    /// </summary>
+    internal static DealDto ToDto(
+        Deal deal, IReferralLinkBuilder links, (decimal Amount, string Currency)? matched = null)
+    {
+        // Earnings = investment amount × commission percent (only when a matched investment exists).
+        decimal? commissionAmount = matched is { } m
+            ? decimal.Round(m.Amount * deal.CommissionPercent / 100m, 2)
+            : null;
+
+        return new DealDto(
             deal.Id,
             deal.PropertyId,
             deal.CommissionPercent,
@@ -69,5 +81,9 @@ public sealed class CreateDealCommandHandler : IRequestHandler<CreateDealCommand
             links.BuildReferralUrl(deal.ReferralToken),
             DealDto.ToWireStatus(deal.Status),
             deal.ExpiresAtUtc,
-            deal.MatchedInvestmentId);
+            deal.MatchedInvestmentId,
+            matched?.Amount,
+            matched?.Currency,
+            commissionAmount);
+    }
 }

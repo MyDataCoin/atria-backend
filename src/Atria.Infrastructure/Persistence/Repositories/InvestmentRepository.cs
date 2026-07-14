@@ -15,6 +15,16 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
             .Where(i => i.InvestorId == investorId)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Investment>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0)
+            return Array.Empty<Investment>();
+
+        return await Set.AsNoTracking()
+            .Where(i => ids.Contains(i.Id))
+            .ToListAsync(ct);
+    }
+
     public async Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, CancellationToken ct)
     {
         var active = Set.AsNoTracking()
