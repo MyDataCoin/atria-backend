@@ -106,9 +106,8 @@ public sealed class NotificationSender : INotificationSender
             data is not null && data.TryGetValue(key, out var v) ? v : string.Empty;
 
         // Deal notification helpers: fall back gracefully when a field is absent.
-        string Property() => Value("propertyName") is { Length: > 0 } n ? n : "your property";
+        string Property() => Value("propertyName") is { Length: > 0 } n ? n : "без названия";
         string Commission() => Value("commissionPercent") is { Length: > 0 } c ? c : "0";
-        string DealRef() => Value("dealId") is { Length: > 0 } d ? $"(deal {d})" : string.Empty;
         // Ticket subject, rendered as « "subject"» so it drops into a sentence, or empty when absent.
         string Subject() => Value("subject") is { Length: > 0 } s ? $" «{s}»" : string.Empty;
 
@@ -131,14 +130,14 @@ public sealed class NotificationSender : INotificationSender
             NotificationTemplate.InvestmentActivated =>
                 ("Investment activated", "Your investment is now active."),
             NotificationTemplate.DealCreated =>
-                ("Referral deal created",
-                    $"Your referral link for {Property()} is live (commission {Commission()}%). {DealRef()}".TrimEnd()),
+                ("Реферальная ссылка создана",
+                    $"Реферальная ссылка на объект «{Property()}» создана (комиссия {Commission()}%)."),
             NotificationTemplate.DealSucceeded =>
-                ("Referral deal completed",
-                    $"An investor bought through your referral link for {Property()} — you earned your {Commission()}% commission. {DealRef()}".TrimEnd()),
+                ("Сделка завершена",
+                    $"По вашей ссылке на объект «{Property()}» прошла инвестиция — сделка завершена (комиссия {Commission()}%)."),
             NotificationTemplate.DealRejected =>
-                ("Referral link expired",
-                    $"Your referral link for {Property()} expired unused and the deal was cancelled. {DealRef()}".TrimEnd()),
+                ("Сделка отклонена",
+                    $"Ссылка на объект «{Property()}» истекла — сделка отклонена."),
             NotificationTemplate.TicketOpened =>
                 ("Тикет успешно отправлен",
                     $"Ваш тикет{Subject()} принят. Мы ответим в ближайшее время.".TrimEnd()),
