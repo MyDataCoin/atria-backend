@@ -1,4 +1,5 @@
 using Atria.Domain.Common;
+using Atria.Domain.Support.Events;
 using Atria.Domain.Support.States;
 using Atria.Domain.Users;
 
@@ -61,6 +62,7 @@ public sealed class SupportTicket : AggregateRoot
         };
 
         ticket._messages.Add(TicketMessage.Create(ticket.Id, MessageAuthor.Investor, body));
+        ticket.RaiseEvent(new TicketOpenedEvent(ticket.Id, ticket.InvestorId, ticket.Subject));
         return ticket;
     }
 
@@ -77,12 +79,25 @@ public sealed class SupportTicket : AggregateRoot
         var message = TicketMessage.Create(Id, author, body);
         _messages.Add(message);
         Status = next.Status;
+
+        // Notify the author only when support (admin) replied — not on the author's own replies.
+        if (author == MessageAuthor.Support)
+            RaiseEvent(new TicketRepliedBySupportEvent(Id, InvestorId, Subject));
+
         return message;
     }
 
     /// <summary>Closes the ticket. Terminal until reopened.</summary>
     public void Close()
-        => Status = TicketStateFactory.Create(Status).Close(this).Status;
+    {
+        var wasClosed = Status == TicketStatus.Closed;
+        Status = TicketStateFactory.Create(Status).Close(this).Status;
+
+        // Only announce a real transition into Closed (the state guards against closing twice,
+        // but be defensive so a no-op close never double-notifies).
+        if (!wasClosed && Status == TicketStatus.Closed)
+            RaiseEvent(new TicketClosedEvent(Id, InvestorId, Subject));
+    }
 
     /// <summary>Reopens a closed ticket (Closed -> Open). Admin action.</summary>
     public void Reopen()

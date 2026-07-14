@@ -109,6 +109,8 @@ public sealed class NotificationSender : INotificationSender
         string Property() => Value("propertyName") is { Length: > 0 } n ? n : "your property";
         string Commission() => Value("commissionPercent") is { Length: > 0 } c ? c : "0";
         string DealRef() => Value("dealId") is { Length: > 0 } d ? $"(deal {d})" : string.Empty;
+        // Ticket subject, rendered as « "subject"» so it drops into a sentence, or empty when absent.
+        string Subject() => Value("subject") is { Length: > 0 } s ? $" «{s}»" : string.Empty;
 
         return template switch
         {
@@ -137,6 +139,15 @@ public sealed class NotificationSender : INotificationSender
             NotificationTemplate.DealRejected =>
                 ("Referral link expired",
                     $"Your referral link for {Property()} expired unused and the deal was cancelled. {DealRef()}".TrimEnd()),
+            NotificationTemplate.TicketOpened =>
+                ("Тикет успешно отправлен",
+                    $"Ваш тикет{Subject()} принят. Мы ответим в ближайшее время.".TrimEnd()),
+            NotificationTemplate.TicketReplied =>
+                ("Ответ на тикет",
+                    $"На ваш тикет{Subject()} пришёл ответ поддержки.".TrimEnd()),
+            NotificationTemplate.TicketClosed =>
+                ("Тикет закрыт",
+                    $"Ваш тикет{Subject()} закрыт — проблема решена.".TrimEnd()),
             _ =>
                 ("Notification", "You have a new notification.")
         };

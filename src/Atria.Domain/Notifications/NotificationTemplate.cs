@@ -15,5 +15,10 @@ public enum NotificationTemplate
     // Realtor referral deals.
     DealCreated = 8,
     DealSucceeded = 9,
-    DealRejected = 10
+    DealRejected = 10,
+
+    // Support tickets (author-facing).
+    TicketOpened = 11,
+    TicketReplied = 12,
+    TicketClosed = 13
 }
