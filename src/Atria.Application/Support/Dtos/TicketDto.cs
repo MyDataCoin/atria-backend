@@ -9,7 +9,10 @@ namespace Atria.Application.Support.Dtos;
 /// <param name="Status">Lifecycle status, lowercase: <c>open</c> | <c>pending</c> | <c>closed</c>.</param>
 /// <param name="CreatedAtUtc">UTC timestamp when the ticket was opened.</param>
 /// <param name="UpdatedAtUtc">UTC timestamp of the last activity (falls back to creation time).</param>
-/// <param name="Investor">Who opened it (Admin views only); <c>null</c> for the owning investor's own view.</param>
+/// <param name="RequesterRole">Role of who opened the ticket, lowercase: <c>investor</c> | <c>realtor</c>
+/// (Admin views only; <c>null</c> for the owner's own view). For a realtor ticket the requester is
+/// anonymous — <see cref="Investor"/> carries no personal name.</param>
+/// <param name="Investor">Who opened it (Admin views only); <c>null</c> for the owner's own view.</param>
 /// <param name="Messages">The message thread (oldest first); <c>null</c> on the list route.</param>
 public sealed record TicketDto(
     Guid Id,
@@ -18,6 +21,7 @@ public sealed record TicketDto(
     string Status,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
+    string? RequesterRole,
     TicketInvestorDto? Investor,
     IReadOnlyList<TicketMessageDto>? Messages)
 {
@@ -35,6 +39,7 @@ public sealed record TicketDto(
             ToWire(t.Status),
             t.CreatedAtUtc,
             t.UpdatedAtUtc ?? t.CreatedAtUtc,
+            investor?.Role, // requester role mirrors the admin-only author block
             investor,
             includeMessages
                 ? t.Messages.OrderBy(m => m.CreatedAtUtc)

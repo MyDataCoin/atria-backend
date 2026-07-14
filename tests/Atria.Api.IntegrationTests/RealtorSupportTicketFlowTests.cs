@@ -60,16 +60,19 @@ public sealed class RealtorSupportTicketFlowTests : IClassFixture<AtriaApiFactor
         var adminView = await admin.GetAsync($"{TicketsRoute}/{ticketId}");
         adminView.StatusCode.Should().Be(HttpStatusCode.OK);
         using var adminDoc = JsonDocument.Parse(await adminView.Content.ReadAsStringAsync());
+        // Requester role is exposed at the top level for the admin.
+        adminDoc.RootElement.GetProperty("requesterRole").GetString().Should().Be("realtor");
+
         var investorBlock = adminDoc.RootElement.GetProperty("investor");
         investorBlock.GetProperty("id").GetString().Should().Be(RealtorUserId);
         investorBlock.GetProperty("role").GetString().Should().Be("realtor");
-        // A realtor has no KYC name, so the admin panel shows the fixed realtor label.
-        investorBlock.GetProperty("fullName").GetString().Should().Be("Риелтор");
+        // A realtor requester is anonymous in the UI: no personal name.
+        investorBlock.GetProperty("fullName").ValueKind.Should().Be(JsonValueKind.Null);
 
-        // The realtor's own message in the admin thread is labelled with that same name.
+        // ...and their messages carry no author name either.
         var clientMsg = adminDoc.RootElement.GetProperty("messages").EnumerateArray()
             .First(m => m.GetProperty("author").GetString() == "investor");
-        clientMsg.GetProperty("authorName").GetString().Should().Be("Риелтор");
+        clientMsg.GetProperty("authorName").ValueKind.Should().Be(JsonValueKind.Null);
 
         // Admin replies -> the reply is authored as support and moves the ticket to pending.
         var reply = await admin.PostAsJsonAsync($"{TicketsRoute}/{ticketId}/messages",

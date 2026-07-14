@@ -7,23 +7,20 @@ namespace Atria.Application.Support.Dtos;
 /// omitted (null) for a client viewing their own tickets.
 /// </summary>
 /// <param name="Id">The author's user id.</param>
-/// <param name="FullName">The author's verified KYC full name (decrypted); <c>null</c> when unset or no profile (e.g. a realtor).</param>
+/// <param name="FullName">The investor's verified KYC full name (decrypted); <c>null</c> when unset, no profile, or the requester is a realtor (anonymous in the UI).</param>
 /// <param name="Role">The author's role, lowercase: <c>investor</c> | <c>realtor</c>, so the panel can tell a realtor ticket from an investor one.</param>
 public sealed record TicketInvestorDto(Guid Id, string? FullName, string Role)
 {
-    /// <summary>Display label shown for a realtor author, who has no KYC full name.</summary>
-    public const string RealtorDisplayName = "Риелтор";
-
     /// <summary>Maps the author's domain role to its lowercase wire value (defaults to <c>investor</c>).</summary>
     public static string ToWireRole(DomainRole role) => role == DomainRole.Realtor ? "realtor" : "investor";
 
     /// <summary>
-    /// Builds the admin-panel author block: the KYC full name for an investor, or the fixed
-    /// <see cref="RealtorDisplayName"/> label for a realtor (who has no KYC profile).
+    /// Builds the admin-panel author block: the KYC full name for an investor, or no personal name
+    /// for a realtor (anonymous in the UI — only the role identifies them).
     /// </summary>
     public static TicketInvestorDto ForAdmin(Guid authorId, string? kycFullName, DomainRole authorRole)
     {
-        var name = authorRole == DomainRole.Realtor ? RealtorDisplayName : kycFullName;
+        var name = authorRole == DomainRole.Realtor ? null : kycFullName;
         return new TicketInvestorDto(authorId, name, ToWireRole(authorRole));
     }
 }
