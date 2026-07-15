@@ -21,4 +21,11 @@ public interface IInvestmentRepository : IRepository<Investment>
     /// </summary>
     Task<IReadOnlyList<(Guid InvestorId, long TokenCount, KycProfile? Kyc)>>
         GetActiveByPropertyAsync(Guid propertyId, CancellationToken ct);
+
+    /// <summary>
+    /// An investor's Active holdings, one row per property, joined to the property's name, currency and
+    /// total token supply (for the share computation). Admin/Compliance reporting read.
+    /// </summary>
+    Task<IReadOnlyList<(Guid PropertyId, string PropertyName, long TokenCount, decimal Amount, string Currency, long TotalTokens)>>
+        GetActiveHoldingsByInvestorAsync(Guid investorId, CancellationToken ct);
 }

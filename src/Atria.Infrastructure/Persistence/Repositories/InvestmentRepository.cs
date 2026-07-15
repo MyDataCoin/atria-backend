@@ -50,4 +50,28 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
 
         return rows.Select(r => (r.InvestorId, r.TokenCount, (KycProfile?)r.k)).ToList();
     }
+
+    public async Task<IReadOnlyList<(Guid PropertyId, string PropertyName, long TokenCount, decimal Amount, string Currency, long TotalTokens)>>
+        GetActiveHoldingsByInvestorAsync(Guid investorId, CancellationToken ct)
+    {
+        // The investor's Active investments joined to their property. TotalTokens is carried out so the
+        // handler can compute the share without a second round-trip; the share itself is domain logic.
+        var rows = await (
+            from i in Db.Investments.AsNoTracking()
+            join p in Db.Properties.AsNoTracking() on i.PropertyId equals p.Id
+            where i.InvestorId == investorId && i.Status == InvestmentStatus.Active
+            select new
+            {
+                i.PropertyId,
+                PropertyName = p.Name,
+                i.TokenCount,
+                i.Amount,
+                i.Currency,
+                p.TotalTokens
+            }).ToListAsync(ct);
+
+        return rows
+            .Select(r => (r.PropertyId, r.PropertyName, r.TokenCount, r.Amount, r.Currency, r.TotalTokens))
+            .ToList();
+    }
 }
