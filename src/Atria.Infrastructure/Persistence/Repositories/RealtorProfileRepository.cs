@@ -1,4 +1,5 @@
 using Atria.Application.Abstractions;
+using Atria.Domain.Deals;
 using Atria.Domain.Realtors;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,4 +11,28 @@ public sealed class RealtorProfileRepository : Repository<RealtorProfile>, IReal
 
     public Task<RealtorProfile?> GetByUserIdAsync(Guid userId, CancellationToken ct)
         => Set.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId, ct);
+
+    public async Task<IReadOnlyList<(Guid UserId, string FullName, string? CompanyName, int ClosedDeals, int TotalDeals)>>
+        GetStatsAsync(CancellationToken ct)
+    {
+        // Profiles drive the row set so realtors with zero deals still appear (left join). Deals link to
+        // the realtor by user id (Deal.RealtorId == RealtorProfile.UserId); counts are aggregated DB-side.
+        var rows = await (
+            from p in Db.RealtorProfiles.AsNoTracking()
+            select new
+            {
+                p.UserId,
+                p.FullName,
+                p.CompanyName,
+                ClosedDeals = Db.Deals.Count(d => d.RealtorId == p.UserId && d.Status == DealStatus.Successful),
+                TotalDeals = Db.Deals.Count(d => d.RealtorId == p.UserId)
+            })
+            .OrderByDescending(r => r.ClosedDeals)
+            .ThenByDescending(r => r.TotalDeals)
+            .ToListAsync(ct);
+
+        return rows
+            .Select(r => (r.UserId, r.FullName, r.CompanyName, r.ClosedDeals, r.TotalDeals))
+            .ToList();
+    }
 }
