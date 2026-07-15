@@ -22,7 +22,7 @@ public sealed class GetRealtorStatsQueryHandler
         var stats = await _realtors.GetStatsAsync(ct);
 
         IReadOnlyList<RealtorStatsDto> dtos = stats
-            .Select(s => new RealtorStatsDto(s.UserId, s.FullName, s.CompanyName, s.ClosedDeals, s.TotalDeals))
+            .Select(s => new RealtorStatsDto(s.UserId, s.FullName, s.CompanyName, s.ClosedDeals, s.TotalDeals, s.Blocked))
             .ToList();
 
         return Result.Success(dtos);

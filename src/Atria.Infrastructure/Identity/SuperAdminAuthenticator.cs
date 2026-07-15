@@ -7,19 +7,20 @@ using Microsoft.Extensions.Options;
 namespace Atria.Infrastructure.Identity;
 
 /// <summary>
-/// Validates the static realtor credentials from <see cref="RealtorOptions"/>. Disabled unless a
-/// password is configured. Both fields are compared in constant time (no short-circuit) so a
-/// wrong username and a wrong password are indistinguishable by timing.
+/// Validates the static super-admin credentials from <see cref="SuperAdminOptions"/>. Disabled
+/// unless a password is configured. Both fields are compared in constant time (no short-circuit) so
+/// a wrong username and a wrong password are indistinguishable by timing. Mirrors
+/// <see cref="AdminAuthenticator"/>.
 /// </summary>
-public sealed class RealtorAuthenticator : IRealtorAuthenticator
+public sealed class SuperAdminAuthenticator : ISuperAdminAuthenticator
 {
-    private readonly RealtorOptions _options;
+    private readonly SuperAdminOptions _options;
 
-    public RealtorAuthenticator(IOptions<RealtorOptions> options) => _options = options.Value;
+    public SuperAdminAuthenticator(IOptions<SuperAdminOptions> options) => _options = options.Value;
 
     public bool IsEnabled => !string.IsNullOrEmpty(_options.Password);
 
-    public Guid RealtorUserId => _options.UserId;
+    public Guid SuperAdminUserId => _options.UserId;
 
     public bool Validate(string username, string password)
     {

@@ -6,6 +6,7 @@ public static class AuditEntities
     public const string Property = "Property";
     public const string Publication = "Publication";
     public const string SupportTicket = "SupportTicket";
+    public const string User = "User";
 }
 
 /// <summary>
@@ -21,4 +22,8 @@ public static class AuditEvents
     public const string PublicationPublished = "PublicationPublished";
     public const string TicketOpened = "TicketOpened";
     public const string TicketClosed = "TicketClosed";
+    public const string UserBanned = "UserBanned";
+    public const string UserUnbanned = "UserUnbanned";
+    public const string PasswordReset = "PasswordReset";
+    public const string PasswordRestored = "PasswordRestored";
 }

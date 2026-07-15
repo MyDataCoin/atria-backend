@@ -12,6 +12,6 @@ public interface IRealtorProfileRepository : IRepository<RealtorProfile>
     /// total deals, one row per realtor. Realtors with no deals appear with zero counts. Admin/Compliance
     /// reporting read. Ordered by closed deals, then total, descending.
     /// </summary>
-    Task<IReadOnlyList<(Guid UserId, string FullName, string? CompanyName, int ClosedDeals, int TotalDeals)>>
+    Task<IReadOnlyList<(Guid UserId, string FullName, string? CompanyName, int ClosedDeals, int TotalDeals, bool Blocked)>>
         GetStatsAsync(CancellationToken ct);
 }

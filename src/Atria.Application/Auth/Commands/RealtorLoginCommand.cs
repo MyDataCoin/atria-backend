@@ -9,24 +9,32 @@ namespace Atria.Application.Auth.Commands;
 public sealed record RealtorLoginCommand(string Username, string Password) : IRequest<Result<AuthTokensDto>>;
 
 /// <summary>
-/// Verifies the static realtor credentials (from configuration, constant-time) and, on success,
-/// issues a Realtor access token + refresh token for the configured realtor user id. Returns a
-/// generic 401 for both a disabled feature and bad credentials so nothing is leaked.
+/// Verifies the realtor credentials and, on success, issues a Realtor token pair. Credentials are
+/// checked against the seeded <c>users</c> row's password hash when present (so a super-admin
+/// password reset takes effect), falling back to the static config check for a not-yet-seeded stack.
+/// A banned account is refused. Returns a generic 401 for a disabled feature, bad credentials, or a
+/// ban so nothing is leaked.
 /// </summary>
 public sealed class RealtorLoginCommandHandler : IRequestHandler<RealtorLoginCommand, Result<AuthTokensDto>>
 {
     private readonly IRealtorAuthenticator _realtor;
+    private readonly IUserRepository _users;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwt;
     private readonly IRefreshTokenStore _refreshTokens;
     private readonly IUnitOfWork _unitOfWork;
 
     public RealtorLoginCommandHandler(
         IRealtorAuthenticator realtor,
+        IUserRepository users,
+        IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwt,
         IRefreshTokenStore refreshTokens,
         IUnitOfWork unitOfWork)
     {
         _realtor = realtor;
+        _users = users;
+        _passwordHasher = passwordHasher;
         _jwt = jwt;
         _refreshTokens = refreshTokens;
         _unitOfWork = unitOfWork;
@@ -34,16 +42,15 @@ public sealed class RealtorLoginCommandHandler : IRequestHandler<RealtorLoginCom
 
     public async Task<Result<AuthTokensDto>> Handle(RealtorLoginCommand request, CancellationToken ct)
     {
-        if (!_realtor.IsEnabled || !_realtor.Validate(request.Username, request.Password))
+        // Route by username, not password, so a reset password still logs in; the password is
+        // verified against the stored hash in the factory, falling back to the config check.
+        if (!_realtor.MatchesUsername(request.Username))
             return Result.Failure<AuthTokensDto>(
                 Error.Unauthorized("auth.invalid_credentials", "Invalid username or password."));
 
-        // Issue a Realtor token pair for the configured realtor user id (its 'sub').
-        var access = _jwt.GenerateAccessToken(_realtor.RealtorUserId, request.Username, Role.Realtor);
-        var refresh = _jwt.GenerateRefreshToken();
-        await _refreshTokens.StoreAsync(_realtor.RealtorUserId, refresh.Token, refresh.ExpiresAtUtc, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
-
-        return Result.Success(new AuthTokensDto(access.Token, access.ExpiresAtUtc, refresh.Token));
+        return await AuthTokensFactory.IssueForCredentialLoginAsync(
+            _realtor.RealtorUserId, Role.Realtor, request.Username, request.Password,
+            _realtor.Validate(request.Username, request.Password),
+            _users, _passwordHasher, _jwt, _refreshTokens, _unitOfWork, ct);
     }
 }

@@ -9,24 +9,37 @@ namespace Atria.Application.Auth.Commands;
 public sealed record AdminLoginCommand(string Username, string Password) : IRequest<Result<AuthTokensDto>>;
 
 /// <summary>
-/// Verifies the static admin credentials (from configuration, constant-time) and, on success,
-/// issues an Admin access token + refresh token for the configured admin user id. Returns a
-/// generic 401 for both a disabled feature and bad credentials so nothing is leaked.
+/// Verifies credentials for the shared admin login endpoint and, on success, issues a token pair.
+/// The SAME endpoint serves the super admin: its credentials are tried FIRST (so a super login is
+/// issued a <see cref="Role.SuperAdmin"/> token), then the regular admin. Credentials are checked
+/// against the seeded <c>users</c> row's password hash when present (so a super-admin password reset
+/// takes effect), falling back to the static config check for a not-yet-seeded stack. A banned
+/// account is refused. Returns a generic 401 for a disabled feature, bad credentials, or a ban so
+/// nothing is leaked.
 /// </summary>
 public sealed class AdminLoginCommandHandler : IRequestHandler<AdminLoginCommand, Result<AuthTokensDto>>
 {
     private readonly IAdminAuthenticator _admin;
+    private readonly ISuperAdminAuthenticator _superAdmin;
+    private readonly IUserRepository _users;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwt;
     private readonly IRefreshTokenStore _refreshTokens;
     private readonly IUnitOfWork _unitOfWork;
 
     public AdminLoginCommandHandler(
         IAdminAuthenticator admin,
+        ISuperAdminAuthenticator superAdmin,
+        IUserRepository users,
+        IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwt,
         IRefreshTokenStore refreshTokens,
         IUnitOfWork unitOfWork)
     {
         _admin = admin;
+        _superAdmin = superAdmin;
+        _users = users;
+        _passwordHasher = passwordHasher;
         _jwt = jwt;
         _refreshTokens = refreshTokens;
         _unitOfWork = unitOfWork;
@@ -34,16 +47,24 @@ public sealed class AdminLoginCommandHandler : IRequestHandler<AdminLoginCommand
 
     public async Task<Result<AuthTokensDto>> Handle(AdminLoginCommand request, CancellationToken ct)
     {
-        if (!_admin.IsEnabled || !_admin.Validate(request.Username, request.Password))
+        // Route by USERNAME (super admin shares this endpoint; matched first) — not by password, so a
+        // reset password (which no longer matches config) still routes to the right identity. The
+        // password itself is verified against the stored hash in the factory, falling back to config.
+        var (userId, role, configValidates) =
+            _superAdmin.MatchesUsername(request.Username)
+                ? (_superAdmin.SuperAdminUserId, Role.SuperAdmin,
+                   _superAdmin.Validate(request.Username, request.Password))
+                : _admin.MatchesUsername(request.Username)
+                    ? (_admin.AdminUserId, Role.Admin,
+                       _admin.Validate(request.Username, request.Password))
+                    : (Guid.Empty, default(Role), false);
+
+        if (userId == Guid.Empty)
             return Result.Failure<AuthTokensDto>(
                 Error.Unauthorized("auth.invalid_credentials", "Invalid username or password."));
 
-        // Issue an Admin token pair for the configured admin user id (its 'sub').
-        var access = _jwt.GenerateAccessToken(_admin.AdminUserId, request.Username, Role.Admin);
-        var refresh = _jwt.GenerateRefreshToken();
-        await _refreshTokens.StoreAsync(_admin.AdminUserId, refresh.Token, refresh.ExpiresAtUtc, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
-
-        return Result.Success(new AuthTokensDto(access.Token, access.ExpiresAtUtc, refresh.Token));
+        return await AuthTokensFactory.IssueForCredentialLoginAsync(
+            userId, role, request.Username, request.Password, configValidates,
+            _users, _passwordHasher, _jwt, _refreshTokens, _unitOfWork, ct);
     }
 }

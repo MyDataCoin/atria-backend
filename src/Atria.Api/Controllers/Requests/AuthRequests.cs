@@ -142,3 +142,7 @@ public sealed record CreateTicketRequest(string Subject, string Category, string
 /// <summary>POST /support/tickets/{id}/messages body. The author is derived from the caller's role.</summary>
 /// <param name="Body">The reply text; required.</param>
 public sealed record AddTicketMessageRequest(string Body);
+
+/// <summary>POST /users/{id}/password/reset body. Optional; omit to have the server generate a temporary password.</summary>
+/// <param name="NewPassword">An explicit new password to set; when null/empty a temporary one is generated.</param>
+public sealed record ResetPasswordRequest(string? NewPassword = null);

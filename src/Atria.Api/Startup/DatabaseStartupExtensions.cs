@@ -26,7 +26,11 @@ public static class DatabaseStartupExtensions
             await ApplyMigrationsAsync(sp.GetRequiredService<AtriaDbContext>(), logger);
 
         if (seed)
-            await DataSeeder.SeedAsync(sp.GetRequiredService<AtriaDbContext>(), logger);
+        {
+            var db = sp.GetRequiredService<AtriaDbContext>();
+            await sp.GetRequiredService<ServiceAccountSeeder>().SeedAsync(db, logger);
+            await DataSeeder.SeedAsync(db, logger);
+        }
     }
 
     private static async Task ApplyMigrationsAsync(AtriaDbContext db, ILogger logger)

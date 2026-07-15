@@ -60,6 +60,7 @@ public sealed class AuditWriter : IAuditWriter
         return _currentUser.Role switch
         {
             Role.Admin => "Администратор",
+            Role.SuperAdmin => "Супер-администратор",
             Role.Compliance => "Комплаенс",
             Role.Realtor => (await _realtorProfiles.GetByUserIdAsync(id, ct))?.FullName ?? "Риелтор",
             // An investor's name lives in their (encrypted) KYC profile; unverified ones stay generic.

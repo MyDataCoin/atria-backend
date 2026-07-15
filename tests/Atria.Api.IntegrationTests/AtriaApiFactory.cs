@@ -68,6 +68,12 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 ["Realtor:Password"] = "realtor-test-password",
                 ["Realtor:UserId"] = "22222222-2222-2222-2222-222222222222",
 
+                // SuperAdmin (section "SuperAdmin"): shares POST /auth/admin/login. Enabled when
+                // Password is non-empty; tests obtain a SuperAdmin bearer token with these creds.
+                ["SuperAdmin:Username"] = "superadmin",
+                ["SuperAdmin:Password"] = "superadmin-test-password",
+                ["SuperAdmin:UserId"] = "44444444-4444-4444-4444-444444444444",
+
                 // Referral (section "Referral"): base URL used to build shareable deal links.
                 ["Referral:BaseUrl"] = "https://atria.test/invest",
 

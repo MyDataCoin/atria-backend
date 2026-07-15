@@ -14,4 +14,11 @@ public interface IAdminAuthenticator
 
     /// <summary>Constant-time check of the supplied credentials against configuration.</summary>
     bool Validate(string username, string password);
+
+    /// <summary>
+    /// Constant-time check of just the username against configuration (feature must be enabled).
+    /// Used to route a login to this identity before the password is verified against the stored
+    /// hash, so a reset password (which no longer matches config) still logs in.
+    /// </summary>
+    bool MatchesUsername(string username);
 }

@@ -49,6 +49,12 @@ public sealed class VerifyPhoneOtpCommandHandler : IRequestHandler<VerifyPhoneOt
             await _users.AddAsync(user, ct);
             await _unitOfWork.SaveChangesAsync(ct);
         }
+        else if (user.IsBanned)
+        {
+            // A banned account gets no token even with a valid OTP.
+            return Result.Failure<AuthTokensDto>(
+                Error.Forbidden("auth.account_banned", "This account has been blocked."));
+        }
         else if (!user.IsPhoneVerified)
         {
             // Existing account that wasn't verified yet (e.g. created via another flow).

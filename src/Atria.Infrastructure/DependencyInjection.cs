@@ -17,6 +17,7 @@ using Atria.Infrastructure.Outbox;
 using Atria.Infrastructure.Payments.Providers;
 using Atria.Infrastructure.Persistence;
 using Atria.Infrastructure.Persistence.Repositories;
+using Atria.Infrastructure.Persistence.Seeding;
 using Atria.Infrastructure.Persistence.Stores;
 using Atria.Infrastructure.Storage;
 using FluentValidation;
@@ -64,6 +65,9 @@ public static class DependencyInjection
 
         // Realtor static-login options are OPTIONAL too (disabled when Password is empty).
         services.Configure<RealtorOptions>(configuration.GetSection(RealtorOptions.SectionName));
+
+        // Super-admin static-login options are OPTIONAL too (disabled when Password is empty).
+        services.Configure<SuperAdminOptions>(configuration.GetSection(SuperAdminOptions.SectionName));
 
         // Referral link base URL (used to build shareable deal links). Optional; a relative link is
         // returned when unset.
@@ -149,6 +153,8 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IOtpService, OtpService>();
         services.AddScoped<IAdminAuthenticator, AdminAuthenticator>();
+        services.AddScoped<ISuperAdminAuthenticator, SuperAdminAuthenticator>();
+        services.AddScoped<ServiceAccountSeeder>();
         services.AddScoped<IRealtorAuthenticator, RealtorAuthenticator>();
         services.AddScoped<IReferralLinkBuilder, ReferralLinkBuilder>();
         // Audit entries are written from inside commands so they share the action's transaction.

@@ -30,6 +30,7 @@ public sealed class GetUsersOverviewQueryHandler
                 r.Kyc?.FullName,
                 r.Kyc?.WalletAddress,
                 r.Kyc?.Status,
+                r.User.IsBanned,
                 r.User.CreatedAtUtc))
             .ToList();
 

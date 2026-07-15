@@ -1,4 +1,5 @@
 using Atria.Application.Abstractions;
+using Atria.Application.Common;
 using Atria.Domain.Users;
 
 namespace Atria.Application.Auth.Dtos;
@@ -37,5 +38,48 @@ internal static class AuthTokensFactory
         await unitOfWork.SaveChangesAsync(ct);
 
         return new AuthTokensDto(access.Token, access.ExpiresAtUtc, refresh.Token);
+    }
+
+    /// <summary>
+    /// Issues a token pair for a credential-login role (Admin/Realtor/SuperAdmin). The password is
+    /// authoritatively checked against the seeded <c>users</c> row's hash when one exists (so a
+    /// super-admin password reset takes effect and the stale config password stops working); when no
+    /// row/hash is seeded yet it falls back to <paramref name="configValidates"/> (the static config
+    /// check). A banned account, or any failed check, is refused with a generic 401. The token
+    /// carries <paramref name="role"/> and uses <paramref name="username"/> as the identifier claim.
+    /// </summary>
+    public static async Task<Result<AuthTokensDto>> IssueForCredentialLoginAsync(
+        Guid userId,
+        Role role,
+        string username,
+        string password,
+        bool configValidates,
+        IUserRepository users,
+        IPasswordHasher passwordHasher,
+        IJwtTokenGenerator jwt,
+        IRefreshTokenStore refreshTokens,
+        IUnitOfWork unitOfWork,
+        CancellationToken ct)
+    {
+        var invalid = Error.Unauthorized("auth.invalid_credentials", "Invalid username or password.");
+
+        var user = await users.GetByIdAsync(userId, ct);
+        if (user is not null && user.IsBanned)
+            return Result.Failure<AuthTokensDto>(invalid);
+
+        // A stored hash is authoritative; without one (not seeded yet) trust the config check.
+        var credentialsOk = user?.PasswordHash is { } hash
+            ? passwordHasher.Verify(password, hash)
+            : configValidates;
+
+        if (!credentialsOk)
+            return Result.Failure<AuthTokensDto>(invalid);
+
+        var access = jwt.GenerateAccessToken(userId, username, role);
+        var refresh = jwt.GenerateRefreshToken();
+        await refreshTokens.StoreAsync(userId, refresh.Token, refresh.ExpiresAtUtc, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+
+        return Result.Success(new AuthTokensDto(access.Token, access.ExpiresAtUtc, refresh.Token));
     }
 }

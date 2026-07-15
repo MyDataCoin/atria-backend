@@ -12,6 +12,7 @@ namespace Atria.Application.Users.Dtos;
 /// <param name="FullName">Verified KYC full name (decrypted); <c>null</c> when unset or no profile.</param>
 /// <param name="WalletAddress">Linked wallet address; <c>null</c> when unset or no profile.</param>
 /// <param name="Status">KYC lifecycle status; <c>null</c> when the user has no KYC profile.</param>
+/// <param name="Blocked">Whether the account is banned by a super admin (<c>status: Blocked</c> on the client).</param>
 /// <param name="CreatedAtUtc">UTC timestamp when the user account was created.</param>
 public sealed record UserOverviewDto(
     Guid Id,
@@ -19,4 +20,5 @@ public sealed record UserOverviewDto(
     string? FullName,
     string? WalletAddress,
     KycStatus? Status,
+    bool Blocked,
     DateTime CreatedAtUtc);

@@ -32,6 +32,9 @@ public sealed class AdminAuthenticator : IAdminAuthenticator
         return userOk & passOk;
     }
 
+    public bool MatchesUsername(string username)
+        => IsEnabled && FixedTimeEquals(username, _options.Username);
+
     private static bool FixedTimeEquals(string? a, string? b)
         => CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(a ?? string.Empty),
