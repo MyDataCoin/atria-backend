@@ -9,6 +9,19 @@
 -- EF maps columns in PascalCase (no snake_case), so they are quoted. Idempotent: re-running does
 -- nothing if the id already exists. Change the password afterwards via the super-admin reset flow,
 -- or regenerate the hash and UPDATE "PasswordHash".
+--
+-- The block below adds the columns from the SuperAdminBanAndPasswords migration in case the app
+-- hasn't applied it yet. If you run the app with Database__MigrateOnStartup=true these already
+-- exist and the ADD COLUMN IF NOT EXISTS statements are no-ops.
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "IsBanned"          boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "MustResetPassword" boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "PasswordHash"      character varying(200) NULL;
+
+-- Record the migration so EF does not try to re-apply it on the next MigrateOnStartup.
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20260715081114_SuperAdminBanAndPasswords', '9.0.17')
+ON CONFLICT ("MigrationId") DO NOTHING;
 
 INSERT INTO users
     ("Id", "PhoneNumber", "Role", "IsActive", "IsPhoneVerified",
