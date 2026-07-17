@@ -45,8 +45,10 @@ internal static class AuthTokensFactory
     /// authoritatively checked against the seeded <c>users</c> row's hash when one exists (so a
     /// super-admin password reset takes effect and the stale config password stops working); when no
     /// row/hash is seeded yet it falls back to <paramref name="configValidates"/> (the static config
-    /// check). A banned account, or any failed check, is refused with a generic 401. The token
-    /// carries <paramref name="role"/> and uses <paramref name="username"/> as the identifier claim.
+    /// check). A banned account, or any failed check, is refused with a generic 401. On the first
+    /// successful config-password login the service account is self-provisioned as a <c>users</c> row
+    /// (hash backfilled), so no manual SQL or startup seeding is required. The token carries
+    /// <paramref name="role"/> and uses <paramref name="username"/> as the identifier claim.
     /// </summary>
     public static async Task<Result<AuthTokensDto>> IssueForCredentialLoginAsync(
         Guid userId,
@@ -74,6 +76,14 @@ internal static class AuthTokensFactory
 
         if (!credentialsOk)
             return Result.Failure<AuthTokensDto>(invalid);
+
+        // Self-provision the service account on first successful login so it exists as a real users
+        // row (needed for ban/password operations) WITHOUT any manual SQL or startup seeding. The
+        // repository creates it when absent (and backfills a hash for a hand-inserted row), tolerating
+        // a concurrent login racing the same insert. Only needed on the config-fallback path — when a
+        // hash already matched, the row is obviously present.
+        if (user is null || user.PasswordHash is null)
+            await users.EnsureServiceAccountAsync(userId, role, passwordHasher.Hash(password), ct);
 
         var access = jwt.GenerateAccessToken(userId, username, role);
         var refresh = jwt.GenerateRefreshToken();

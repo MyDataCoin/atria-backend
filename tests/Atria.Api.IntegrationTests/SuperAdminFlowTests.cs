@@ -45,6 +45,22 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task Super_admin_login_self_provisions_the_users_row_with_a_hash()
+    {
+        // SeedOnStartup is off in tests, so the SuperAdmin has no pre-seeded row: a config-password
+        // login must create it with a hash. No manual SQL / startup seeding required on a real deploy.
+        var superId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+
+        var client = _factory.CreateClient();
+        await LoginSuperAdminAsync(client);
+
+        var (exists, role, hasHash) = await UserSnapshotAsync(superId);
+        exists.Should().BeTrue();
+        role.Should().Be((int)Atria.Domain.Users.Role.SuperAdmin);
+        hasHash.Should().BeTrue("the password is backfilled as a hash on first login");
+    }
+
+    [Fact]
     public async Task Regular_admin_is_forbidden_from_super_admin_actions()
     {
         var admin = _factory.CreateClient();
@@ -226,6 +242,14 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
         var db = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
         var user = await db.Users.AsNoTracking().FirstAsync(u => u.PhoneNumber == phone);
         return user.Id;
+    }
+
+    private async Task<(bool Exists, int Role, bool HasHash)> UserSnapshotAsync(Guid id)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
+        return user is null ? (false, -1, false) : (true, (int)user.Role, user.PasswordHash != null);
     }
 
     private async Task SeedRealtorProfileAsync(Guid realtorId, string fullName)
