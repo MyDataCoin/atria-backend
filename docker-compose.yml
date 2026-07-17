@@ -96,6 +96,13 @@ services:
       Realtor__Username: ${REALTOR_USERNAME:-}
       Realtor__Password: ${REALTOR_PASSWORD:-}
       Realtor__UserId: ${REALTOR_USER_ID:-00000000-0000-0000-0000-000000000000}
+      # Static super-admin login (shares POST /auth/admin/login). DISABLED unless
+      # SuperAdmin__Password is set. On startup (SeedOnStartup) a users row is seeded for this
+      # UserId with the password hashed, so the super admin can ban accounts and reset admin/realtor
+      # passwords. SuperAdmin__UserId MUST differ from Admin__UserId / Realtor__UserId.
+      SuperAdmin__Username: ${SUPERADMIN_USERNAME:-}
+      SuperAdmin__Password: ${SUPERADMIN_PASSWORD:-}
+      SuperAdmin__UserId: ${SUPERADMIN_USER_ID:-00000000-0000-0000-0000-000000000000}
       # Base URL for realtor referral links (token appended as ?ref=...). Points at the investor
       # frontend's invest landing. Optional — a relative /invest?ref= link is returned when unset.
       Referral__BaseUrl: ${REFERRAL_BASE_URL:-}
