@@ -62,6 +62,18 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task Super_admin_can_read_the_admin_reporting_surfaces()
+    {
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+
+        // The super-admin panel reads these to decide who to moderate; all must be 200, not 403.
+        (await superAdmin.GetAsync(UsersRoute)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await superAdmin.GetAsync(StatsRoute)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await superAdmin.GetAsync("/api/v1/audit")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Banning_an_investor_refuses_login_and_shows_blocked_in_overview()
     {
         var phone = UniqueKgPhone();

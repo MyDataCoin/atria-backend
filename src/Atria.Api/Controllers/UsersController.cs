@@ -14,7 +14,7 @@ namespace Atria.Api.Controllers;
 /// <summary>Users overview (users joined with their KYC). Admin / Compliance only.</summary>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/users")]
-[Authorize(Roles = "Admin,Compliance")]
+[Authorize(Roles = "Admin,Compliance,SuperAdmin")]
 public sealed class UsersController : ApiControllerBase
 {
     public UsersController(ISender sender) : base(sender) { }

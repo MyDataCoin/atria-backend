@@ -12,7 +12,7 @@ namespace Atria.Api.Controllers;
 /// <summary>Realtor reporting for the admin dashboard (deal statistics). Admin / Compliance only.</summary>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/realtors")]
-[Authorize(Roles = "Admin,Compliance")]
+[Authorize(Roles = "Admin,Compliance,SuperAdmin")]
 public sealed class RealtorsController : ApiControllerBase
 {
     public RealtorsController(ISender sender) : base(sender) { }

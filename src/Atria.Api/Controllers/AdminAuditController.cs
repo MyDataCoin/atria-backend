@@ -12,7 +12,7 @@ namespace Atria.Api.Controllers;
 /// <summary>Read-only audit trail, filterable by entity. Admin / Compliance only.</summary>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/audit")]
-[Authorize(Roles = "Admin,Compliance")]
+[Authorize(Roles = "Admin,Compliance,SuperAdmin")]
 public sealed class AdminAuditController : ApiControllerBase
 {
     public AdminAuditController(ISender sender) : base(sender) { }

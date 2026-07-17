@@ -47,9 +47,10 @@ public sealed class GetAuditLogQueryHandler
             return Result.Failure<PagedResult<AuditLogDto>>(
                 Error.Unauthorized("Audit.Unauthorized", "Authentication is required."));
 
-        if (!_currentUser.IsInRole(Role.Admin) && !_currentUser.IsInRole(Role.Compliance))
+        if (!_currentUser.IsInRole(Role.Admin) && !_currentUser.IsInRole(Role.Compliance)
+            && !_currentUser.IsInRole(Role.SuperAdmin))
             return Result.Failure<PagedResult<AuditLogDto>>(
-                Error.Forbidden("Audit.Forbidden", "Only Admin or Compliance may read the audit log."));
+                Error.Forbidden("Audit.Forbidden", "Only Admin, Compliance or SuperAdmin may read the audit log."));
 
         AuditSeverity? severity = null;
         if (!string.IsNullOrWhiteSpace(request.Severity))
