@@ -10,7 +10,7 @@ namespace Atria.Domain.Tests.Users;
 /// </summary>
 public sealed class UserBanAndPasswordTests
 {
-    private static User Admin() => User.CreateServiceAccount(Guid.NewGuid(), Role.Admin, "hash");
+    private static User Admin() => User.CreateServiceAccount("admin", Role.Admin, "hash");
     private static User Investor() => User.CreateFromPhone("+996700123456", Role.Investor);
 
     [Fact]
@@ -65,16 +65,22 @@ public sealed class UserBanAndPasswordTests
     }
 
     [Fact]
-    public void CreateServiceAccount_sets_role_hash_active_and_no_phone()
+    public void CreateServiceAccount_sets_username_role_hash_active_and_no_phone()
     {
-        var id = Guid.NewGuid();
+        var user = User.CreateServiceAccount("superadmin", Role.SuperAdmin, "hash");
 
-        var user = User.CreateServiceAccount(id, Role.SuperAdmin, "hash");
-
-        user.Id.Should().Be(id);
+        user.Username.Should().Be("superadmin");
         user.Role.Should().Be(Role.SuperAdmin);
         user.PasswordHash.Should().Be("hash");
         user.IsActive.Should().BeTrue();
         user.PhoneNumber.Should().BeNull();
+        user.Id.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public void CreateServiceAccount_rejects_a_non_credential_role()
+    {
+        var act = () => User.CreateServiceAccount("someone", Role.Investor, "hash");
+        act.Should().Throw<DomainException>();
     }
 }

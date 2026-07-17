@@ -1,39 +1,40 @@
--- Seed a SuperAdmin account.
+-- Seed the credential-login accounts (SuperAdmin / Admin / Realtor).
 --
--- Password: superadmin   (BCrypt, work factor 12 — same as the app's BcryptPasswordHasher)
--- Role: 4 = SuperAdmin (Atria.Domain.Users.Role)
+-- Login is DB-only: each account is an ordinary users row with a username + BCrypt password hash
+-- (work factor 12, same as the app). They log in via POST /auth/admin/login (admin & super-admin)
+-- or /auth/realtor/login with username + password. No config/secrets involved.
 --
--- The "Id" here MUST equal SuperAdmin__UserId / SUPERADMIN_USER_ID in the app config, so the
--- issued JWT (sub = that id) maps to this row and ban/password operations target it.
+-- Default credentials (CHANGE the passwords for anything but local/demo — reset via the super-admin
+-- flow or regenerate the hash and UPDATE):
+--     superadmin / superadmin   (Role 4 = SuperAdmin)
+--     admin      / admin        (Role 0 = Admin)
+--     realtor    / realtor      (Role 3 = Realtor)
 --
--- EF maps columns in PascalCase (no snake_case), so they are quoted. Idempotent: re-running does
--- nothing if the id already exists. Change the password afterwards via the super-admin reset flow,
--- or regenerate the hash and UPDATE "PasswordHash".
+-- EF maps columns in PascalCase (no snake_case), so they are quoted. Idempotent per username.
 --
--- The block below adds the columns from the SuperAdminBanAndPasswords migration in case the app
--- hasn't applied it yet. If you run the app with Database__MigrateOnStartup=true these already
--- exist and the ADD COLUMN IF NOT EXISTS statements are no-ops.
+-- The block below adds the columns from the SuperAdminBanAndPasswords + UserUsername migrations in
+-- case the app hasn't applied them yet (no-ops when it has, e.g. Database__MigrateOnStartup=true).
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS "IsBanned"          boolean NOT NULL DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS "MustResetPassword" boolean NOT NULL DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS "PasswordHash"      character varying(200) NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "Username"          character varying(64)  NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_users_Username" ON users ("Username");
 
--- Record the migration so EF does not try to re-apply it on the next MigrateOnStartup.
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20260715081114_SuperAdminBanAndPasswords', '9.0.17')
+-- Record the migrations so EF does not try to re-apply them on the next MigrateOnStartup.
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion") VALUES
+    ('20260715081114_SuperAdminBanAndPasswords', '9.0.17'),
+    ('20260717063858_UserUsername', '9.0.17')
 ON CONFLICT ("MigrationId") DO NOTHING;
 
 INSERT INTO users
-    ("Id", "PhoneNumber", "Role", "IsActive", "IsPhoneVerified",
+    ("Id", "PhoneNumber", "Username", "Role", "IsActive", "IsPhoneVerified",
      "IsBanned", "PasswordHash", "MustResetPassword", "CreatedAtUtc")
 VALUES
-    ('44444444-4444-4444-4444-444444444444',           -- MUST match SUPERADMIN_USER_ID
-     NULL,                                              -- no phone (credential login, not OTP)
-     4,                                                 -- Role.SuperAdmin
-     TRUE,                                              -- IsActive
-     FALSE,                                             -- IsPhoneVerified
-     FALSE,                                             -- IsBanned
-     '$2a$12$r7eGOiC0RZQ55/6YSnvTduJMnTxsabgJS6dfZbjG/0wXqvPCbVxq6',  -- BCrypt("superadmin")
-     FALSE,                                             -- MustResetPassword
-     NOW() AT TIME ZONE 'utc')                          -- CreatedAtUtc
-ON CONFLICT ("Id") DO NOTHING;
+    (gen_random_uuid(), NULL, 'superadmin', 4, TRUE, FALSE, FALSE,
+     '$2a$12$Pmdi1XXn89zKlycBbfpR0uhP349PhsVX/C1WMa/rQgJLwocCOOHUq', FALSE, NOW() AT TIME ZONE 'utc'),
+    (gen_random_uuid(), NULL, 'admin', 0, TRUE, FALSE, FALSE,
+     '$2a$12$XWJV2dhQWahva8iEjr2dKu3lrDUCNFRb6vGqEI3uxyvV3O1eB0mmi', FALSE, NOW() AT TIME ZONE 'utc'),
+    (gen_random_uuid(), NULL, 'realtor', 3, TRUE, FALSE, FALSE,
+     '$2a$12$9Ft3rwcoDlhT72geIZ/E1OvDRFtglw/pbaXaAMGaeWVfacujnLFzm', FALSE, NOW() AT TIME ZONE 'utc')
+ON CONFLICT ("Username") DO NOTHING;

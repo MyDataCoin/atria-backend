@@ -22,19 +22,19 @@ public sealed class AuthController : ApiControllerBase
 {
     public AuthController(ISender sender) : base(sender) { }
 
-    /// <summary>Logs an admin in with a static username/password and returns a token pair.</summary>
+    /// <summary>Logs an admin (or super admin) in with a username/password and returns a token pair.</summary>
     /// <remarks>
-    /// Anonymous endpoint, separate from the phone flow (admins have no SMS login). Credentials are
-    /// the static <c>Admin__Username</c> / <c>Admin__Password</c> from server configuration and are
-    /// checked in constant time; on success an <c>Admin</c> access token + refresh token are issued
-    /// for the configured admin user. The feature is disabled (always <c>401</c>) when no admin
-    /// password is configured. Invalid credentials return <c>401</c> without revealing which field failed.
+    /// Anonymous endpoint, separate from the phone flow (admins have no SMS login). The account is
+    /// looked up by username in the database and the password is verified against its stored hash; the
+    /// issued token's role (<c>Admin</c> or <c>SuperAdmin</c>) comes from the row, so this one endpoint
+    /// serves both. Accounts are ordinary <c>users</c> rows — no configuration. A missing, wrong, or
+    /// banned account returns <c>401</c> without revealing which field failed.
     /// </remarks>
-    /// <param name="request">The admin username and static password.</param>
+    /// <param name="request">The account username and password.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <response code="200">Credentials accepted; access and refresh tokens returned.</response>
     /// <response code="400">The request failed validation (missing username or password).</response>
-    /// <response code="401">Admin login is disabled or the credentials are invalid.</response>
+    /// <response code="401">The credentials are invalid or the account is banned.</response>
     [HttpPost("admin/login")]
     [ProducesResponseType<AuthTokensDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -45,19 +45,18 @@ public sealed class AuthController : ApiControllerBase
         return ToActionResult(result);
     }
 
-    /// <summary>Logs a realtor in with a static username/password and returns a token pair.</summary>
+    /// <summary>Logs a realtor in with a username/password and returns a token pair.</summary>
     /// <remarks>
-    /// Anonymous endpoint, separate from the phone flow (realtors have no SMS login). Credentials are
-    /// the static <c>Realtor__Username</c> / <c>Realtor__Password</c> from server configuration and are
-    /// checked in constant time; on success a <c>Realtor</c> access token + refresh token are issued
-    /// for the configured realtor user. The feature is disabled (always <c>401</c>) when no realtor
-    /// password is configured. Invalid credentials return <c>401</c> without revealing which field failed.
+    /// Anonymous endpoint, separate from the phone flow (realtors have no SMS login). The account is
+    /// looked up by username in the database and the password is verified against its stored hash; a
+    /// <c>Realtor</c> token is issued. Accounts are ordinary <c>users</c> rows — no configuration. A
+    /// missing, wrong, or banned account returns <c>401</c> without revealing which field failed.
     /// </remarks>
-    /// <param name="request">The realtor username and static password.</param>
+    /// <param name="request">The realtor username and password.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <response code="200">Credentials accepted; access and refresh tokens returned.</response>
     /// <response code="400">The request failed validation (missing username or password).</response>
-    /// <response code="401">Realtor login is disabled or the credentials are invalid.</response>
+    /// <response code="401">The credentials are invalid or the account is banned.</response>
     [HttpPost("realtor/login")]
     [ProducesResponseType<AuthTokensDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]

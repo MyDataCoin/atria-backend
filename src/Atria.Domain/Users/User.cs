@@ -10,6 +10,13 @@ namespace Atria.Domain.Users;
 public sealed class User : AggregateRoot
 {
     public string? PhoneNumber { get; private set; }
+
+    /// <summary>
+    /// Login name for credential accounts (Admin/Realtor/SuperAdmin). Null for phone-OTP investors and
+    /// ordinary realtors (who have no login) — they are identified by phone, not a username.
+    /// </summary>
+    public string? Username { get; private set; }
+
     public Role Role { get; private set; }
     public bool IsActive { get; private set; }
     public bool IsPhoneVerified { get; private set; }
@@ -47,20 +54,24 @@ public sealed class User : AggregateRoot
         };
 
     /// <summary>
-    /// Creates a credential-login service account (Admin/Realtor/SuperAdmin) with a fixed id and a
+    /// Creates a credential-login service account (Admin/Realtor/SuperAdmin) with a username and a
     /// pre-computed password hash. No phone number — these sign in with username/password, not OTP.
-    /// Used to seed the configured service accounts so ban/password operations can target them by id.
+    /// The account is looked up at login by <paramref name="username"/>. Pass <paramref name="id"/> to
+    /// pin a specific id (e.g. to match a hand-seeded row); when null a fresh id is generated.
     /// </summary>
-    public static User CreateServiceAccount(Guid id, Role role, string passwordHash)
+    public static User CreateServiceAccount(string username, Role role, string passwordHash, Guid? id = null)
     {
-        if (id == Guid.Empty)
-            throw new DomainException("Service account id is required.");
+        if (role is not (Role.Admin or Role.Realtor or Role.SuperAdmin))
+            throw new DomainException("Service accounts must be Admin, Realtor or SuperAdmin.");
+        if (string.IsNullOrWhiteSpace(username))
+            throw new DomainException("Service account username is required.");
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new DomainException("Service account password hash is required.");
 
         return new User
         {
-            Id = id,
+            Id = id ?? Guid.NewGuid(),
+            Username = username,
             Role = role,
             IsActive = true,
             PasswordHash = passwordHash

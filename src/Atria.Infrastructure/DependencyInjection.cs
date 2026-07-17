@@ -59,15 +59,8 @@ public static class DependencyInjection
         BindValidated<EncryptionOptions>(services, configuration, EncryptionOptions.SectionName);
         BindValidated<OtpOptions>(services, configuration, OtpOptions.SectionName);
 
-        // Admin static-login options are OPTIONAL (disabled when Password is empty) — bind
-        // without DataAnnotations validation so a stack with no admin password still boots.
-        services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
-
-        // Realtor static-login options are OPTIONAL too (disabled when Password is empty).
-        services.Configure<RealtorOptions>(configuration.GetSection(RealtorOptions.SectionName));
-
-        // Super-admin static-login options are OPTIONAL too (disabled when Password is empty).
-        services.Configure<SuperAdminOptions>(configuration.GetSection(SuperAdminOptions.SectionName));
+        // Admin/Realtor/SuperAdmin have no configuration: they are ordinary rows in the users table
+        // (username + password hash) and log in purely against the database.
 
         // Referral link base URL (used to build shareable deal links). Optional; a relative link is
         // returned when unset.
@@ -152,10 +145,6 @@ public static class DependencyInjection
         // IEncryptionService is registered in AddPersistence (also required there by AtriaDbContext).
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IOtpService, OtpService>();
-        services.AddScoped<IAdminAuthenticator, AdminAuthenticator>();
-        services.AddScoped<ISuperAdminAuthenticator, SuperAdminAuthenticator>();
-        services.AddScoped<ServiceAccountSeeder>();
-        services.AddScoped<IRealtorAuthenticator, RealtorAuthenticator>();
         services.AddScoped<IReferralLinkBuilder, ReferralLinkBuilder>();
         // Audit entries are written from inside commands so they share the action's transaction.
         services.AddScoped<IAuditWriter, AuditWriter>();

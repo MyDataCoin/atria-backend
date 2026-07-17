@@ -26,8 +26,9 @@ internal static class AuthTokensFactory
         IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        // Identity claims: phone-only accounts, so the identifier claim is the phone number.
-        var access = jwt.GenerateAccessToken(user.Id, user.PhoneNumber ?? string.Empty, user.Role);
+        // Identifier claim: a credential account's username, else the phone number (OTP accounts).
+        var identifier = user.Username ?? user.PhoneNumber ?? string.Empty;
+        var access = jwt.GenerateAccessToken(user.Id, identifier, user.Role);
         var refresh = jwt.GenerateRefreshToken();
 
         // Store with the refresh token's OWN lifetime (RefreshTokenDays), not the access TTL.
@@ -41,21 +42,16 @@ internal static class AuthTokensFactory
     }
 
     /// <summary>
-    /// Issues a token pair for a credential-login role (Admin/Realtor/SuperAdmin). The password is
-    /// authoritatively checked against the seeded <c>users</c> row's hash when one exists (so a
-    /// super-admin password reset takes effect and the stale config password stops working); when no
-    /// row/hash is seeded yet it falls back to <paramref name="configValidates"/> (the static config
-    /// check). A banned account, or any failed check, is refused with a generic 401. On the first
-    /// successful config-password login the service account is self-provisioned as a <c>users</c> row
-    /// (hash backfilled), so no manual SQL or startup seeding is required. The token carries
-    /// <paramref name="role"/> and uses <paramref name="username"/> as the identifier claim.
+    /// Logs a credential account (Admin/Realtor/SuperAdmin) in purely from the database: looks the
+    /// account up by <paramref name="username"/>, verifies the password against its stored hash, and
+    /// issues a token whose role is taken from the row. There is no configuration involved — accounts
+    /// live only in <c>users</c>. A missing account, wrong password, or a banned account all yield the
+    /// same generic 401 so nothing is leaked. The account must have a password hash (a credential
+    /// account); a row without one (e.g. an investor) is treated as invalid.
     /// </summary>
     public static async Task<Result<AuthTokensDto>> IssueForCredentialLoginAsync(
-        Guid userId,
-        Role role,
         string username,
         string password,
-        bool configValidates,
         IUserRepository users,
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwt,
@@ -63,33 +59,16 @@ internal static class AuthTokensFactory
         IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        var invalid = Error.Unauthorized("auth.invalid_credentials", "Invalid username or password.");
+        var invalid = Result.Failure<AuthTokensDto>(
+            Error.Unauthorized("auth.invalid_credentials", "Invalid username or password."));
 
-        var user = await users.GetByIdAsync(userId, ct);
-        if (user is not null && user.IsBanned)
-            return Result.Failure<AuthTokensDto>(invalid);
+        var user = await users.GetByUsernameAsync(username, ct);
+        if (user is null || user.PasswordHash is null || user.IsBanned)
+            return invalid;
 
-        // A stored hash is authoritative; without one (not seeded yet) trust the config check.
-        var credentialsOk = user?.PasswordHash is { } hash
-            ? passwordHasher.Verify(password, hash)
-            : configValidates;
+        if (!passwordHasher.Verify(password, user.PasswordHash))
+            return invalid;
 
-        if (!credentialsOk)
-            return Result.Failure<AuthTokensDto>(invalid);
-
-        // Self-provision the service account on first successful login so it exists as a real users
-        // row (needed for ban/password operations) WITHOUT any manual SQL or startup seeding. The
-        // repository creates it when absent (and backfills a hash for a hand-inserted row), tolerating
-        // a concurrent login racing the same insert. Only needed on the config-fallback path — when a
-        // hash already matched, the row is obviously present.
-        if (user is null || user.PasswordHash is null)
-            await users.EnsureServiceAccountAsync(userId, role, passwordHasher.Hash(password), ct);
-
-        var access = jwt.GenerateAccessToken(userId, username, role);
-        var refresh = jwt.GenerateRefreshToken();
-        await refreshTokens.StoreAsync(userId, refresh.Token, refresh.ExpiresAtUtc, ct);
-        await unitOfWork.SaveChangesAsync(ct);
-
-        return Result.Success(new AuthTokensDto(access.Token, access.ExpiresAtUtc, refresh.Token));
+        return Result.Success(await IssueAsync(user, jwt, refreshTokens, unitOfWork, ct));
     }
 }

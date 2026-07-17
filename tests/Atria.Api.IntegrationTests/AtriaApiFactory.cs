@@ -27,6 +27,53 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
     /// <summary>Shared in-memory database name so all requests in a test see the same data.</summary>
     private const string InMemoryDbName = "atria-tests";
 
+    // Well-known credential accounts seeded into the in-memory DB (username / password). Login is
+    // purely DB-based now, so tests obtain tokens with these.
+    public const string AdminUsername = "admin";
+    public const string AdminPassword = "admin-test-password";
+    public const string RealtorUsername = "realtor";
+    public const string RealtorPassword = "realtor-test-password";
+    public const string SuperAdminUsername = "superadmin";
+    public const string SuperAdminPassword = "superadmin-test-password";
+
+    // Fixed ids so suites that assert on the token subject keep working.
+    private static readonly Guid AdminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid RealtorId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid SuperAdminId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+        SeedCredentialAccounts(host.Services);
+        return host;
+    }
+
+    // Serializes seeding across the parallel factory instances that share one in-memory DB, so the
+    // check-then-insert on the unique username can't race.
+    private static readonly object SeedLock = new();
+
+    /// <summary>Seeds the admin/realtor/super-admin credential rows once (idempotent, thread-safe).</summary>
+    private static void SeedCredentialAccounts(IServiceProvider services)
+    {
+        lock (SeedLock)
+        {
+            using var scope = services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
+            var hasher = scope.ServiceProvider.GetRequiredService<Atria.Application.Abstractions.IPasswordHasher>();
+
+            void Ensure(string username, Atria.Domain.Users.Role role, string password, Guid id)
+            {
+                if (!db.Users.Any(u => u.Username == username))
+                    db.Users.Add(Atria.Domain.Users.User.CreateServiceAccount(username, role, hasher.Hash(password), id));
+            }
+
+            Ensure(AdminUsername, Atria.Domain.Users.Role.Admin, AdminPassword, AdminId);
+            Ensure(RealtorUsername, Atria.Domain.Users.Role.Realtor, RealtorPassword, RealtorId);
+            Ensure(SuperAdminUsername, Atria.Domain.Users.Role.SuperAdmin, SuperAdminPassword, SuperAdminId);
+            db.SaveChanges();
+        }
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -57,22 +104,9 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 ["Jwt:RefreshTokenDays"] = "30",
 
                 // Admin (section "Admin"): static admin login is enabled when Password is non-empty,
-                // so tests can obtain an Admin bearer token via POST /auth/admin/login.
-                ["Admin:Username"] = "admin",
-                ["Admin:Password"] = "admin-test-password",
-                ["Admin:UserId"] = "11111111-1111-1111-1111-111111111111",
-
-                // Realtor (section "Realtor"): static realtor login is enabled when Password is
-                // non-empty, so tests can obtain a Realtor bearer token via POST /auth/realtor/login.
-                ["Realtor:Username"] = "realtor",
-                ["Realtor:Password"] = "realtor-test-password",
-                ["Realtor:UserId"] = "22222222-2222-2222-2222-222222222222",
-
-                // SuperAdmin (section "SuperAdmin"): shares POST /auth/admin/login. Enabled when
-                // Password is non-empty; tests obtain a SuperAdmin bearer token with these creds.
-                ["SuperAdmin:Username"] = "superadmin",
-                ["SuperAdmin:Password"] = "superadmin-test-password",
-                ["SuperAdmin:UserId"] = "44444444-4444-4444-4444-444444444444",
+                // Admin/Realtor/SuperAdmin credential accounts are ordinary users rows (username +
+                // password hash) — no configuration. They are seeded into the in-memory DB by
+                // SeedCredentialAccounts(); tests log in with the well-known passwords on this factory.
 
                 // Referral (section "Referral"): base URL used to build shareable deal links.
                 ["Referral:BaseUrl"] = "https://atria.test/invest",
