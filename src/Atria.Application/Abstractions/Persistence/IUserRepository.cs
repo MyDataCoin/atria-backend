@@ -29,4 +29,10 @@ public interface IUserRepository : IRepository<User>
     /// null for users without one. Admin/Compliance reporting read.
     /// </summary>
     Task<IReadOnlyList<(User User, KycProfile? Kyc)>> GetOverviewAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Staff (credential-login) accounts — the <c>Admin</c> and <c>SuperAdmin</c> roles — newest
+    /// first. These are the accounts a super admin can password-reset. SuperAdmin only reporting read.
+    /// </summary>
+    Task<IReadOnlyList<User>> GetStaffAsync(CancellationToken ct);
 }

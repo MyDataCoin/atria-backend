@@ -37,4 +37,10 @@ public sealed class UserRepository : Repository<User>, IUserRepository
 
         return rows.Select(r => (r.u, (KycProfile?)r.k)).ToList();
     }
+
+    public async Task<IReadOnlyList<User>> GetStaffAsync(CancellationToken ct)
+        => await Set.AsNoTracking()
+            .Where(u => (u.Role == Role.Admin || u.Role == Role.SuperAdmin) && u.DeletedAtUtc == null)
+            .OrderByDescending(u => u.CreatedAtUtc)
+            .ToListAsync(ct);
 }

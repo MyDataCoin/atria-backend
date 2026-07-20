@@ -25,6 +25,7 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
 {
     private const string AdminLoginRoute = "/api/v1/auth/admin/login";
     private const string UsersRoute = "/api/v1/users";
+    private const string AdminsRoute = "/api/v1/admins";
     private const string StatsRoute = "/api/v1/realtors/stats";
     private const string RequestOtpRoute = "/api/v1/auth/register/phone/request-otp";
     private const string VerifyOtpRoute = "/api/v1/auth/register/phone/verify-otp";
@@ -59,6 +60,42 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
 
         (await admin.PostAsync($"{UsersRoute}/{Guid.NewGuid()}/ban", null))
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Super_admin_sees_the_staff_accounts_and_can_reset_an_admin_password()
+    {
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+
+        var response = await superAdmin.GetAsync(AdminsRoute);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var admins = doc.RootElement.EnumerateArray().ToList();
+
+        // The seeded staff accounts (admin + superadmin) are present; the realtor is NOT (not staff).
+        admins.Select(a => a.GetProperty("username").GetString())
+            .Should().Contain(new[] { AtriaApiFactory.AdminUsername, AtriaApiFactory.SuperAdminUsername })
+            .And.NotContain(AtriaApiFactory.RealtorUsername);
+
+        admins.Single(a => a.GetProperty("username").GetString() == AtriaApiFactory.AdminUsername)
+            .GetProperty("blocked").GetBoolean().Should().BeFalse();
+
+        // Password reset works for an admin-role account. Use a throwaway admin (not the shared
+        // "admin" other tests log in with) so its password change doesn't ripple into them.
+        var throwawayAdminId = await SeedAdminAsync("throwaway-admin");
+        (await superAdmin.PostAsJsonAsync($"{UsersRoute}/{throwawayAdminId}/password/reset", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Admins_list_is_forbidden_for_a_regular_admin()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+
+        (await admin.GetAsync(AdminsRoute)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -215,6 +252,18 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
         return (await db.Users.AsNoTracking().FirstAsync(u => u.PhoneNumber == phone)).Id;
+    }
+
+    // Seeds an admin credential user (unique username), returning the user id.
+    private async Task<Guid> SeedAdminAsync(string username)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Atria.Application.Abstractions.IPasswordHasher>();
+        var user = User.CreateServiceAccount(username, Role.Admin, hasher.Hash("seeded-pass"));
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        return user.Id;
     }
 
     // Seeds a realtor credential user (unique username) + its realtor profile, returning the user id.
