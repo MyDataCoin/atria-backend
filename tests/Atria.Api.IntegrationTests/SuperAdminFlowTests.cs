@@ -27,6 +27,7 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
     private const string UsersRoute = "/api/v1/users";
     private const string AdminsRoute = "/api/v1/admins";
     private const string StatsRoute = "/api/v1/realtors/stats";
+    private const string RealtorsRoute = "/api/v1/realtors";
     private const string RequestOtpRoute = "/api/v1/auth/register/phone/request-otp";
     private const string VerifyOtpRoute = "/api/v1/auth/register/phone/verify-otp";
     private const string DevCode = "333333";
@@ -87,6 +88,82 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
         var throwawayAdminId = await SeedAdminAsync("throwaway-admin");
         (await superAdmin.PostAsJsonAsync($"{UsersRoute}/{throwawayAdminId}/password/reset", new { }))
             .StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Super_admin_registers_a_realtor_who_then_appears_in_stats()
+    {
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+
+        var username = "marat-" + Guid.NewGuid().ToString("N")[..8];
+        var create = await superAdmin.PostAsJsonAsync(RealtorsRoute, new
+        {
+            username,
+            password = "temp1234",
+            fullName = "Марат Урманов",
+            companyName = "ATRIA Realty"
+        });
+
+        create.StatusCode.Should().Be(HttpStatusCode.Created);
+        using var doc = JsonDocument.Parse(await create.Content.ReadAsStringAsync());
+        var created = doc.RootElement;
+        created.GetProperty("fullName").GetString().Should().Be("Марат Урманов");
+        created.GetProperty("companyName").GetString().Should().Be("ATRIA Realty");
+        created.GetProperty("closedDeals").GetInt32().Should().Be(0);
+        created.GetProperty("totalDeals").GetInt32().Should().Be(0);
+        created.GetProperty("blocked").GetBoolean().Should().BeFalse();
+        var realtorId = created.GetProperty("id").GetString();
+
+        // The new realtor can log in with the given credentials, and shows up in the leaderboard.
+        (await LoginAsync(_factory.CreateClient(), username, "temp1234")).Should().NotBeNullOrEmpty();
+
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        using var stats = JsonDocument.Parse(await (await admin.GetAsync(StatsRoute)).Content.ReadAsStringAsync());
+        stats.RootElement.EnumerateArray().Select(e => e.GetProperty("id").GetString())
+            .Should().Contain(realtorId);
+
+        await AuditContainsAsync(Guid.Parse(realtorId!), "RealtorRegistered");
+    }
+
+    [Fact]
+    public async Task Registering_a_realtor_with_a_taken_username_is_a_conflict()
+    {
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+
+        // "realtor" is already seeded by the factory.
+        var conflict = await superAdmin.PostAsJsonAsync(RealtorsRoute, new
+        {
+            username = AtriaApiFactory.RealtorUsername,
+            password = "temp1234",
+            fullName = "Дубликат"
+        });
+        conflict.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Registering_a_realtor_with_missing_fields_is_bad_request()
+    {
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+
+        (await superAdmin.PostAsJsonAsync(RealtorsRoute, new { username = "", password = "", fullName = "" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Registering_a_realtor_is_forbidden_for_a_regular_admin()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+
+        var response = await admin.PostAsJsonAsync(RealtorsRoute, new
+        {
+            username = "x-" + Guid.NewGuid().ToString("N")[..8], password = "temp1234", fullName = "X"
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]

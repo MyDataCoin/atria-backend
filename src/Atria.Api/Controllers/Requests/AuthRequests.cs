@@ -146,3 +146,12 @@ public sealed record AddTicketMessageRequest(string Body);
 /// <summary>POST /users/{id}/password/reset body. Optional; omit to have the server generate a temporary password.</summary>
 /// <param name="NewPassword">An explicit new password to set; when null/empty a temporary one is generated.</param>
 public sealed record ResetPasswordRequest(string? NewPassword = null);
+
+/// <summary>POST /realtors body. Registers a realtor account (super admin only).</summary>
+/// <param name="Username">Login name; must be unique.</param>
+/// <param name="Password">Cleartext password set by the super admin; stored hashed.</param>
+/// <param name="FullName">Realtor full name.</param>
+/// <param name="CompanyName">Company name (optional).</param>
+/// <param name="PhoneNumber">Contact phone (optional).</param>
+public sealed record RegisterRealtorRequest(
+    string Username, string Password, string FullName, string? CompanyName = null, string? PhoneNumber = null);
