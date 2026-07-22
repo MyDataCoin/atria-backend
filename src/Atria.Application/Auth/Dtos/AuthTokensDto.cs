@@ -67,10 +67,10 @@ internal static class AuthTokensFactory
             return invalid;
 
         // Correct credentials but banned: distinct 403 so the client can show the blocked screen and
-        // offer an appeal. A wrong password stays a generic 401 (ban status is not leaked).
+        // offer an appeal. A wrong password stays a generic 401 (ban status is not leaked). The ban
+        // reason (when set) is carried in the error message so the API surfaces it as banReason/detail.
         if (user.IsBanned)
-            return Result.Failure<AuthTokensDto>(
-                Error.Forbidden("auth.account_banned", "Account is banned."));
+            return Result.Failure<AuthTokensDto>(Error.AccountBanned(user.BanReason));
 
         return Result.Success(await IssueAsync(user, jwt, refreshTokens, unitOfWork, ct));
     }

@@ -143,6 +143,10 @@ public sealed record CreateTicketRequest(string Subject, string Category, string
 /// <param name="Body">The reply text; required.</param>
 public sealed record AddTicketMessageRequest(string Body);
 
+/// <summary>POST /users/{id}/ban body. Optional; the reason is shown to the banned user on the blocked screen.</summary>
+/// <param name="Reason">Human-readable ban reason; null/empty to ban without a stated reason.</param>
+public sealed record BanUserRequest(string? Reason = null);
+
 /// <summary>POST /users/{id}/password/reset body. Optional; omit to have the server generate a temporary password.</summary>
 /// <param name="NewPassword">An explicit new password to set; when null/empty a temporary one is generated.</param>
 public sealed record ResetPasswordRequest(string? NewPassword = null);

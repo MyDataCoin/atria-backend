@@ -51,9 +51,9 @@ public sealed class VerifyPhoneOtpCommandHandler : IRequestHandler<VerifyPhoneOt
         }
         else if (user.IsBanned)
         {
-            // A banned account gets no token even with a valid OTP.
-            return Result.Failure<AuthTokensDto>(
-                Error.Forbidden("auth.account_banned", "This account has been blocked."));
+            // A banned account gets no token even with a valid OTP. The super-admin's ban reason
+            // (when set) travels in the message so the API surfaces it as banReason/detail.
+            return Result.Failure<AuthTokensDto>(Error.AccountBanned(user.BanReason));
         }
         else if (!user.IsPhoneVerified)
         {

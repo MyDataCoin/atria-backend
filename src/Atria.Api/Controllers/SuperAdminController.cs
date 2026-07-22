@@ -25,10 +25,13 @@ public sealed class SuperAdminController : ApiControllerBase
     /// <summary>Bans a user account (investor or realtor) so it can no longer authenticate.</summary>
     /// <remarks>
     /// Requires the <c>SuperAdmin</c> role. <paramref name="id"/> is the <c>users.id</c>. Idempotent.
-    /// A banned account is refused a token at login. Reflected as <c>blocked: true</c> in
-    /// <c>GET /users</c> and <c>GET /realtors/stats</c>.
+    /// A banned account is refused a token at login (403 <c>auth.account_banned</c>). An optional
+    /// <c>reason</c> in the body is stored, journalled, and returned to the banned user as
+    /// <c>banReason</c> on that 403. Reflected as <c>blocked: true</c> in <c>GET /users</c> and
+    /// <c>GET /realtors/stats</c>.
     /// </remarks>
     /// <param name="id">The user id to ban.</param>
+    /// <param name="request">Optional body carrying a ban <c>reason</c> shown to the user; may be omitted.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <response code="204">The account was banned.</response>
     /// <response code="401">The request is not authenticated.</response>
@@ -39,8 +42,8 @@ public sealed class SuperAdminController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Ban(Guid id, CancellationToken ct)
-        => ToActionResult(await Sender.Send(new BanUserCommand(id), ct));
+    public async Task<IActionResult> Ban(Guid id, [FromBody] BanUserRequest? request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new BanUserCommand(id, request?.Reason), ct));
 
     /// <summary>Lifts a ban on a user account.</summary>
     /// <remarks>Requires the <c>SuperAdmin</c> role. <paramref name="id"/> is the <c>users.id</c>. Idempotent.</remarks>

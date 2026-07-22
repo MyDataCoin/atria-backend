@@ -47,9 +47,15 @@ public abstract class ApiControllerBase : ControllerBase
         };
 
         // Surface a machine-readable "reason" for a banned account so the client can show the
-        // dedicated blocked screen (it keys off 403 + a ban marker), not a generic error.
-        if (error.Code.Contains("banned", StringComparison.OrdinalIgnoreCase))
+        // dedicated blocked screen (it keys off 403 + a ban marker), not a generic error. The
+        // super-admin's ban reason travels in the error message (detail); expose it as banReason too
+        // so the client can render it directly. Suppress the generic fallback text as a reason.
+        if (error.Code == Error.AccountBannedCode)
+        {
             problem.Extensions["reason"] = "banned";
+            if (!string.IsNullOrWhiteSpace(error.Message) && error.Message != Error.AccountBannedMessage)
+                problem.Extensions["banReason"] = error.Message;
+        }
 
         return new ObjectResult(problem) { StatusCode = status };
     }

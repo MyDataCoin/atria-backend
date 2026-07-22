@@ -53,6 +53,44 @@ public sealed class BanAppealFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task Ban_reason_is_surfaced_on_the_403_login_response()
+    {
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+        var (username, id) = await RegisterRealtorAsync(superAdmin);
+
+        const string reason = "Нарушение правил платформы";
+        (await superAdmin.PostAsJsonAsync($"{UsersRoute}/{id}/ban", new { reason }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var banned = await Login(username, "temp1234");
+        banned.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        using var doc = JsonDocument.Parse(await banned.Content.ReadAsStringAsync());
+        var root = doc.RootElement;
+        root.GetProperty("reason").GetString().Should().Be("banned");
+        root.GetProperty("banReason").GetString().Should().Be(reason);
+        // The reason also lands in detail (frontend reads banReason first, else detail).
+        root.GetProperty("detail").GetString().Should().Be(reason);
+    }
+
+    [Fact]
+    public async Task Ban_without_a_reason_omits_ban_reason_on_the_403()
+    {
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+        var (username, id) = await RegisterRealtorAsync(superAdmin);
+
+        (await superAdmin.PostAsync($"{UsersRoute}/{id}/ban", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var banned = await Login(username, "temp1234");
+        banned.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        using var doc = JsonDocument.Parse(await banned.Content.ReadAsStringAsync());
+        doc.RootElement.GetProperty("reason").GetString().Should().Be("banned");
+        doc.RootElement.TryGetProperty("banReason", out _).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Anonymous_appeal_is_recorded_and_super_admin_can_read_it()
     {
         var username = "appellant-" + Guid.NewGuid().ToString("N")[..8];

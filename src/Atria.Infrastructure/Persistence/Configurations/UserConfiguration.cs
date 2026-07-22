@@ -17,6 +17,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         b.Property(u => u.IsActive).IsRequired();
         b.Property(u => u.IsPhoneVerified).IsRequired();
         b.Property(u => u.IsBanned).IsRequired().HasDefaultValue(false);
+        b.Property(u => u.BanReason).HasMaxLength(1000);
         b.Property(u => u.PasswordHash).HasMaxLength(200);
         b.Property(u => u.MustResetPassword).IsRequired().HasDefaultValue(false);
 

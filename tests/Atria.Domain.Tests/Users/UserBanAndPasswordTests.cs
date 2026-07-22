@@ -29,6 +29,45 @@ public sealed class UserBanAndPasswordTests
     }
 
     [Fact]
+    public void Ban_stores_a_trimmed_reason_and_unban_clears_it()
+    {
+        var user = Investor();
+
+        user.Ban("  Нарушение правил платформы  ");
+        user.IsBanned.Should().BeTrue();
+        user.BanReason.Should().Be("Нарушение правил платформы");
+
+        user.Unban();
+        user.IsBanned.Should().BeFalse();
+        user.BanReason.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Ban_normalises_a_blank_reason_to_null(string? reason)
+    {
+        var user = Investor();
+
+        user.Ban(reason);
+
+        user.IsBanned.Should().BeTrue();
+        user.BanReason.Should().BeNull();
+    }
+
+    [Fact]
+    public void Ban_without_a_reason_after_a_reasoned_ban_clears_the_previous_reason()
+    {
+        var user = Investor();
+        user.Ban("first reason");
+
+        user.Ban();
+
+        user.BanReason.Should().BeNull();
+    }
+
+    [Fact]
     public void SetPassword_sets_hash_and_reset_flag_for_admin()
     {
         var user = Admin();

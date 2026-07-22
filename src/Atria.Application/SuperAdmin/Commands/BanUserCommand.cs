@@ -7,7 +7,8 @@ namespace Atria.Application.SuperAdmin.Commands;
 
 /// <summary>Bans a user account so it can no longer authenticate. Super admin only.</summary>
 /// <param name="UserId">The <c>users.id</c> to ban (investor or realtor).</param>
-public sealed record BanUserCommand(Guid UserId) : IRequest<Result>;
+/// <param name="Reason">Optional reason shown to the user on the blocked screen and journalled.</param>
+public sealed record BanUserCommand(Guid UserId, string? Reason = null) : IRequest<Result>;
 
 /// <summary>
 /// Loads the target user, bans it (idempotent), and journals the action. 404 when the user does not
@@ -32,12 +33,17 @@ public sealed class BanUserCommandHandler : IRequestHandler<BanUserCommand, Resu
         if (user is null)
             return Result.Failure(Error.NotFound("user.not_found", "User not found."));
 
-        user.Ban();
+        user.Ban(request.Reason);
         _users.Update(user);
+
+        // Include the reason in the audit summary when one was given.
+        var summary = string.IsNullOrWhiteSpace(user.BanReason)
+            ? $"Заблокирован аккаунт ({user.Role})"
+            : $"Заблокирован аккаунт ({user.Role}): {user.BanReason}";
 
         await _audit.WriteAsync(
             AuditEntities.User, user.Id, AuditEvents.UserBanned,
-            $"Заблокирован аккаунт ({user.Role})", AuditSeverity.Alert, ct);
+            summary, AuditSeverity.Alert, ct);
 
         await _unitOfWork.SaveChangesAsync(ct);
         return Result.Success();

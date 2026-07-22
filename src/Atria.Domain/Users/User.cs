@@ -29,6 +29,13 @@ public sealed class User : AggregateRoot
     public bool IsBanned { get; private set; }
 
     /// <summary>
+    /// Optional reason a super admin gave when banning the account. Shown to the user on the blocked
+    /// screen (surfaced as <c>banReason</c> in the 403 login response). Null when no reason was given
+    /// or the account is not banned; cleared on unban.
+    /// </summary>
+    public string? BanReason { get; private set; }
+
+    /// <summary>
     /// BCrypt password hash for credential-login roles (Admin/Realtor/SuperAdmin). Null for
     /// phone-OTP investors, who have no password.
     /// </summary>
@@ -82,11 +89,23 @@ public sealed class User : AggregateRoot
 
     public void Deactivate() => IsActive = false;
 
-    /// <summary>Bans the account (idempotent). A banned account cannot obtain a token.</summary>
-    public void Ban() => IsBanned = true;
+    /// <summary>
+    /// Bans the account (idempotent). A banned account cannot obtain a token. An optional
+    /// <paramref name="reason"/> is stored and shown to the user on the blocked screen; a blank
+    /// reason is normalised to null.
+    /// </summary>
+    public void Ban(string? reason = null)
+    {
+        IsBanned = true;
+        BanReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+    }
 
-    /// <summary>Lifts a ban (idempotent).</summary>
-    public void Unban() => IsBanned = false;
+    /// <summary>Lifts a ban (idempotent) and clears the stored ban reason.</summary>
+    public void Unban()
+    {
+        IsBanned = false;
+        BanReason = null;
+    }
 
     /// <summary>
     /// Sets a new password hash. Only credential-login roles have passwords; setting one on an
