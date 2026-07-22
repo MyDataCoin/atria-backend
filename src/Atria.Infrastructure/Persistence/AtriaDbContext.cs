@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Atria.Application.Abstractions;
+using Atria.Domain.Appeals;
 using Atria.Domain.Audit;
 using Atria.Domain.Common;
 using Atria.Domain.Compliance;
@@ -43,6 +44,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<DocumentRecord> Documents => Set<DocumentRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+    public DbSet<Appeal> Appeals => Set<Appeal>();
     public DbSet<ComplianceProfile> ComplianceProfiles => Set<ComplianceProfile>();
     public DbSet<BlockchainOperation> BlockchainOperations => Set<BlockchainOperation>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();

@@ -63,11 +63,14 @@ internal static class AuthTokensFactory
             Error.Unauthorized("auth.invalid_credentials", "Invalid username or password."));
 
         var user = await users.GetByUsernameAsync(username, ct);
-        if (user is null || user.PasswordHash is null || user.IsBanned)
+        if (user is null || user.PasswordHash is null || !passwordHasher.Verify(password, user.PasswordHash))
             return invalid;
 
-        if (!passwordHasher.Verify(password, user.PasswordHash))
-            return invalid;
+        // Correct credentials but banned: distinct 403 so the client can show the blocked screen and
+        // offer an appeal. A wrong password stays a generic 401 (ban status is not leaked).
+        if (user.IsBanned)
+            return Result.Failure<AuthTokensDto>(
+                Error.Forbidden("auth.account_banned", "Account is banned."));
 
         return Result.Success(await IssueAsync(user, jwt, refreshTokens, unitOfWork, ct));
     }

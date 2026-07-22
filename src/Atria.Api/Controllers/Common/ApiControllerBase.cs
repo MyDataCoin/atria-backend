@@ -46,6 +46,11 @@ public abstract class ApiControllerBase : ControllerBase
             Detail = error.Message
         };
 
+        // Surface a machine-readable "reason" for a banned account so the client can show the
+        // dedicated blocked screen (it keys off 403 + a ban marker), not a generic error.
+        if (error.Code.Contains("banned", StringComparison.OrdinalIgnoreCase))
+            problem.Extensions["reason"] = "banned";
+
         return new ObjectResult(problem) { StatusCode = status };
     }
 

@@ -155,3 +155,8 @@ public sealed record ResetPasswordRequest(string? NewPassword = null);
 /// <param name="PhoneNumber">Contact phone (optional).</param>
 public sealed record RegisterRealtorRequest(
     string Username, string Password, string FullName, string? CompanyName = null, string? PhoneNumber = null);
+
+/// <summary>POST /appeals body. Anonymous ban appeal from the blocked screen.</summary>
+/// <param name="Username">The login the sender tried to use (optional; helps match an account).</param>
+/// <param name="Message">The appeal text; required.</param>
+public sealed record SubmitAppealRequest(string? Username, string Message);

@@ -113,6 +113,7 @@ public static class DependencyInjection
         services.AddScoped<IComplianceRepository, ComplianceRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
+        services.AddScoped<IAppealRepository, AppealRepository>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 

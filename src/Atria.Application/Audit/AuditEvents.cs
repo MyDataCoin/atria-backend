@@ -27,4 +27,5 @@ public static class AuditEvents
     public const string PasswordReset = "PasswordReset";
     public const string PasswordRestored = "PasswordRestored";
     public const string RealtorRegistered = "RealtorRegistered";
+    public const string BanAppealSubmitted = "BanAppealSubmitted";
 }
