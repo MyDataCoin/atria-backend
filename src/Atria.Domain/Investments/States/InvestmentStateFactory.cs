@@ -10,9 +10,9 @@ public static class InvestmentStateFactory
 {
     public static IInvestmentState Create(InvestmentStatus status) => status switch
     {
-        InvestmentStatus.PendingPayment => PendingPaymentState.Instance,
+        InvestmentStatus.Reserved => ReservedState.Instance,
         InvestmentStatus.Active => ActiveState.Instance,
-        InvestmentStatus.Failed => FailedState.Instance,
+        InvestmentStatus.Rejected => RejectedState.Instance,
         InvestmentStatus.Cancelled => CancelledState.Instance,
         _ => throw new InvalidStateTransitionException($"Unknown investment status: {status}.")
     };

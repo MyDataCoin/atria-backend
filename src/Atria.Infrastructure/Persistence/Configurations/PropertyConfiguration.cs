@@ -27,6 +27,15 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Status).HasConversion<int>().IsRequired();
         b.Property(p => p.SalesPaused).IsRequired();
 
+        // On-chain issuance (each property is its own registered issuance / permissioned contract).
+        b.Property(p => p.TokenContractAddress).HasMaxLength(128);
+        b.Property(p => p.TokenChain).HasMaxLength(64);
+        b.Property(p => p.IssuerWalletAddress).HasMaxLength(128);
+
+        // Optimistic concurrency: two concurrent applications racing on the last tokens must not both
+        // reserve — the second SaveChanges fails on the changed row and is retried against fresh supply.
+        b.XminConcurrencyToken();
+
         // Child media collections mapped via backing fields, owned by the Property aggregate.
         b.HasMany(p => p.Images)
             .WithOne()

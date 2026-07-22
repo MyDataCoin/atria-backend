@@ -14,7 +14,6 @@ using Atria.Infrastructure.Kyc.Providers;
 using Atria.Infrastructure.Messaging;
 using Atria.Infrastructure.Notifications;
 using Atria.Infrastructure.Outbox;
-using Atria.Infrastructure.Payments.Providers;
 using Atria.Infrastructure.Persistence;
 using Atria.Infrastructure.Persistence.Repositories;
 using Atria.Infrastructure.Persistence.Seeding;
@@ -69,8 +68,6 @@ public static class DependencyInjection
         // Public media storage location (property photos/documents).
         services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
         BindValidated<DiditOptions>(services, configuration, DiditOptions.SectionName);
-        BindValidated<StripeOptions>(services, configuration, StripeOptions.SectionName);
-        BindValidated<BankTransferOptions>(services, configuration, BankTransferOptions.SectionName);
         BindValidated<NikitaProOptions>(services, configuration, NikitaProOptions.SectionName);
         BindValidated<S3Options>(services, configuration, S3Options.SectionName);
         BindValidated<TesseraOptions>(services, configuration, TesseraOptions.SectionName);
@@ -164,9 +161,8 @@ public static class DependencyInjection
         });
         services.AddScoped<IKycProviderStrategy, ManualKycProvider>();
 
-        // Payment providers. Stripe uses the Stripe.net SDK (no HttpClient ctor); BankTransfer is options-only.
-        services.AddScoped<IPaymentProviderStrategy, StripePaymentProvider>();
-        services.AddScoped<IPaymentProviderStrategy, BankTransferPaymentProvider>();
+        // No payment providers: the platform does not take money. Primary placement activates by
+        // operator approval of an application; settlement happens off-platform.
     }
 
     // --- Notification + storage adapters ---

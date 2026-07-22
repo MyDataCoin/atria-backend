@@ -49,7 +49,7 @@ public sealed class TagDescriptionsDocumentFilter : IDocumentFilter
             {
                 Name = "Webhooks",
                 Description =
-                    "Inbound provider callbacks (KYC + payments). Anonymous transport, but the raw body is " +
+                    "Inbound provider callbacks (KYC). Anonymous transport, but the raw body is " +
                     "HMAC-signature + timestamp/replay verified and processed idempotently. The body only " +
                     "moves aggregate State — it is never trusted as a command."
             },
@@ -57,9 +57,10 @@ public sealed class TagDescriptionsDocumentFilter : IDocumentFilter
             {
                 Name = "Investments",
                 Description =
-                    "Investor creates a (PendingPayment) investment in a property, then opens a payment session " +
-                    "(provider sent by name, e.g. Stripe/BankTransfer). The payment webhook reconciles the amount, " +
-                    "activates the investment, and allocates tokens."
+                    "Investor submits an offering application (Reserved), which reserves tokens from the pool. " +
+                    "There is no payment: an operator approves the application to activate the investment " +
+                    "(allowlisting the wallet and allocating tokens on chain), or rejects/cancels it to return " +
+                    "the reserved tokens."
             },
             new OpenApiTag
             {

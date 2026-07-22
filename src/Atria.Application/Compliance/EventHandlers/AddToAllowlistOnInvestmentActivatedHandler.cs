@@ -7,27 +7,28 @@ using Microsoft.Extensions.Logging;
 namespace Atria.Application.Compliance.EventHandlers;
 
 /// <summary>
-/// On a completed payment, verifies the investor's presentation against the project
-/// policy and, if it holds, adds their wallet to the permissioned allowlist and
-/// enqueues a token allocation on chain. Exactly-once via <see cref="IProcessedEventStore"/>
-/// so the allowlist + token effects happen at most once per payment.
+/// When an application is approved (the investment activates), verifies the investor's presentation
+/// against the project policy and, if it holds, adds their wallet to the permissioned allowlist and
+/// enqueues a token allocation (mint) on chain. AllowlistAdd always precedes TokenAllocation because
+/// the permissioned token only accepts a mint to a whitelisted address. Exactly-once via
+/// <see cref="IProcessedEventStore"/> so the allowlist + token effects happen at most once.
 /// </summary>
-public sealed class AddToAllowlistOnPaymentCompletedHandler : IDomainEventHandler<PaymentCompletedEvent>
+public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHandler<InvestmentActivatedEvent>
 {
     private readonly IComplianceRepository _profiles;
     private readonly ITesseraComplianceService _tessera;
     private readonly IBlockchainOperationQueue _queue;
     private readonly IProcessedEventStore _processed;
     private readonly IUnitOfWork _uow;
-    private readonly ILogger<AddToAllowlistOnPaymentCompletedHandler> _logger;
+    private readonly ILogger<AddToAllowlistOnInvestmentActivatedHandler> _logger;
 
-    public AddToAllowlistOnPaymentCompletedHandler(
+    public AddToAllowlistOnInvestmentActivatedHandler(
         IComplianceRepository profiles,
         ITesseraComplianceService tessera,
         IBlockchainOperationQueue queue,
         IProcessedEventStore processed,
         IUnitOfWork uow,
-        ILogger<AddToAllowlistOnPaymentCompletedHandler> logger)
+        ILogger<AddToAllowlistOnInvestmentActivatedHandler> logger)
     {
         _profiles = profiles;
         _tessera = tessera;
@@ -37,7 +38,7 @@ public sealed class AddToAllowlistOnPaymentCompletedHandler : IDomainEventHandle
         _logger = logger;
     }
 
-    public async Task HandleAsync(PaymentCompletedEvent domainEvent, CancellationToken ct)
+    public async Task HandleAsync(InvestmentActivatedEvent domainEvent, CancellationToken ct)
     {
         var key = IdempotencyKey.For(this, domainEvent.EventId);
         if (await _processed.IsProcessedAsync(key, ct))
@@ -83,15 +84,16 @@ public sealed class AddToAllowlistOnPaymentCompletedHandler : IDomainEventHandle
         profile.MarkAllowlisted();
         _profiles.Update(profile);
 
-        // Durable, idempotent on-chain token allocation; idempotency key ties it to this payment.
-        // Built via System.Text.Json so values (wallet, ExternalPaymentId) containing a
-        // quote/backslash cannot produce malformed JSON.
+        // Durable, idempotent on-chain token allocation (mint of TokenCount to the investor's wallet);
+        // the idempotency key ties it to this activation. Built via System.Text.Json so values (wallet)
+        // containing a quote/backslash cannot produce malformed JSON.
         var payload = JsonSerializer.Serialize(new
         {
+            investmentId = domainEvent.InvestmentId,
             investorId,
+            propertyId = domainEvent.PropertyId,
             wallet,
-            amount = domainEvent.Amount,
-            externalPaymentId = domainEvent.ExternalPaymentId
+            tokenCount = domainEvent.TokenCount
         });
         var idempotencyKey = $"TokenAllocation:{domainEvent.EventId}";
         await _queue.EnqueueAsync(BlockchainOperationType.TokenAllocation, payload, idempotencyKey, ct);

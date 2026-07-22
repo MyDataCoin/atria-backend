@@ -41,14 +41,14 @@ public sealed class AuditNarratorTests
     }
 
     [Fact]
-    public void A_failed_payment_is_an_alert()
+    public void A_rejected_application_is_a_warning_and_names_the_reason()
     {
-        var failed = new PaymentFailedEvent(Guid.NewGuid(), Guid.NewGuid(), "Карта отклонена");
+        var rejected = new InvestmentRejectedEvent(Guid.NewGuid(), Guid.NewGuid(), "Не соответствует политике");
 
-        var (summary, severity) = AuditNarrator.Describe(failed)!.Value;
+        var (summary, severity) = AuditNarrator.Describe(rejected)!.Value;
 
-        summary.Should().Be("Платёж не прошёл: Карта отклонена");
-        severity.Should().Be(AuditSeverity.Alert);
+        summary.Should().Be("Заявка на инвестицию отклонена: Не соответствует политике");
+        severity.Should().Be(AuditSeverity.Warning);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class AuditNarratorTests
 
         var (summary, _) = AuditNarrator.Describe(activated)!.Value;
 
-        summary.Should().Be("Инвестиция активирована: 10000 KGS, токенов — 100");
+        summary.Should().Be("Заявка одобрена, инвестиция активирована: 10000 KGS, токенов — 100");
         AuditNarrator.EntityType(activated).Should().Be("Investment");
     }
 

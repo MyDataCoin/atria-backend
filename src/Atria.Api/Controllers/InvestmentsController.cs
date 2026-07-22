@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Atria.Api.Controllers;
 
-/// <summary>Investments: start a payment session, list, fetch, and portfolio totals.</summary>
+/// <summary>Investments (offering applications): apply, approve/reject/cancel, list, fetch, portfolio totals.</summary>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/investments")]
 [Authorize]
@@ -18,12 +18,13 @@ public sealed class InvestmentsController : ApiControllerBase
 {
     public InvestmentsController(ISender sender) : base(sender) { }
 
-    /// <summary>Creates a PendingPayment investment for the current investor.</summary>
+    /// <summary>Submits an offering application (Reserved) for the current investor.</summary>
     /// <remarks>
     /// Requires the <c>Investor</c> role and a valid bearer token. The investor's KYC must be approved and the
-    /// target property must exist, be active, and have enough remaining token capacity for the requested
-    /// <c>Amount</c>. The investment's settlement currency is taken from the property. On success the new
-    /// investment id is returned; payment is started separately via <c>POST /investments/{investmentId}/payments</c>.
+    /// target property must exist, be open, and have enough remaining token capacity for the requested
+    /// <c>Amount</c>. The requested tokens are reserved from the pool immediately (so the offering cannot be
+    /// oversubscribed) and the application's currency/price are taken from the property. There is no payment:
+    /// an operator later approves the application to activate it via <c>POST /investments/{id}/approve</c>.
     /// </remarks>
     /// <param name="request">The property to invest in and the amount to commit.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -42,32 +43,58 @@ public sealed class InvestmentsController : ApiControllerBase
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
-    /// <summary>Starts a hosted payment session for one of the investor's pending investments.</summary>
+    /// <summary>Approves a reserved application, activating the investment. Operator only.</summary>
     /// <remarks>
-    /// Requires the <c>Investor</c> role and a valid bearer token. The caller must own the investment
-    /// <paramref name="investmentId"/>, it must still be awaiting payment, and the investor's KYC must be
-    /// approved at payment time. The <c>Provider</c> in the body selects the payment strategy and is sent by
-    /// name (for example <c>Stripe</c> or <c>BankTransfer</c>). On success a session id and an optional hosted
-    /// payment URL are returned for the client to complete the purchase. No money is moved here; activation
-    /// happens later via the provider callback.
+    /// Requires the <c>Admin</c> role. Replaces the old payment callback: confirming the (off-platform)
+    /// settlement moves the application from Reserved to Active, allowlists the wallet, enqueues the on-chain
+    /// token allocation, and settles any referral deal. 409 when the application is not awaiting approval.
     /// </remarks>
-    /// <param name="investmentId">Id of the pending investment being paid for.</param>
-    /// <param name="request">Payment session request carrying the desired provider (sent by name).</param>
+    /// <param name="id">Id of the reserved application to approve.</param>
     /// <param name="ct">Cancellation token.</param>
-    [HttpPost("{investmentId:guid}/payments")]
-    [Authorize(Roles = "Investor")]
-    [ProducesResponseType<PaymentSessionDto>(StatusCodes.Status200OK)]
+    [HttpPost("{id:guid}/approve")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Approve(Guid id, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new ApproveInvestmentCommand(id), ct));
+
+    /// <summary>Rejects a reserved application, returning its tokens to the pool. Operator only.</summary>
+    /// <remarks>
+    /// Requires the <c>Admin</c> role. Moves the application from Reserved to Rejected and returns its reserved
+    /// tokens to the property's pool. A <c>reason</c> is required. 409 when the application is not awaiting approval.
+    /// </remarks>
+    /// <param name="id">Id of the reserved application to reject.</param>
+    /// <param name="request">Body carrying the required rejection <c>reason</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/reject")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> CreatePayment(
-        Guid investmentId, CreatePaymentRequest request, CancellationToken ct)
-    {
-        var result = await Sender.Send(new CreatePaymentSessionCommand(investmentId, request.Provider), ct);
-        return ToActionResult(result);
-    }
+    public async Task<IActionResult> Reject(Guid id, RejectInvestmentRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new RejectInvestmentCommand(id, request.Reason), ct));
+
+    /// <summary>Cancels the caller's own reserved application, returning its tokens to the pool.</summary>
+    /// <remarks>
+    /// Requires the <c>Investor</c> role. The caller must own the application and it must still be awaiting
+    /// approval; the reserved tokens are returned to the property's pool.
+    /// </remarks>
+    /// <param name="id">Id of the caller's reserved application to cancel.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/cancel")]
+    [Authorize(Roles = "Investor")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new CancelInvestmentCommand(id), ct));
 
     /// <summary>Lists every investment owned by the current investor.</summary>
     /// <remarks>

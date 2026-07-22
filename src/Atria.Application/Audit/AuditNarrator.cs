@@ -27,7 +27,7 @@ public static class AuditNarrator
     {
         DealCreatedEvent or DealSucceededEvent or DealRejectedEvent => "Deal",
         InvestmentCreatedEvent or InvestmentActivatedEvent
-            or PaymentCompletedEvent or PaymentFailedEvent => "Investment",
+            or InvestmentRejectedEvent or InvestmentCancelledEvent => "Investment",
         TicketRepliedBySupportEvent => AuditEntities.SupportTicket,
         AllowlistUpdatedEvent or AttestationsRevokedEvent or DidIssuedEvent => "Compliance",
         _ => ActionName(e)
@@ -55,15 +55,15 @@ public static class AuditNarrator
         DealRejectedEvent =>
             ("Реферальная сделка отклонена: ссылка истекла неиспользованной", AuditSeverity.Warning),
 
-        // --- Investments & payments ---
+        // --- Investments (offering applications) ---
         InvestmentCreatedEvent i =>
             ($"Создана заявка на инвестицию на сумму {Money(i.Amount)}", AuditSeverity.Success),
         InvestmentActivatedEvent i =>
-            ($"Инвестиция активирована: {Money(i.Amount)}, токенов — {i.TokenCount}", AuditSeverity.Success),
-        PaymentCompletedEvent p =>
-            ($"Платёж получен на сумму {Money(p.Amount)}", AuditSeverity.Success),
-        PaymentFailedEvent p =>
-            ($"Платёж не прошёл: {p.Reason}", AuditSeverity.Alert),
+            ($"Заявка одобрена, инвестиция активирована: {Money(i.Amount)}, токенов — {i.TokenCount}", AuditSeverity.Success),
+        InvestmentRejectedEvent r =>
+            ($"Заявка на инвестицию отклонена: {r.Reason}", AuditSeverity.Warning),
+        InvestmentCancelledEvent =>
+            ("Инвестор отменил заявку на инвестицию", AuditSeverity.Warning),
 
         // --- Support ---
         TicketRepliedBySupportEvent t =>

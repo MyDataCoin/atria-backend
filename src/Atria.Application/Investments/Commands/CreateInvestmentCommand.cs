@@ -6,7 +6,7 @@ using Atria.Domain.Kyc;
 
 namespace Atria.Application.Investments.Commands;
 
-/// <summary>Creates a PendingPayment investment for the current investor.</summary>
+/// <summary>Submits an offering application (Reserved) for the current investor.</summary>
 /// <param name="PropertyId">The property to invest in.</param>
 /// <param name="Amount">The amount to commit.</param>
 /// <param name="ReferralToken">Optional realtor referral token the investor arrived with.</param>
@@ -14,13 +14,21 @@ public sealed record CreateInvestmentCommand(Guid PropertyId, decimal Amount, st
     : IRequest<Result<Guid>>;
 
 /// <summary>
-/// Enforces approved-KYC and property availability, then creates the investment
-/// (PendingPayment) directly for the current investor and returns its id. Payment is
-/// started separately via <see cref="CreatePaymentSessionCommand"/>.
+/// Enforces approved-KYC and property availability, reserves the requested tokens from the pool, and
+/// creates the application (Reserved) for the current investor, returning its id. Reserving at
+/// creation is the authoritative capacity claim, so concurrent applications cannot oversubscribe the
+/// last tokens. An operator later approves the application to activate it (there is no payment).
 /// </summary>
 public sealed class CreateInvestmentCommandHandler
     : IRequestHandler<CreateInvestmentCommand, Result<Guid>>
 {
+    /// <summary>
+    /// How long a reservation is held while it awaits operator approval before its tokens may be
+    /// returned to the pool. Generous because approval is a manual back-office action, not a payment
+    /// window. (The background release of lapsed reservations is a follow-up.)
+    /// </summary>
+    private static readonly TimeSpan ReservationWindow = TimeSpan.FromDays(3);
+
     private readonly IInvestmentRepository _investments;
     private readonly IKycRepository _kyc;
     private readonly IPropertyRepository _properties;
@@ -59,8 +67,7 @@ public sealed class CreateInvestmentCommandHandler
             return Result.Failure<Guid>(Error.Forbidden("investment.kyc_required", "Approved KYC is required to invest."));
 
         // Property must exist, be open for investment, and have enough remaining token capacity
-        // for the requested amount. This is an early UX guard; the authoritative supply decrement
-        // happens on activation (AllocateTokensOnInvestmentActivatedHandler).
+        // for the requested amount. The authoritative supply decrement is the reservation below.
         var property = await _properties.GetByIdAsync(request.PropertyId, ct);
         if (property is null || property.Status != PropertyStatus.Open)
             return Result.Failure<Guid>(Error.NotFound("investment.property_unavailable", "Property not found or not open for investment."));
@@ -91,11 +98,21 @@ public sealed class CreateInvestmentCommandHandler
                 referralToken = deal.ReferralToken;
         }
 
-        // The property defines the settlement currency for the investment.
+        // Reserve the tokens now (authoritative capacity claim). ReserveTokens throws if it would
+        // oversubscribe; combined with the property's optimistic-concurrency token, two concurrent
+        // applications racing on the last tokens cannot both succeed.
+        property.ReserveTokens(tokenCount);
+        _properties.Update(property);
+
+        // The property defines the settlement currency and the price snapshot for the application.
+        var reservedUntilUtc = _clock.UtcNow.Add(ReservationWindow);
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId.Value, request.PropertyId, tokenCount, request.Amount, property.Currency, referralToken);
+            investorId.Value, request.PropertyId, tokenCount, request.Amount, property.Currency,
+            property.TokenPrice, reservedUntilUtc, referralToken);
 
         await _investments.AddAsync(investment, ct);
+
+        // Property reservation + new application persist in a single unit of work.
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success(investment.Id);

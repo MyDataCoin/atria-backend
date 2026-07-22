@@ -29,6 +29,17 @@ public sealed class Property : AggregateRoot
     public long AvailableTokens { get; private set; }
     public string Currency { get; private set; } = null!;
 
+    // --- On-chain issuance (each property is its own registered issuance / permissioned contract) ---
+
+    /// <summary>Address of this issuance's permissioned token contract on <see cref="TokenChain"/>. Null until deployed.</summary>
+    public string? TokenContractAddress { get; private set; }
+
+    /// <summary>Chain the token contract lives on (e.g. the BNB Chain id). Null until deployed.</summary>
+    public string? TokenChain { get; private set; }
+
+    /// <summary>Issuer wallet that holds/mints the issuance. Null until set.</summary>
+    public string? IssuerWalletAddress { get; private set; }
+
     // Persisted status enum; the current state is derived from it on demand (EF-friendly).
     public PropertyStatus Status { get; private set; }
 
@@ -141,15 +152,48 @@ public sealed class Property : AggregateRoot
     public void Complete()
         => Status = PropertyStateFactory.Create(Status).Complete(this).Status;
 
-    /// <summary>Reserves <paramref name="count"/> tokens, reducing the available supply.</summary>
-    public void AllocateTokens(long count)
+    /// <summary>
+    /// Holds <paramref name="count"/> tokens from the available supply for a new application. This is
+    /// the authoritative point where capacity is claimed (at application time), so the offering cannot
+    /// be oversubscribed by concurrent applications racing on the last tokens.
+    /// </summary>
+    public void ReserveTokens(long count)
     {
         if (count <= 0)
-            throw new DomainException("Token allocation count must be positive.");
+            throw new DomainException("Token reservation count must be positive.");
         if (count > AvailableTokens)
-            throw new DomainException("Cannot allocate more tokens than are available.");
+            throw new DomainException("Cannot reserve more tokens than are available.");
 
         AvailableTokens -= count;
+    }
+
+    /// <summary>
+    /// Returns <paramref name="count"/> previously reserved tokens to the available supply when an
+    /// application is rejected, cancelled, or its reservation lapses.
+    /// </summary>
+    public void ReleaseTokens(long count)
+    {
+        if (count <= 0)
+            throw new DomainException("Token release count must be positive.");
+        if (AvailableTokens + count > TotalTokens)
+            throw new DomainException("Cannot release more tokens than the total supply.");
+
+        AvailableTokens += count;
+    }
+
+    /// <summary>Records this issuance's on-chain token contract, chain and issuer wallet.</summary>
+    public void SetTokenContract(string tokenContractAddress, string tokenChain, string issuerWalletAddress)
+    {
+        if (string.IsNullOrWhiteSpace(tokenContractAddress))
+            throw new DomainException("Token contract address is required.");
+        if (string.IsNullOrWhiteSpace(tokenChain))
+            throw new DomainException("Token chain is required.");
+        if (string.IsNullOrWhiteSpace(issuerWalletAddress))
+            throw new DomainException("Issuer wallet address is required.");
+
+        TokenContractAddress = tokenContractAddress;
+        TokenChain = tokenChain;
+        IssuerWalletAddress = issuerWalletAddress;
     }
 
     /// <summary>Adds a photo (max <see cref="MaxImages"/>). Returns the created child.</summary>

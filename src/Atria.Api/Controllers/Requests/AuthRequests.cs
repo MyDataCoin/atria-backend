@@ -1,6 +1,5 @@
 using Atria.Domain.Consents;
 using Atria.Domain.Documents;
-using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
 
 namespace Atria.Api.Controllers.Requests;
@@ -124,9 +123,9 @@ public sealed record CreatePropertyRequest(
     string? Developer = null,
     int? Floors = null);
 
-/// <summary>POST /investments/{applicationId}/payments body.</summary>
-/// <param name="Provider">Payment provider to create the session with, sent by name (for example <c>Stripe</c> or <c>BankTransfer</c>).</param>
-public sealed record CreatePaymentRequest(PaymentProviderType Provider);
+/// <summary>POST /investments/{id}/reject body. Rejects a reserved offering application.</summary>
+/// <param name="Reason">Required human-readable rejection reason shown to the investor and journalled.</param>
+public sealed record RejectInvestmentRequest(string Reason);
 
 /// <summary>POST /documents multipart form. The file is bound from the request part.</summary>
 /// <param name="File">The document file uploaded as a multipart/form-data part.</param>

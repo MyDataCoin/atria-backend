@@ -2,17 +2,19 @@ using Atria.Domain.Common;
 
 namespace Atria.Domain.Investments.States;
 
-/// <summary>Terminal state: investment was cancelled. No payment transitions allowed.</summary>
+/// <summary>Terminal state: the application was cancelled by the investor. No further transitions.</summary>
 public sealed class CancelledState : IInvestmentState
 {
     public InvestmentStatus Status => InvestmentStatus.Cancelled;
 
-    public IInvestmentState ConfirmPayment(
-        Investment investment, PaymentProviderType provider, string externalPaymentId, decimal amount, string currency)
-        => throw new InvalidStateTransitionException("Cannot confirm payment for a cancelled investment.");
+    public IInvestmentState Approve(Investment investment)
+        => throw new InvalidStateTransitionException("Cannot approve a cancelled application.");
 
-    public IInvestmentState FailPayment(Investment investment, PaymentProviderType provider, string reason)
-        => throw new InvalidStateTransitionException("Cannot fail payment for a cancelled investment.");
+    public IInvestmentState Reject(Investment investment, string reason)
+        => throw new InvalidStateTransitionException("Cannot reject a cancelled application.");
+
+    public IInvestmentState Cancel(Investment investment)
+        => throw new InvalidStateTransitionException("The application is already cancelled.");
 
     public static CancelledState Instance { get; } = new();
     private CancelledState() { }

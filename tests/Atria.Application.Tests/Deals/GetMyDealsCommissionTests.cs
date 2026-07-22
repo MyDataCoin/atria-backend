@@ -36,7 +36,8 @@ public sealed class GetMyDealsCommissionTests
         // 4.2% of 10 000 KGS = 420 KGS.
         var deal = Deal.Create(RealtorId, Guid.NewGuid(), 4.2m, Now);
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), deal.PropertyId, tokenCount: 100, amount: 10_000m, currency: "KGS");
+            Guid.NewGuid(), deal.PropertyId, tokenCount: 100, amount: 10_000m, currency: "KGS",
+            pricePerToken: 100m, reservedUntilUtc: Now.AddDays(3));
         deal.MarkSuccessful(investment.Id);
 
         _deals.GetByRealtorAsync(RealtorId, Arg.Any<CancellationToken>()).Returns(new[] { deal });

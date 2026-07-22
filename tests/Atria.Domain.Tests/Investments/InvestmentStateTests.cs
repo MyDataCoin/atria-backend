@@ -8,26 +8,28 @@ namespace Atria.Domain.Tests.Investments;
 
 public sealed class InvestmentStateTests
 {
-    private static Investment NewPendingInvestment()
+    private static Investment NewReservedInvestment()
         => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, "USD");
+            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, "USD",
+            pricePerToken: 100m, reservedUntilUtc: DateTime.UtcNow.AddDays(3));
 
     [Fact]
-    public void Factory_CreateForInvestor_ProducesPendingPaymentAndCreatedEvent()
+    public void Factory_CreateForInvestor_ProducesReservedAndCreatedEvent()
     {
-        // Arrange
         var investorId = Guid.NewGuid();
         var propertyId = Guid.NewGuid();
+        var reservedUntil = DateTime.UtcNow.AddDays(3);
 
-        // Act
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId, propertyId, 50, 5000m, "USD");
+            investorId, propertyId, 50, 5000m, "USD", pricePerToken: 100m, reservedUntilUtc: reservedUntil);
 
-        // Assert
-        investment.Status.Should().Be(InvestmentStatus.PendingPayment);
+        investment.Status.Should().Be(InvestmentStatus.Reserved);
+        investment.OnChainStatus.Should().Be(OnChainStatus.None);
         investment.TokenCount.Should().Be(50);
         investment.Amount.Should().Be(5000m);
         investment.Currency.Should().Be("USD");
+        investment.PricePerToken.Should().Be(100m);
+        investment.ReservedUntilUtc.Should().Be(reservedUntil);
         var created = investment.DomainEvents.OfType<InvestmentCreatedEvent>().Single();
         created.InvestmentId.Should().Be(investment.Id);
         created.InvestorId.Should().Be(investorId);
@@ -40,11 +42,9 @@ public sealed class InvestmentStateTests
     [InlineData(-100)]
     public void Factory_WhenTokenCountNotPositive_ThrowsDomainException(long tokenCount)
     {
-        // Act
         var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), tokenCount, 1000m, "USD");
+            Guid.NewGuid(), Guid.NewGuid(), tokenCount, 1000m, "USD", 100m, DateTime.UtcNow.AddDays(3));
 
-        // Assert
         act.Should().Throw<DomainException>().WithMessage("*Token count must be positive*");
     }
 
@@ -53,11 +53,9 @@ public sealed class InvestmentStateTests
     [InlineData(-100)]
     public void Factory_WhenAmountNotPositive_ThrowsDomainException(decimal amount)
     {
-        // Act
         var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, amount, "USD");
+            Guid.NewGuid(), Guid.NewGuid(), 10, amount, "USD", 100m, DateTime.UtcNow.AddDays(3));
 
-        // Assert
         act.Should().Throw<DomainException>().WithMessage("*amount must be positive*");
     }
 
@@ -66,103 +64,81 @@ public sealed class InvestmentStateTests
     [InlineData("   ")]
     public void Factory_WhenCurrencyMissing_ThrowsDomainException(string currency)
     {
-        // Act
         var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, currency);
+            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, currency, 100m, DateTime.UtcNow.AddDays(3));
 
-        // Assert
         act.Should().Throw<DomainException>().WithMessage("*Currency is required*");
     }
 
     [Fact]
-    public void ConfirmPayment_FromPending_ActivatesAndRaisesCompletionAndActivationEvents()
+    public void Approve_FromReserved_ActivatesAndRaisesActivationEvent()
     {
-        // Arrange
-        var investment = NewPendingInvestment();
+        var investment = NewReservedInvestment();
 
-        // Act
-        investment.ConfirmPayment(PaymentProviderType.Stripe, "pi_123", 1000m, "USD");
+        investment.Approve();
 
-        // Assert
         investment.Status.Should().Be(InvestmentStatus.Active);
-        investment.DomainEvents.Should().ContainSingle(e => e is PaymentCompletedEvent);
-        investment.DomainEvents.Should().ContainSingle(e => e is InvestmentActivatedEvent);
+        var activated = investment.DomainEvents.OfType<InvestmentActivatedEvent>().Single();
+        activated.InvestmentId.Should().Be(investment.Id);
+        activated.TokenCount.Should().Be(investment.TokenCount);
     }
 
     [Fact]
-    public void ConfirmPayment_CompletedEvent_CarriesExternalPaymentId()
+    public void Approve_WhenAlreadyActive_Throws()
     {
-        // Arrange
-        var investment = NewPendingInvestment();
+        var investment = NewReservedInvestment();
+        investment.Approve();
 
-        // Act
-        investment.ConfirmPayment(PaymentProviderType.Stripe, "pi_xyz", 1000m, "USD");
+        var act = () => investment.Approve();
 
-        // Assert
-        var completed = investment.DomainEvents.OfType<PaymentCompletedEvent>().Single();
-        completed.InvestmentId.Should().Be(investment.Id);
-        completed.InvestorId.Should().Be(investment.InvestorId);
-        completed.Amount.Should().Be(1000m);
-        completed.ExternalPaymentId.Should().Be("pi_xyz");
-    }
-
-    [Fact]
-    public void ConfirmPayment_WhenAlreadyActive_Throws()
-    {
-        // Arrange
-        var investment = NewPendingInvestment();
-        investment.ConfirmPayment(PaymentProviderType.Stripe, "pi_123", 1000m, "USD");
-
-        // Act
-        var act = () => investment.ConfirmPayment(PaymentProviderType.Stripe, "pi_456", 1000m, "USD");
-
-        // Assert
         act.Should().Throw<InvalidStateTransitionException>();
         investment.Status.Should().Be(InvestmentStatus.Active);
     }
 
     [Fact]
-    public void FailPayment_FromPending_SetsFailedAndRaisesPaymentFailedEvent()
+    public void Reject_FromReserved_SetsRejectedAndRaisesRejectedEvent()
     {
-        // Arrange
-        var investment = NewPendingInvestment();
+        var investment = NewReservedInvestment();
 
-        // Act
-        investment.FailPayment(PaymentProviderType.Stripe, "card declined");
+        investment.Reject("does not meet policy");
 
-        // Assert
-        investment.Status.Should().Be(InvestmentStatus.Failed);
-        var failed = investment.DomainEvents.OfType<PaymentFailedEvent>().Single();
-        failed.Reason.Should().Be("card declined");
+        investment.Status.Should().Be(InvestmentStatus.Rejected);
+        var rejected = investment.DomainEvents.OfType<InvestmentRejectedEvent>().Single();
+        rejected.Reason.Should().Be("does not meet policy");
     }
 
     [Fact]
-    public void FailPayment_WhenAlreadyFailed_Throws()
+    public void Cancel_FromReserved_SetsCancelledAndRaisesCancelledEvent()
     {
-        // Arrange
-        var investment = NewPendingInvestment();
-        investment.FailPayment(PaymentProviderType.Stripe, "declined");
+        var investment = NewReservedInvestment();
 
-        // Act
-        var act = () => investment.FailPayment(PaymentProviderType.Stripe, "again");
+        investment.Cancel();
 
-        // Assert
-        act.Should().Throw<InvalidStateTransitionException>();
-        investment.Status.Should().Be(InvestmentStatus.Failed);
+        investment.Status.Should().Be(InvestmentStatus.Cancelled);
+        investment.DomainEvents.Should().ContainSingle(e => e is InvestmentCancelledEvent);
     }
 
     [Fact]
-    public void ConfirmPayment_WhenFailed_Throws()
+    public void Reject_WhenAlreadyActive_Throws()
     {
-        // Arrange
-        var investment = NewPendingInvestment();
-        investment.FailPayment(PaymentProviderType.Stripe, "declined");
+        var investment = NewReservedInvestment();
+        investment.Approve();
 
-        // Act
-        var act = () => investment.ConfirmPayment(PaymentProviderType.Stripe, "pi_1", 1000m, "USD");
+        var act = () => investment.Reject("too late");
 
-        // Assert
         act.Should().Throw<InvalidStateTransitionException>();
-        investment.Status.Should().Be(InvestmentStatus.Failed);
+        investment.Status.Should().Be(InvestmentStatus.Active);
+    }
+
+    [Fact]
+    public void Approve_WhenRejected_Throws()
+    {
+        var investment = NewReservedInvestment();
+        investment.Reject("declined");
+
+        var act = () => investment.Approve();
+
+        act.Should().Throw<InvalidStateTransitionException>();
+        investment.Status.Should().Be(InvestmentStatus.Rejected);
     }
 }
