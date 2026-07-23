@@ -94,14 +94,31 @@ public sealed class ProjectHolderPositionOnInvestmentActivatedHandlerTests
     }
 
     [Fact]
-    public async Task No_wallet_projects_no_position_but_is_marked_processed()
+    public async Task No_wallet_projects_no_position_but_durably_marks_processed()
     {
         AllowlistedProfile(wallet: null);
 
         await NewHandler().HandleAsync(Event(), CancellationToken.None);
 
         await _positions.DidNotReceive().AddAsync(Arg.Any<HolderPosition>(), Arg.Any<CancellationToken>());
-        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        // The mark must be persisted (committed) even with no position, so the event is not reprocessed.
         await _processed.Received(1).MarkProcessedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Mark_is_recorded_before_the_commit_so_effect_and_mark_are_atomic()
+    {
+        AllowlistedProfile();
+        _positions.GetByAddressAsync(PropertyId, Wallet, Arg.Any<CancellationToken>()).Returns((HolderPosition?)null);
+        var order = new List<string>();
+        _processed.When(p => p.MarkProcessedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(_ => order.Add("mark"));
+        _uow.When(u => u.SaveChangesAsync(Arg.Any<CancellationToken>()))
+            .Do(_ => order.Add("save"));
+
+        await NewHandler().HandleAsync(Event(30), CancellationToken.None);
+
+        order.Should().Equal("mark", "save");
     }
 }

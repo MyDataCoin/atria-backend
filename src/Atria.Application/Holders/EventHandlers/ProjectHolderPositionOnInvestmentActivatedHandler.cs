@@ -50,35 +50,39 @@ public sealed class ProjectHolderPositionOnInvestmentActivatedHandler
         // the on-chain allowlist/allocation uses, so the registry and the chain agree on the address.
         var profile = await _profiles.GetByInvestorAsync(investorId, ct);
         var wallet = profile?.WalletAddress;
-        if (string.IsNullOrWhiteSpace(wallet))
+
+        if (!string.IsNullOrWhiteSpace(wallet))
+        {
+            var now = _clock.UtcNow;
+            var position = await _positions.GetByAddressAsync(domainEvent.PropertyId, wallet, ct);
+            if (position is null)
+            {
+                position = HolderPosition.Create(
+                    domainEvent.PropertyId, wallet, domainEvent.TokenCount, investorId,
+                    isAllowlisted: profile!.IsAllowlisted, HolderSource.OurRecords, now);
+                await _positions.AddAsync(position, ct);
+            }
+            else
+            {
+                position.Increase(domainEvent.TokenCount, now);
+                position.LinkInvestor(investorId);
+                position.SetAllowlisted(profile!.IsAllowlisted);
+                _positions.Update(position);
+            }
+        }
+        else
         {
             // No wallet to key a position on. The gap surfaces in reconciliation once chain reading
             // exists; the shares are not lost, they just have no address to sit on yet.
             _logger.LogWarning(
                 "No wallet for investor {InvestorId} on activation {InvestmentId}; holder position not projected.",
                 investorId, domainEvent.InvestmentId);
-            await _processed.MarkProcessedAsync(key, ct);
-            return;
         }
 
-        var now = _clock.UtcNow;
-        var position = await _positions.GetByAddressAsync(domainEvent.PropertyId, wallet, ct);
-        if (position is null)
-        {
-            position = HolderPosition.Create(
-                domainEvent.PropertyId, wallet, domainEvent.TokenCount, investorId,
-                isAllowlisted: profile!.IsAllowlisted, HolderSource.OurRecords, now);
-            await _positions.AddAsync(position, ct);
-        }
-        else
-        {
-            position.Increase(domainEvent.TokenCount, now);
-            position.LinkInvestor(investorId);
-            position.SetAllowlisted(profile!.IsAllowlisted);
-            _positions.Update(position);
-        }
-
-        await _uow.SaveChangesAsync(ct);
+        // Mark and effect commit in the SAME SaveChanges (all three services share the scoped
+        // DbContext). Since Increase is not idempotent downstream, the mark must be durable together
+        // with the position change — otherwise a crash between the two would double-count on redelivery.
         await _processed.MarkProcessedAsync(key, ct);
+        await _uow.SaveChangesAsync(ct);
     }
 }
