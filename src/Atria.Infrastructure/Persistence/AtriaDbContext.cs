@@ -7,6 +7,7 @@ using Atria.Domain.Compliance;
 using Atria.Domain.Consents;
 using Atria.Domain.Deals;
 using Atria.Domain.Documents;
+using Atria.Domain.Holders;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
 using Atria.Domain.Notifications;
@@ -47,6 +48,8 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<Appeal> Appeals => Set<Appeal>();
     public DbSet<ComplianceProfile> ComplianceProfiles => Set<ComplianceProfile>();
     public DbSet<BlockchainOperation> BlockchainOperations => Set<BlockchainOperation>();
+    public DbSet<HolderPosition> HolderPositions => Set<HolderPosition>();
+    public DbSet<HolderSnapshot> HolderSnapshots => Set<HolderSnapshot>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
