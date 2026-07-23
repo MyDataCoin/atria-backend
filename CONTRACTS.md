@@ -84,34 +84,38 @@ Events (`Atria.Domain.Kyc.Events`, records : DomainEventBase):
 ```
 sealed class Property : AggregateRoot
   string Name; string? Description; string? Address; decimal TotalValue; decimal TokenPrice;
-  long TotalTokens; long AvailableTokens; string Currency; bool IsActive;
+  long TotalTokens; long AvailableTokens; string Currency; PropertyStatus Status; bool SalesPaused;
   static Property Create(string name, string? description, string? address, decimal totalValue,
-                         decimal tokenPrice, long totalTokens, string currency);
-  void AllocateTokens(long count);   // throws if count > AvailableTokens
+                         decimal tokenPrice, long totalTokens, string currency, ...descriptive optionals);
+  void ReserveTokens(long count);   // holds tokens for a new application; throws if count > AvailableTokens
+  void ReleaseTokens(long count);   // returns tokens to the pool on reject/cancel/expiry
 sealed class Investment : AggregateRoot
-  Guid InvestorId; Guid PropertyId; decimal Amount; string Currency;
-  InvestmentStatus Status; private readonly List<PaymentTransaction> _payments;
-  IReadOnlyCollection<PaymentTransaction> Payments;
-  void ConfirmPayment(PaymentProviderType provider, string externalPaymentId, decimal amount, string currency);
-       // PendingPayment -> Active ; adds Completed PaymentTransaction ; raises PaymentCompletedEvent + InvestmentActivatedEvent
-  void FailPayment(PaymentProviderType provider, string reason); // -> Failed ; adds Failed tx ; PaymentFailedEvent
+  // No payment on the platform: an application reserves tokens up front, an operator approves it.
+  Guid InvestorId; Guid PropertyId; long TokenCount; decimal Amount; string Currency; decimal PricePerToken;
+  InvestmentStatus Status; DateTime ReservedUntilUtc; string? ReferralToken;
+  string? WalletAddress; string? TokenContractAddress; string? TransactionHash; OnChainStatus OnChainStatus;
+  void Approve();               // Reserved -> Active   ; raises InvestmentActivatedEvent
+  void Reject(string reason);   // Reserved -> Rejected ; raises InvestmentRejectedEvent (caller releases tokens)
+  void Cancel();                // Reserved -> Cancelled; raises InvestmentCancelledEvent (caller releases tokens)
+  void Expire();                // Reserved -> Expired  ; raises InvestmentExpiredEvent (caller releases tokens)
   internal void RaiseDomainEvent(IDomainEvent e);
-sealed class PaymentTransaction : Entity
-  Guid InvestmentId; decimal Amount; string Currency; PaymentProviderType Provider;
-  PaymentStatus Status; string? ExternalPaymentId; string? FailureReason;
-  static PaymentTransaction Completed(Guid investmentId, PaymentProviderType p, string extId, decimal amount, string currency);
-  static PaymentTransaction Failed(Guid investmentId, PaymentProviderType p, string reason);
-States (`...Investments.States`): IInvestmentState { InvestmentStatus Status; ConfirmPayment(...); FailPayment(...); }
-  PendingPaymentState, ActiveState, FailedState, CancelledState. InvestmentStateFactory.Create(status).
+enum InvestmentStatus { Reserved=0, Active=1, Rejected=2, Cancelled=3, Expired=4 }
+States (`...Investments.States`): IInvestmentState { InvestmentStatus Status; Approve(...); Reject(...); Cancel(...); Expire(...); }
+  ReservedState, ActiveState, RejectedState, CancelledState, ExpiredState. InvestmentStateFactory.Create(status).
 Events (`...Investments.Events`):
   InvestmentCreatedEvent(Guid InvestmentId, Guid InvestorId, Guid PropertyId, decimal Amount)
-  PaymentCompletedEvent(Guid InvestmentId, Guid InvestorId, decimal Amount, string ExternalPaymentId)
-  PaymentFailedEvent(Guid InvestmentId, Guid InvestorId, string Reason)
-  InvestmentActivatedEvent(Guid InvestmentId, Guid InvestorId, Guid PropertyId, decimal Amount)
+  InvestmentActivatedEvent(Guid InvestmentId, Guid InvestorId, Guid PropertyId, long TokenCount, decimal Amount)
+  InvestmentRejectedEvent(Guid InvestmentId, Guid InvestorId, string Reason)
+  InvestmentCancelledEvent(Guid InvestmentId, Guid InvestorId)
+  InvestmentExpiredEvent(Guid InvestmentId, Guid InvestorId, Guid PropertyId, long TokenCount)
 Factory (`Atria.Domain.Factories`):
   static class InvestmentFactory {
-    static Investment CreateForInvestor(Guid investorId, Guid propertyId, decimal amount, string currency)
-      // PendingPayment ; raises InvestmentCreatedEvent }
+    static Investment CreateForInvestor(Guid investorId, Guid propertyId, long tokenCount, decimal amount,
+      string currency, decimal pricePerToken, DateTime reservedUntilUtc, string? referralToken = null)
+      // Reserved ; raises InvestmentCreatedEvent }
+Reservation expiry: a background sweep (Atria.Infrastructure.Investments.ReservationExpiryBackgroundService)
+  reclaims Reserved applications past ReservedUntilUtc (-> Expired, tokens released). Window + sweep pacing
+  are configured via the InvestmentReservation section (WindowDays=3, SweepIntervalMinutes=15, SweepBatchSize=100).
 ```
 
 ### Documents (`Atria.Domain.Documents`)

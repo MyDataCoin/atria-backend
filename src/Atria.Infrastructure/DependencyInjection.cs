@@ -3,6 +3,7 @@ using Amazon;
 using Amazon.S3;
 using Atria.Application.Abstractions;
 using Atria.Application.Audit.EventHandlers;
+using Atria.Application.Investments;
 using Atria.Domain.Common;
 using Atria.Infrastructure.Audit;
 using Atria.Infrastructure.Compliance;
@@ -64,6 +65,10 @@ public static class DependencyInjection
         // Referral link base URL (used to build shareable deal links). Optional; a relative link is
         // returned when unset.
         services.Configure<ReferralOptions>(configuration.GetSection(ReferralOptions.SectionName));
+
+        // Reservation window + background sweep pacing for offering applications. Optional; the
+        // built-in defaults (3-day window, 15-minute sweep) apply when the section is absent.
+        BindValidated<InvestmentReservationOptions>(services, configuration, InvestmentReservationOptions.SectionName);
 
         // Public media storage location (property photos/documents).
         services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
@@ -219,6 +224,7 @@ public static class DependencyInjection
         services.AddHostedService<OutboxDispatcherBackgroundService>();
         services.AddHostedService<BlockchainOperationWorker>();
         services.AddHostedService<DealExpiryBackgroundService>();
+        services.AddHostedService<Investments.ReservationExpiryBackgroundService>();
     }
 
     // --- Application assembly scan: request handlers, event handlers, validators ---

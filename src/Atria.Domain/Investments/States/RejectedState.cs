@@ -16,6 +16,9 @@ public sealed class RejectedState : IInvestmentState
     public IInvestmentState Cancel(Investment investment)
         => throw new InvalidStateTransitionException("Cannot cancel a rejected application.");
 
+    public IInvestmentState Expire(Investment investment)
+        => throw new InvalidStateTransitionException("Cannot expire a rejected application.");
+
     public static RejectedState Instance { get; } = new();
     private RejectedState() { }
 }

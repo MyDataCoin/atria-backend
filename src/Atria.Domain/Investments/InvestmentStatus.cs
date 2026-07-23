@@ -17,5 +17,12 @@ public enum InvestmentStatus
     Rejected = 2,
 
     /// <summary>Investor cancelled before approval; the reserved tokens were returned to the pool.</summary>
-    Cancelled = 3
+    Cancelled = 3,
+
+    /// <summary>
+    /// The reservation window lapsed without operator approval; the reserved tokens were returned to
+    /// the pool automatically. Distinct from <see cref="Cancelled"/> (investor-initiated) so reporting
+    /// can tell a lapsed reservation from an actively withdrawn one.
+    /// </summary>
+    Expired = 4
 }

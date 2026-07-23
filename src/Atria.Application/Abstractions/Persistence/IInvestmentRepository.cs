@@ -11,6 +11,13 @@ public interface IInvestmentRepository : IRepository<Investment>
     /// <summary>Fetches investments by id (batched, read-only). Missing ids are simply absent.</summary>
     Task<IReadOnlyList<Investment>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 
+    /// <summary>
+    /// Reserved applications whose reservation window has lapsed as of <paramref name="asOfUtc"/>,
+    /// oldest first, capped at <paramref name="batchSize"/>. Tracked (not read-only) so the caller can
+    /// expire them and persist through the unit of work. The background reservation-expiry sweep read.
+    /// </summary>
+    Task<IReadOnlyList<Investment>> GetExpiredReservationsAsync(DateTime asOfUtc, int batchSize, CancellationToken ct);
+
     /// <summary>DB-side aggregate of the investor's Active investments: total invested and active count.</summary>
     Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, CancellationToken ct);
 

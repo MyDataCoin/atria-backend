@@ -91,6 +91,10 @@ public sealed class Investment : AggregateRoot
     public void Cancel()
         => Status = InvestmentStateFactory.Create(Status).Cancel(this).Status;
 
+    /// <summary>Reserved -> Expired: the reservation window lapsed without approval. Raises the expired event.</summary>
+    public void Expire()
+        => Status = InvestmentStateFactory.Create(Status).Expire(this).Status;
+
     /// <summary>
     /// Records the wallet the tokens are (to be) allocated to and the contract they are minted on.
     /// Set when the on-chain allocation is prepared.

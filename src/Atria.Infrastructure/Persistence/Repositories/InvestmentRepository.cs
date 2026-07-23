@@ -25,6 +25,16 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<Investment>> GetExpiredReservationsAsync(
+        DateTime asOfUtc, int batchSize, CancellationToken ct)
+        // Tracked (no AsNoTracking): the sweep mutates and persists these through the unit of work.
+        // Ordered oldest-first and capped so a large backlog is drained across ticks, not all at once.
+        => await Set
+            .Where(i => i.Status == InvestmentStatus.Reserved && i.ReservedUntilUtc <= asOfUtc)
+            .OrderBy(i => i.ReservedUntilUtc)
+            .Take(batchSize)
+            .ToListAsync(ct);
+
     public async Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, CancellationToken ct)
     {
         var active = Set.AsNoTracking()

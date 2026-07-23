@@ -1,8 +1,10 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
+using Atria.Application.Investments;
 using Atria.Application.Investments.Commands;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using FluentAssertions;
 
@@ -24,7 +26,8 @@ public sealed class CreateInvestmentSalesPausedTests
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
 
     private CreateInvestmentCommandHandler CreateSut() =>
-        new(_investments, _kyc, _properties, _deals, _uow, _currentUser, _clock);
+        new(_investments, _kyc, _properties, _deals, _uow, _currentUser, _clock,
+            Options.Create(new InvestmentReservationOptions()));
 
     private static KycProfile ApprovedKyc(Guid userId)
     {

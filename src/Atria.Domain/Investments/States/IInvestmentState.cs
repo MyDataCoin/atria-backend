@@ -19,4 +19,10 @@ public interface IInvestmentState
 
     /// <summary>Reserved -&gt; Cancelled: investor withdraws the application; raises the cancelled event.</summary>
     IInvestmentState Cancel(Investment investment);
+
+    /// <summary>
+    /// Reserved -&gt; Expired: the reservation window lapsed without approval; raises the expired event
+    /// (the caller returns the tokens). Driven by the background reservation-expiry sweep.
+    /// </summary>
+    IInvestmentState Expire(Investment investment);
 }

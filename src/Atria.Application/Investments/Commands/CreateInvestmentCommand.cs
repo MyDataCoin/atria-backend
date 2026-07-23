@@ -3,6 +3,7 @@ using Atria.Application.Common;
 using Atria.Domain.Factories;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
+using Microsoft.Extensions.Options;
 
 namespace Atria.Application.Investments.Commands;
 
@@ -22,13 +23,6 @@ public sealed record CreateInvestmentCommand(Guid PropertyId, decimal Amount, st
 public sealed class CreateInvestmentCommandHandler
     : IRequestHandler<CreateInvestmentCommand, Result<Guid>>
 {
-    /// <summary>
-    /// How long a reservation is held while it awaits operator approval before its tokens may be
-    /// returned to the pool. Generous because approval is a manual back-office action, not a payment
-    /// window. (The background release of lapsed reservations is a follow-up.)
-    /// </summary>
-    private static readonly TimeSpan ReservationWindow = TimeSpan.FromDays(3);
-
     private readonly IInvestmentRepository _investments;
     private readonly IKycRepository _kyc;
     private readonly IPropertyRepository _properties;
@@ -36,6 +30,7 @@ public sealed class CreateInvestmentCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
+    private readonly InvestmentReservationOptions _reservation;
 
     public CreateInvestmentCommandHandler(
         IInvestmentRepository investments,
@@ -44,7 +39,8 @@ public sealed class CreateInvestmentCommandHandler
         IDealRepository deals,
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUser,
-        IDateTimeProvider clock)
+        IDateTimeProvider clock,
+        IOptions<InvestmentReservationOptions> reservation)
     {
         _investments = investments;
         _kyc = kyc;
@@ -53,6 +49,7 @@ public sealed class CreateInvestmentCommandHandler
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
         _clock = clock;
+        _reservation = reservation.Value;
     }
 
     public async Task<Result<Guid>> Handle(CreateInvestmentCommand request, CancellationToken ct)
@@ -105,7 +102,7 @@ public sealed class CreateInvestmentCommandHandler
         _properties.Update(property);
 
         // The property defines the settlement currency and the price snapshot for the application.
-        var reservedUntilUtc = _clock.UtcNow.Add(ReservationWindow);
+        var reservedUntilUtc = _clock.UtcNow.Add(_reservation.Window);
         var investment = InvestmentFactory.CreateForInvestor(
             investorId.Value, request.PropertyId, tokenCount, request.Amount, property.Currency,
             property.TokenPrice, reservedUntilUtc, referralToken);

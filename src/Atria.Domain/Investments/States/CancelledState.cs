@@ -16,6 +16,9 @@ public sealed class CancelledState : IInvestmentState
     public IInvestmentState Cancel(Investment investment)
         => throw new InvalidStateTransitionException("The application is already cancelled.");
 
+    public IInvestmentState Expire(Investment investment)
+        => throw new InvalidStateTransitionException("Cannot expire a cancelled application.");
+
     public static CancelledState Instance { get; } = new();
     private CancelledState() { }
 }

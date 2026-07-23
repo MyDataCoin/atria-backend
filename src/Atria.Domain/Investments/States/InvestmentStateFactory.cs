@@ -14,6 +14,7 @@ public static class InvestmentStateFactory
         InvestmentStatus.Active => ActiveState.Instance,
         InvestmentStatus.Rejected => RejectedState.Instance,
         InvestmentStatus.Cancelled => CancelledState.Instance,
+        InvestmentStatus.Expired => ExpiredState.Instance,
         _ => throw new InvalidStateTransitionException($"Unknown investment status: {status}.")
     };
 }

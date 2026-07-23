@@ -16,6 +16,9 @@ public sealed class ActiveState : IInvestmentState
     public IInvestmentState Cancel(Investment investment)
         => throw new InvalidStateTransitionException("Cannot cancel an already active investment.");
 
+    public IInvestmentState Expire(Investment investment)
+        => throw new InvalidStateTransitionException("Cannot expire an already active investment.");
+
     public static ActiveState Instance { get; } = new();
     private ActiveState() { }
 }

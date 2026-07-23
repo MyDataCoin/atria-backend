@@ -134,7 +134,7 @@ builder.Services.AddSwaggerGen(c =>
             "`/auth/register/phone/request-otp` then `/auth/register/phone/verify-otp` to receive a JWT, " +
             "and `/auth/refresh` to rotate it. There is no email/password login. " +
             "Send the access token as `Authorization: Bearer {token}`.\n\n" +
-            "Enums are sent/returned by name (e.g. `Didit`, `Stripe`, `Investor`); each schema lists its allowed values. " +
+            "Enums are sent/returned by name (e.g. `Didit`, `Investor`); each schema lists its allowed values. " +
             "Errors come back as RFC-7807 ProblemDetails with a `correlationId`."
     });
 

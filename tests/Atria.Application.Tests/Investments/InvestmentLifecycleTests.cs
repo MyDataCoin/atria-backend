@@ -1,10 +1,12 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
+using Atria.Application.Investments;
 using Atria.Application.Investments.Commands;
 using Atria.Domain.Factories;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
 using FluentAssertions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace Atria.Application.Tests.Investments;
@@ -52,7 +54,8 @@ public sealed class InvestmentLifecycleTests
 
         // 500 / 100 per token = 5 tokens.
         var result = await new CreateInvestmentCommandHandler(
-                _investments, _kyc, _properties, _deals, _uow, _currentUser, _clock)
+                _investments, _kyc, _properties, _deals, _uow, _currentUser, _clock,
+                Options.Create(new InvestmentReservationOptions()))
             .Handle(new CreateInvestmentCommand(property.Id, 500m), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -143,6 +146,25 @@ public sealed class InvestmentLifecycleTests
 
         result.IsSuccess.Should().BeTrue();
         investment.Status.Should().Be(InvestmentStatus.Cancelled);
+        property.AvailableTokens.Should().Be(100);
+    }
+
+    [Fact]
+    public void Expiring_a_reserved_application_releases_tokens_and_moves_to_expired()
+    {
+        // The domain transition the background reservation-expiry sweep drives: a lapsed reservation
+        // returns its tokens to the pool and lands in the terminal Expired state (distinct from Cancelled).
+        var property = OpenProperty(100);
+        property.ReserveTokens(5);
+        property.AvailableTokens.Should().Be(95);
+
+        var investment = InvestmentFactory.CreateForInvestor(
+            Guid.NewGuid(), property.Id, 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(-1));
+
+        investment.Expire();
+        property.ReleaseTokens(investment.TokenCount);
+
+        investment.Status.Should().Be(InvestmentStatus.Expired);
         property.AvailableTokens.Should().Be(100);
     }
 

@@ -23,7 +23,7 @@ public sealed class WebhooksController : ApiControllerBase
     private static readonly string[] SignatureHeaderNames =
     [
         "X-Signature", "X-Hub-Signature-256", "X-Hub-Signature",
-        "Stripe-Signature", "X-Didit-Signature", "X-Webhook-Signature"
+        "X-Didit-Signature", "X-Webhook-Signature"
     ];
 
     // Common header names providers use to carry the event timestamp (for replay protection).

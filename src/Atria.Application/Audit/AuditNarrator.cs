@@ -27,7 +27,8 @@ public static class AuditNarrator
     {
         DealCreatedEvent or DealSucceededEvent or DealRejectedEvent => "Deal",
         InvestmentCreatedEvent or InvestmentActivatedEvent
-            or InvestmentRejectedEvent or InvestmentCancelledEvent => "Investment",
+            or InvestmentRejectedEvent or InvestmentCancelledEvent
+            or InvestmentExpiredEvent => "Investment",
         TicketRepliedBySupportEvent => AuditEntities.SupportTicket,
         AllowlistUpdatedEvent or AttestationsRevokedEvent or DidIssuedEvent => "Compliance",
         _ => ActionName(e)
@@ -64,6 +65,8 @@ public static class AuditNarrator
             ($"Заявка на инвестицию отклонена: {r.Reason}", AuditSeverity.Warning),
         InvestmentCancelledEvent =>
             ("Инвестор отменил заявку на инвестицию", AuditSeverity.Warning),
+        InvestmentExpiredEvent i =>
+            ($"Резерв заявки истёк без одобрения: возвращено токенов — {i.TokenCount}", AuditSeverity.Warning),
 
         // --- Support ---
         TicketRepliedBySupportEvent t =>

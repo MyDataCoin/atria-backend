@@ -26,6 +26,13 @@ public sealed class ReservedState : IInvestmentState
         return CancelledState.Instance;
     }
 
+    public IInvestmentState Expire(Investment investment)
+    {
+        investment.RaiseDomainEvent(new InvestmentExpiredEvent(
+            investment.Id, investment.InvestorId, investment.PropertyId, investment.TokenCount));
+        return ExpiredState.Instance;
+    }
+
     public static ReservedState Instance { get; } = new();
     private ReservedState() { }
 }
