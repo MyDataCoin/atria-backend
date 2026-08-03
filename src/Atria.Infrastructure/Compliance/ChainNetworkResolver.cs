@@ -14,12 +14,18 @@ public sealed class ChainNetworkResolver : IChainNetworkResolver
     private readonly IReadOnlyDictionary<string, ChainNetwork> _networks;
 
     public ChainNetworkResolver(IOptions<BlockchainOptions> options)
-        => _networks = options.Value.Networks.ToDictionary(
+    {
+        ConfirmationsRequired = options.Value.ConfirmationsRequired;
+        _networks = options.Value.Networks.ToDictionary(
             kv => kv.Key,
             kv => new ChainNetwork(
                 kv.Key, kv.Value.ChainId, kv.Value.RpcUrl,
-                kv.Value.IdentityRegistryAddress, kv.Value.AllowlistAddress),
+                kv.Value.IdentityRegistryAddress, kv.Value.AllowlistAddress,
+                kv.Value.ExplorerBaseUrl),
             StringComparer.OrdinalIgnoreCase);
+    }
+
+    public int ConfirmationsRequired { get; }
 
     public ChainNetwork? Resolve(string? tokenChain)
         => string.IsNullOrWhiteSpace(tokenChain) ? null

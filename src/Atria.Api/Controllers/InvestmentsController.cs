@@ -189,4 +189,24 @@ public sealed class InvestmentsController : ApiControllerBase
         var result = await Sender.Send(new GetInvestmentByIdQuery(id), ct);
         return ToActionResult(result);
     }
+
+    /// <summary>The on-chain record of one investment: address, contract, transaction, settlement.</summary>
+    /// <remarks>
+    /// Requires the <c>Investor</c> or <c>Admin</c> role. The owner may read their own record and an Admin
+    /// may read any; for anyone else the row is reported as not found, since an address and a transaction
+    /// hash together identify a person's holding.
+    ///
+    /// Fields are null rather than invented when there is nothing to report: an investment whose shares
+    /// have not been minted has no transaction, and a network with no configured explorer yields addresses
+    /// without links.
+    /// </remarks>
+    /// <param name="id">Id of the investment.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet("{id:guid}/chain")]
+    [Authorize(Roles = "Investor,Admin")]
+    [ProducesResponseType<InvestmentChainRecordDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ChainRecord(Guid id, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new GetInvestmentChainRecordQuery(id), ct));
 }

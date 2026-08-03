@@ -6,8 +6,10 @@ namespace Atria.Application.Abstractions;
 /// <param name="RpcUrl">JSON-RPC endpoint.</param>
 /// <param name="IdentityRegistryAddress">Shared identity registry deployed on this network.</param>
 /// <param name="AllowlistAddress">Shared allowlist deployed on this network.</param>
+/// <param name="ExplorerBaseUrl">Root of the public block explorer, or null when none is configured.</param>
 public sealed record ChainNetwork(
-    string Tag, long ChainId, string RpcUrl, string IdentityRegistryAddress, string AllowlistAddress);
+    string Tag, long ChainId, string RpcUrl, string IdentityRegistryAddress, string AllowlistAddress,
+    string? ExplorerBaseUrl = null);
 
 /// <summary>
 /// Resolves the network an issue lives on from the tag recorded on the issue itself.
@@ -25,4 +27,13 @@ public interface IChainNetworkResolver
 
     /// <summary>Every configured network.</summary>
     IReadOnlyCollection<ChainNetwork> All { get; }
+
+    /// <summary>
+    /// Blocks that must sit on top of a transaction before it counts as settled, its own included.
+    /// </summary>
+    /// <remarks>
+    /// Read here so that what the holder is told about finality is the same number the worker
+    /// actually waits for, rather than a second copy of it written into the dashboard.
+    /// </remarks>
+    int ConfirmationsRequired { get; }
 }

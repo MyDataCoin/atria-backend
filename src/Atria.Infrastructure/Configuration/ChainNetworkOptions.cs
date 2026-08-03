@@ -21,4 +21,16 @@ public sealed class ChainNetworkOptions
     /// <summary>Allowlist deployed on this network. Shared by every issue on it.</summary>
     [Required]
     public string AllowlistAddress { get; init; } = null!;
+
+    /// <summary>
+    /// Root of the public block explorer for this network, e.g. <c>https://testnet.bscscan.com</c>.
+    /// </summary>
+    /// <remarks>
+    /// Configured rather than built into the frontend: which explorer serves a chain is a property of
+    /// the chain, and a dashboard that hardcodes one sends the holder to the wrong network's page the
+    /// day the issue moves to mainnet. Optional — without it the record is still shown, just without
+    /// the outbound links.
+    /// </remarks>
+    [Url]
+    public string? ExplorerBaseUrl { get; init; }
 }
