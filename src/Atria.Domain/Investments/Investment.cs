@@ -11,6 +11,9 @@ namespace Atria.Domain.Investments;
 /// </summary>
 public sealed class Investment : AggregateRoot
 {
+    /// <summary>Calendar days a holder has to walk away from a primary purchase (draft Decree, §44).</summary>
+    public const int WithdrawalPeriodDays = 14;
+
     public Guid InvestorId { get; private set; }
     public Guid PropertyId { get; private set; }
 
@@ -42,6 +45,22 @@ public sealed class Investment : AggregateRoot
     /// reporting period a placement falls into.
     /// </summary>
     public DateTime? ActivatedAtUtc { get; private set; }
+
+    /// <summary>
+    /// Until when the holder may walk away without giving a reason (draft Decree, §44): 14 calendar
+    /// days from activation. Null until the application is activated.
+    /// </summary>
+    /// <remarks>
+    /// Calendar days, not working days — §44 says so, and it is the one deadline that runs in the
+    /// investor's favour rather than the issuer's.
+    /// </remarks>
+    public DateTime? WithdrawalDeadlineUtc { get; private set; }
+
+    /// <summary>True while the holder can still withdraw.</summary>
+    public bool CanWithdrawAt(DateTime nowUtc)
+        => Status == InvestmentStatus.Active
+           && WithdrawalDeadlineUtc is not null
+           && nowUtc <= WithdrawalDeadlineUtc;
 
     /// <summary>
     /// Why an operator declined the application. Set on rejection and kept afterwards so the investor
@@ -100,6 +119,20 @@ public sealed class Investment : AggregateRoot
     {
         Status = InvestmentStateFactory.Create(Status).Approve(this).Status;
         ActivatedAtUtc = activatedAtUtc;
+        WithdrawalDeadlineUtc = activatedAtUtc.AddDays(WithdrawalPeriodDays);
+    }
+
+    /// <summary>
+    /// Active -> Withdrawn: the holder exercises the 14-day right of withdrawal. Refused once the
+    /// window has closed — after that the deal is final and the shares are theirs.
+    /// </summary>
+    public void Withdraw(DateTime nowUtc)
+    {
+        if (!CanWithdrawAt(nowUtc))
+            throw new DomainException(
+                "The 14-day withdrawal window for this investment is not open.");
+
+        Status = InvestmentStateFactory.Create(Status).Withdraw(this).Status;
     }
 
     /// <summary>Reserved -> Rejected: an operator declines the application. Raises the rejected event.</summary>

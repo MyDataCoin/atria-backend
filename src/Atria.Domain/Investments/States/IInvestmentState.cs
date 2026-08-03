@@ -25,4 +25,11 @@ public interface IInvestmentState
     /// (the caller returns the tokens). Driven by the background reservation-expiry sweep.
     /// </summary>
     IInvestmentState Expire(Investment investment);
+
+    /// <summary>
+    /// Active -&gt; Withdrawn: the holder exercises the 14-day right of withdrawal (§44). Allowed only
+    /// while the window is open; the caller returns the tokens, burns anything minted and records
+    /// the refund.
+    /// </summary>
+    IInvestmentState Withdraw(Investment investment);
 }

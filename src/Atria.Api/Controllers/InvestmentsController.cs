@@ -97,6 +97,26 @@ public sealed class InvestmentsController : ApiControllerBase
     public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
         => ToActionResult(await Sender.Send(new CancelInvestmentCommand(id), ct));
 
+    /// <summary>Exercises the 14-day right of withdrawal on the caller's own investment.</summary>
+    /// <remarks>
+    /// Paragraph 44 of the draft Decree: within 14 calendar days of the agreement the holder may walk
+    /// away without giving a reason and without penalty. The shares go back on sale, anything already
+    /// minted is queued for burning off their address, the registry stops counting it, and the refund
+    /// is recorded at the price paid. Paying it is a separate step. 409 once the window has closed —
+    /// after that the purchase is final.
+    /// </remarks>
+    /// <param name="id">The caller's active investment.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/withdraw")]
+    [Authorize(Roles = "Investor")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Withdraw(Guid id, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new WithdrawInvestmentCommand(id), ct));
+
     /// <summary>Lists every investment owned by the current investor.</summary>
     /// <remarks>
     /// Requires the <c>Investor</c> role and a valid bearer token. Returns only the investments owned by the

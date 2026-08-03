@@ -31,7 +31,7 @@ public sealed class GetPortfolioQueryHandler
 
         var dtos = investments
             .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.InvestorId, i.TokenCount, i.Amount, i.Currency,
-                i.PricePerToken, i.Status, i.ReservedUntilUtc, i.RejectionReason, i.OnChainStatus,
+                i.PricePerToken, i.Status, i.ReservedUntilUtc, i.WithdrawalDeadlineUtc, i.RejectionReason, i.OnChainStatus,
                 i.TransactionHash, i.CreatedAtUtc))
             .ToList();
 

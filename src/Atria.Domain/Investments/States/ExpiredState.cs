@@ -19,6 +19,10 @@ public sealed class ExpiredState : IInvestmentState
     public IInvestmentState Expire(Investment investment)
         => throw new InvalidStateTransitionException("The application is already expired.");
 
+    public IInvestmentState Withdraw(Investment investment)
+        => throw new InvalidStateTransitionException(
+            "Only an active investment inside its 14-day window can be withdrawn.");
+
     public static ExpiredState Instance { get; } = new();
     private ExpiredState() { }
 }

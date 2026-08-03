@@ -1,3 +1,4 @@
+using Atria.Domain.Common;
 using Atria.Domain.Investments.Events;
 
 namespace Atria.Domain.Investments.States;
@@ -32,6 +33,10 @@ public sealed class ReservedState : IInvestmentState
             investment.Id, investment.InvestorId, investment.PropertyId, investment.TokenCount));
         return ExpiredState.Instance;
     }
+
+    public IInvestmentState Withdraw(Investment investment)
+        => throw new InvalidStateTransitionException(
+            "Only an active investment inside its 14-day window can be withdrawn.");
 
     public static ReservedState Instance { get; } = new();
     private ReservedState() { }

@@ -15,6 +15,10 @@ namespace Atria.Application.Investments.Dtos;
 /// When the reservation lapses if it is not approved before then. Drives the countdown the investor
 /// sees on a Reserved application; already in the past for every other status.
 /// </param>
+/// <param name="WithdrawalDeadlineUtc">
+/// Until when the holder may exercise the 14-day right of withdrawal (§44). Null until the
+/// application is activated.
+/// </param>
 /// <param name="RejectionReason">Why an operator declined the application; <c>null</c> unless Rejected.</param>
 /// <param name="OnChainStatus">On-chain confirmation status of the token allocation (serialized by name).</param>
 /// <param name="TransactionHash">Mint transaction hash once submitted on chain; <c>null</c> until then.</param>
@@ -29,6 +33,7 @@ public sealed record InvestmentDto(
     decimal PricePerToken,
     InvestmentStatus Status,
     DateTime ReservedUntilUtc,
+    DateTime? WithdrawalDeadlineUtc,
     string? RejectionReason,
     OnChainStatus OnChainStatus,
     string? TransactionHash,

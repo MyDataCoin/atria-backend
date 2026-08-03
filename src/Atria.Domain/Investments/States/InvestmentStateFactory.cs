@@ -13,6 +13,7 @@ public static class InvestmentStateFactory
         InvestmentStatus.Reserved => ReservedState.Instance,
         InvestmentStatus.Active => ActiveState.Instance,
         InvestmentStatus.Rejected => RejectedState.Instance,
+        InvestmentStatus.Withdrawn => WithdrawnState.Instance,
         InvestmentStatus.Cancelled => CancelledState.Instance,
         InvestmentStatus.Expired => ExpiredState.Instance,
         _ => throw new InvalidStateTransitionException($"Unknown investment status: {status}.")

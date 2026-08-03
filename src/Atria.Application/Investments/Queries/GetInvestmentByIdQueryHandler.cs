@@ -42,7 +42,7 @@ public sealed class GetInvestmentByIdQueryHandler
         var dto = new InvestmentDto(
             investment.Id, investment.PropertyId, investment.InvestorId, investment.TokenCount, investment.Amount,
             investment.Currency, investment.PricePerToken, investment.Status, investment.ReservedUntilUtc,
-            investment.RejectionReason, investment.OnChainStatus, investment.TransactionHash,
+            investment.WithdrawalDeadlineUtc, investment.RejectionReason, investment.OnChainStatus, investment.TransactionHash,
             investment.CreatedAtUtc);
 
         return Result.Success(dto);

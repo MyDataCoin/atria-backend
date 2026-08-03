@@ -19,6 +19,10 @@ public sealed class CancelledState : IInvestmentState
     public IInvestmentState Expire(Investment investment)
         => throw new InvalidStateTransitionException("Cannot expire a cancelled application.");
 
+    public IInvestmentState Withdraw(Investment investment)
+        => throw new InvalidStateTransitionException(
+            "Only an active investment inside its 14-day window can be withdrawn.");
+
     public static CancelledState Instance { get; } = new();
     private CancelledState() { }
 }

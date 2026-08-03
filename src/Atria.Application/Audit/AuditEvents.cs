@@ -36,4 +36,5 @@ public static class AuditEvents
     public const string RegulatoryReportFiled = "RegulatoryReportFiled";
     public const string IssueTokensAnnulled = "IssueTokensAnnulled";
     public const string IssueInvalidated = "IssueInvalidated";
+    public const string InvestmentWithdrawn = "InvestmentWithdrawn";
 }

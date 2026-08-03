@@ -19,6 +19,15 @@ public sealed class ActiveState : IInvestmentState
     public IInvestmentState Expire(Investment investment)
         => throw new InvalidStateTransitionException("Cannot expire an already active investment.");
 
+    public IInvestmentState Withdraw(Investment investment)
+    {
+        investment.RaiseDomainEvent(new Events.InvestmentWithdrawnEvent(
+            investment.Id, investment.InvestorId, investment.PropertyId,
+            investment.TokenCount, investment.Amount, investment.Currency));
+
+        return WithdrawnState.Instance;
+    }
+
     public static ActiveState Instance { get; } = new();
     private ActiveState() { }
 }

@@ -24,5 +24,12 @@ public enum InvestmentStatus
     /// the pool automatically. Distinct from <see cref="Cancelled"/> (investor-initiated) so reporting
     /// can tell a lapsed reservation from an actively withdrawn one.
     /// </summary>
-    Expired = 4
+    Expired = 4,
+
+    /// <summary>
+    /// The holder exercised the 14-day right of withdrawal (draft Decree, §44): the shares are
+    /// withdrawn from them and the money is owed back. Distinct from <see cref="Cancelled"/>, which
+    /// happens before approval and involves no shares and no refund.
+    /// </summary>
+    Withdrawn = 5
 }

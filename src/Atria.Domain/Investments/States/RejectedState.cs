@@ -19,6 +19,10 @@ public sealed class RejectedState : IInvestmentState
     public IInvestmentState Expire(Investment investment)
         => throw new InvalidStateTransitionException("Cannot expire a rejected application.");
 
+    public IInvestmentState Withdraw(Investment investment)
+        => throw new InvalidStateTransitionException(
+            "Only an active investment inside its 14-day window can be withdrawn.");
+
     public static RejectedState Instance { get; } = new();
     private RejectedState() { }
 }
