@@ -230,6 +230,35 @@ public sealed class Property : AggregateRoot
     }
 
     /// <summary>
+    /// Annuls part of the issue that was never placed (draft Decree, ch. 11): the shares disappear
+    /// from the offering and the issue shrinks to match. Only unsold capacity can be annulled this
+    /// way — shares already in an investor's hands are withdrawn from circulation instead, which is
+    /// what invalidating an issue does.
+    /// </summary>
+    public void AnnulUnplacedTokens(long count)
+    {
+        if (count <= 0)
+            throw new DomainException("Annulled token count must be positive.");
+        if (count > AvailableTokens)
+            throw new DomainException("Cannot annul more tokens than remain unplaced.");
+
+        AvailableTokens -= count;
+        TotalTokens -= count;
+    }
+
+    /// <summary>
+    /// Declares the issue invalid (draft Decree, §73). Terminal: sales stop, nothing more can be
+    /// placed, and the shares in circulation are to be withdrawn and the money returned. The
+    /// withdrawal and the refunds are carried out by the application layer — the aggregate only
+    /// records that the issue is no longer valid.
+    /// </summary>
+    public void Invalidate()
+    {
+        Status = PropertyStateFactory.Create(Status).Invalidate(this).Status;
+        SalesPaused = true;
+    }
+
+    /// <summary>
     /// Records the appraisal behind the issue: value, date and appraiser. All three go together — a
     /// value without a date and an appraiser is not evidence of anything.
     /// </summary>

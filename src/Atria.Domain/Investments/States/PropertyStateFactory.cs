@@ -14,6 +14,7 @@ public static class PropertyStateFactory
         PropertyStatus.ComingSoon => ComingSoonPropertyState.Instance,
         PropertyStatus.Open => OpenPropertyState.Instance,
         PropertyStatus.Completed => CompletedPropertyState.Instance,
+        PropertyStatus.Invalidated => InvalidatedPropertyState.Instance,
         _ => throw new InvalidStateTransitionException($"Unknown property status: {status}.")
     };
 }

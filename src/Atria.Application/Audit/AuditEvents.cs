@@ -34,4 +34,6 @@ public static class AuditEvents
     public const string CriticalActionApproved = "CriticalActionApproved";
     public const string CriticalActionRejected = "CriticalActionRejected";
     public const string RegulatoryReportFiled = "RegulatoryReportFiled";
+    public const string IssueTokensAnnulled = "IssueTokensAnnulled";
+    public const string IssueInvalidated = "IssueInvalidated";
 }

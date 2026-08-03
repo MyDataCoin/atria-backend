@@ -19,6 +19,8 @@ public sealed class CompletedPropertyState : IPropertyState
     public IPropertyState Complete(Property property)
         => throw new InvalidStateTransitionException("Property is already completed.");
 
+    public IPropertyState Invalidate(Property property) => InvalidatedPropertyState.Instance;
+
     public static CompletedPropertyState Instance { get; } = new();
     private CompletedPropertyState() { }
 }

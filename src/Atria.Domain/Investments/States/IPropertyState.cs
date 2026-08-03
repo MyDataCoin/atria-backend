@@ -20,4 +20,10 @@ public interface IPropertyState
 
     /// <summary>Open -> Completed: closes the offering.</summary>
     IPropertyState Complete(Property property);
+
+    /// <summary>
+    /// Any live state -> Invalidated: the issue is declared invalid (draft Decree, §73). Terminal —
+    /// shares are withdrawn from circulation and holders are owed their money back.
+    /// </summary>
+    IPropertyState Invalidate(Property property);
 }

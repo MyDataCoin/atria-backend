@@ -121,6 +121,51 @@ public sealed class PropertiesController : ApiControllerBase
             id, request.Name, request.Description, request.Address, request.PropertyType,
             request.City, request.YearBuilt, request.Developer, request.Floors), ct));
 
+    /// <summary>Annuls part of an issue that was never placed. Admin only.</summary>
+    /// <remarks>
+    /// Chapter 11 of the draft Decree. The issue shrinks by the annulled amount and, once it lives on
+    /// chain, the contract cap is lowered to match — the registered size and what the contract will
+    /// ever allow stay the same number. Only unplaced capacity can be annulled: shares already in an
+    /// investor's hands are withdrawn by invalidating the issue, which comes with refunds. 409 when
+    /// more is annulled than remains unplaced.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="request">How many unplaced shares to annul, and why.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/annul-tokens")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AnnulTokens(Guid id, AnnulTokensRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(
+            new AnnulUnplacedTokensCommand(id, request.TokenCount, request.Reason), ct));
+
+    /// <summary>Declares an issue invalid. Admin only.</summary>
+    /// <remarks>
+    /// Paragraph 73 of the draft Decree, and it does all three things at once: the issue is marked
+    /// invalid and its sales stop, every holder's shares are queued for withdrawal from circulation,
+    /// and the money owed back to each holder is recorded at the price the shares were issued at.
+    /// Paying those refunds is a separate step. Terminal — an invalidated issue can never be resumed
+    /// or republished.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="request">The ground on which the issue is declared invalid.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/invalidate")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Invalidate(Guid id, InvalidateIssueRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new InvalidateIssueCommand(id, request.Reason), ct));
+
     /// <summary>Reads the collateral file of an issue. Admin, collateral manager or auditor.</summary>
     /// <remarks>
     /// Kept out of the catalogue DTO on purpose: the appraiser, the encumbrance number and who manages

@@ -14,5 +14,11 @@ public enum PropertyStatus
     Draft = 0,
     Open = 1,
     Completed = 2,
-    ComingSoon = 3
+    ComingSoon = 3,
+
+    /// <summary>
+    /// The issue was declared invalid (draft Decree, §73). Terminal: shares are withdrawn from
+    /// circulation and holders are owed their money back. Nothing can be sold or issued again.
+    /// </summary>
+    Invalidated = 4
 }

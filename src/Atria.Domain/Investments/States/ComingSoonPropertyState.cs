@@ -17,6 +17,8 @@ public sealed class ComingSoonPropertyState : IPropertyState
     public IPropertyState Complete(Property property)
         => throw new InvalidStateTransitionException("A coming-soon property must be published before it can be completed.");
 
+    public IPropertyState Invalidate(Property property) => InvalidatedPropertyState.Instance;
+
     public static ComingSoonPropertyState Instance { get; } = new();
     private ComingSoonPropertyState() { }
 }

@@ -17,6 +17,8 @@ public sealed class DraftPropertyState : IPropertyState
     public IPropertyState Complete(Property property)
         => throw new InvalidStateTransitionException("A draft property must be published before it can be completed.");
 
+    public IPropertyState Invalidate(Property property) => InvalidatedPropertyState.Instance;
+
     public static DraftPropertyState Instance { get; } = new();
     private DraftPropertyState() { }
 }

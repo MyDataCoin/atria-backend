@@ -1,23 +1,33 @@
+using System.Text.Json;
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
+using Atria.Domain.Compliance;
 using Atria.Domain.Users;
 
 namespace Atria.Application.Properties.Commands;
 
-/// <summary>Pauses new purchases (SalesPaused = true). Restricted to Admins.</summary>
+/// <summary>
+/// Suspends the issue (draft Decree, ch. 8): new purchases stop, applications are refused, and — once
+/// the issue has a token contract — operations on chain are suspended too. Stopping sales in the
+/// database alone would leave holders trading freely while the issue is supposedly suspended.
+/// Restricted to Admins.
+/// </summary>
 public sealed class PausePropertyCommandHandler
     : IRequestHandler<PausePropertyCommand, Result>
 {
     private readonly IPropertyRepository _properties;
+    private readonly IBlockchainOperationQueue _chain;
     private readonly ICurrentUserService _currentUser;
     private readonly IUnitOfWork _unitOfWork;
 
     public PausePropertyCommandHandler(
         IPropertyRepository properties,
+        IBlockchainOperationQueue chain,
         ICurrentUserService currentUser,
         IUnitOfWork unitOfWork)
     {
         _properties = properties;
+        _chain = chain;
         _currentUser = currentUser;
         _unitOfWork = unitOfWork;
     }
@@ -43,6 +53,21 @@ public sealed class PausePropertyCommandHandler
 
         property.PauseSales();
         _properties.Update(property);
+
+        // Only once the issue actually lives on chain. Before deployment there is nothing to suspend.
+        if (!string.IsNullOrWhiteSpace(property.TokenContractAddress))
+        {
+            var payload = JsonSerializer.Serialize(new
+            {
+                propertyId = property.Id,
+                tokenContractAddress = property.TokenContractAddress,
+                chain = property.TokenChain
+            });
+
+            await _chain.EnqueueAsync(
+                BlockchainOperationType.TokenPause, payload, $"token-pause:{property.Id}", ct);
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success();

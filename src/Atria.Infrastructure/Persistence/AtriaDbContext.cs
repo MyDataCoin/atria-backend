@@ -16,6 +16,7 @@ using Atria.Domain.Outbox;
 using Atria.Domain.Publications;
 using Atria.Domain.Regulatory;
 using Atria.Domain.Realtors;
+using Atria.Domain.Refunds;
 using Atria.Domain.Support;
 using Atria.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -55,6 +56,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<CriticalAction> CriticalActions => Set<CriticalAction>();
     public DbSet<RegulatoryReport> RegulatoryReports => Set<RegulatoryReport>();
+    public DbSet<RefundObligation> RefundObligations => Set<RefundObligation>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // Infra-only EF entities.

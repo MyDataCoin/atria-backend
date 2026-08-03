@@ -212,3 +212,12 @@ public sealed record RaiseRegulatoryReportRequest(
 /// <summary>POST /regulatory-reports/{id}/file body.</summary>
 /// <param name="FilingReference">The regulator's acknowledgement reference; required.</param>
 public sealed record MarkReportFiledRequest(string FilingReference);
+
+/// <summary>POST /properties/{id}/annul-tokens body. Annuls unplaced capacity of an issue.</summary>
+/// <param name="TokenCount">How many unplaced shares to annul.</param>
+/// <param name="Reason">Why; required and journalled.</param>
+public sealed record AnnulTokensRequest(long TokenCount, string Reason);
+
+/// <summary>POST /properties/{id}/invalidate body. Declares an issue invalid (§73).</summary>
+/// <param name="Reason">The ground on which the issue is declared invalid; required and journalled.</param>
+public sealed record InvalidateIssueRequest(string Reason);

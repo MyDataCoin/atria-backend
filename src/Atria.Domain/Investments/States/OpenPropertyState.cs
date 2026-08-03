@@ -17,6 +17,8 @@ public sealed class OpenPropertyState : IPropertyState
 
     public IPropertyState Complete(Property property) => CompletedPropertyState.Instance;
 
+    public IPropertyState Invalidate(Property property) => InvalidatedPropertyState.Instance;
+
     public static OpenPropertyState Instance { get; } = new();
     private OpenPropertyState() { }
 }
