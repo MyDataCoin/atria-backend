@@ -63,7 +63,10 @@ public sealed class HolderSnapshotTests
         var creator = Guid.NewGuid();
 
         var a = HolderSnapshot.Create(propertyId, Cut, SnapshotPurpose.Payout, 123, creator, Holdings);
-        var b = HolderSnapshot.Create(propertyId, Cut, SnapshotPurpose.Payout, 123, creator, Holdings.Reverse());
+        // AsEnumerable() forces LINQ's Enumerable.Reverse (returns a reversed sequence); calling
+        // Reverse() directly on the array binds to MemoryExtensions.Reverse(Span<T>), which reverses
+        // in place and returns void.
+        var b = HolderSnapshot.Create(propertyId, Cut, SnapshotPurpose.Payout, 123, creator, Holdings.AsEnumerable().Reverse());
 
         a.TotalTokens.Should().Be(b.TotalTokens);
         a.AddressCount.Should().Be(b.AddressCount);
