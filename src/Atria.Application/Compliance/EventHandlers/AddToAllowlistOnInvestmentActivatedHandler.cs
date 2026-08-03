@@ -19,6 +19,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
     private readonly ITesseraComplianceService _tessera;
     private readonly IBlockchainOperationQueue _queue;
     private readonly IProcessedEventStore _processed;
+    private readonly IPropertyRepository _properties;
     private readonly IUnitOfWork _uow;
     private readonly ILogger<AddToAllowlistOnInvestmentActivatedHandler> _logger;
 
@@ -27,6 +28,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
         ITesseraComplianceService tessera,
         IBlockchainOperationQueue queue,
         IProcessedEventStore processed,
+        IPropertyRepository properties,
         IUnitOfWork uow,
         ILogger<AddToAllowlistOnInvestmentActivatedHandler> logger)
     {
@@ -34,6 +36,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
         _tessera = tessera;
         _queue = queue;
         _processed = processed;
+        _properties = properties;
         _uow = uow;
         _logger = logger;
     }
@@ -80,7 +83,19 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
             return;
         }
 
-        await _tessera.AddToAllowlistAsync(wallet, ct);
+        // The allowlist to write to is the one on the issue's own network: allowlisting the wallet
+        // somewhere else would leave the mint reverting with the address still not permitted.
+        var property = await _properties.GetByIdAsync(domainEvent.PropertyId, ct);
+        if (property is null || string.IsNullOrWhiteSpace(property.TokenChain))
+        {
+            _logger.LogWarning(
+                "Issue {PropertyId} has no network recorded; skipping on-chain allowlist/token allocation.",
+                domainEvent.PropertyId);
+            await _processed.MarkProcessedAsync(key, ct);
+            return;
+        }
+
+        await _tessera.AddToAllowlistAsync(property.TokenChain, wallet, ct);
         profile.MarkAllowlisted();
         _profiles.Update(profile);
 

@@ -232,6 +232,9 @@ public static class DependencyInjection
             });
         });
         services.AddSingleton<IChainAnchor, EvmChainAnchorAdapter>();
+
+        // Allowlist writes: one cached gateway per network, signed by the same scoped agent key.
+        services.AddSingleton<IAllowlistGateway, EvmAllowlistGatewayAdapter>();
         // External signer calls a configured signer URL via HttpClient (BaseAddress from options).
         services.AddHttpClient<IBlockchainSigner, ExternalBlockchainSigner>((sp, client) =>
         {

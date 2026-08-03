@@ -24,8 +24,11 @@ public interface ITesseraComplianceService
     /// <summary>Verify the investor's presentation against the project policy.</summary>
     Task<bool> VerifyPresentationAsync(Guid investorId, string policyId, CancellationToken ct);
 
-    Task AddToAllowlistAsync(string walletAddress, CancellationToken ct);
-    Task RemoveFromAllowlistAsync(string walletAddress, CancellationToken ct);
+    /// <param name="chainTag">Network whose allowlist to write to — the allowlist is per network.</param>
+    Task AddToAllowlistAsync(string chainTag, string walletAddress, CancellationToken ct);
+
+    /// <param name="chainTag">Network whose allowlist to write to.</param>
+    Task RemoveFromAllowlistAsync(string chainTag, string walletAddress, CancellationToken ct);
 
     /// <summary>Bump the revocation registry and drop the investor's attestations.</summary>
     Task RevokeAttestationsAsync(Guid investorId, string reason, CancellationToken ct);

@@ -50,14 +50,13 @@ public sealed class RevokeOnKycRejectedHandler : IDomainEventHandler<KycRejected
             return;
         }
 
+        // Revocation already drops the wallet from every configured network's allowlist; removing it
+        // again here would just queue the same operation twice.
         await _tessera.RevokeAttestationsAsync(investorId, domainEvent.Reason, ct);
 
-        var wallet = profile.WalletAddress;
-        if (!string.IsNullOrWhiteSpace(wallet))
-            await _tessera.RemoveFromAllowlistAsync(wallet, ct);
-        else
+        if (string.IsNullOrWhiteSpace(profile.WalletAddress))
             _logger.LogWarning(
-                "No wallet address for investor {InvestorId}; skipping on-chain allowlist removal.",
+                "No wallet address for investor {InvestorId}; nothing to remove from the allowlist.",
                 investorId);
 
         // Domain revoke also flips the allowlist flag and raises AttestationsRevokedEvent.

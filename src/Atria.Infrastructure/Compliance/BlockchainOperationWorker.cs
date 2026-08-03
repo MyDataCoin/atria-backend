@@ -55,8 +55,9 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 var context = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
                 var signer = scope.ServiceProvider.GetRequiredService<IBlockchainSigner>();
                 var networks = scope.ServiceProvider.GetRequiredService<IChainNetworkResolver>();
+                var allowlist = scope.ServiceProvider.GetRequiredService<IAllowlistGateway>();
 
-                await SubmitPendingAsync(context, signer, networks, stoppingToken);
+                await SubmitPendingAsync(context, signer, networks, allowlist, stoppingToken);
                 await ReconcileSubmittedAsync(context, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -77,6 +78,32 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// Applies an allowlist decision on chain. The gateway writes and waits for the receipt, so by
+    /// the time it returns the address really is (or is not) permitted; there is no separate
+    /// submission reference to reconcile later.
+    /// </summary>
+    private static async Task<string> WriteAllowlistAsync(
+        IAllowlistGateway allowlist, BlockchainOperation operation, CancellationToken ct)
+    {
+        using var payload = JsonDocument.Parse(operation.Payload);
+        var root = payload.RootElement;
+
+        var chain = root.TryGetProperty("chain", out var c) ? c.GetString() : null;
+        var address = root.TryGetProperty("walletAddress", out var w) ? w.GetString() : null;
+
+        if (string.IsNullOrWhiteSpace(chain) || string.IsNullOrWhiteSpace(address))
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} ({operation.Type}) needs both a chain and a wallet address.");
+
+        if (operation.Type == BlockchainOperationType.AllowlistAdd)
+            await allowlist.AddAsync(chain, address, ct);
+        else
+            await allowlist.RemoveAsync(chain, address, ct);
+
+        return $"allowlist:{chain}:{address}";
     }
 
     /// <summary>
@@ -122,7 +149,8 @@ public sealed class BlockchainOperationWorker : BackgroundService
 
     /// <summary>Submits operations still in Created/Failed (under the attempt cap) to the signer.</summary>
     private async Task SubmitPendingAsync(
-        AtriaDbContext context, IBlockchainSigner signer, IChainNetworkResolver networks, CancellationToken ct)
+        AtriaDbContext context, IBlockchainSigner signer, IChainNetworkResolver networks,
+        IAllowlistGateway allowlist, CancellationToken ct)
     {
         var pending = await context.Set<BlockchainOperation>()
             .Where(o => (o.Status == BlockchainOperationStatus.Created
@@ -142,19 +170,32 @@ public sealed class BlockchainOperationWorker : BackgroundService
 
             try
             {
-                // Which network and which contract come from the issue the operation belongs to.
-                // Reading them from a global setting is how every issue ends up minting into one
-                // contract the moment a second issue exists.
-                var target = await ResolveTargetAsync(context, networks, operation, ct);
+                string txRef;
 
-                var request = new SigningRequest(
-                    OperationType: operation.Type.ToString(),
-                    UnsignedPayload: operation.Payload,
-                    ChainId: target.ChainId,
-                    TokenContractAddress: target.TokenContractAddress);
+                if (operation.Type is BlockchainOperationType.AllowlistAdd
+                    or BlockchainOperationType.AllowlistRemove)
+                {
+                    // Allowlist writes go straight to the restriction contract through the gateway,
+                    // signed by the scoped registry/allowlist agent. They never reach the custody
+                    // signer: that key exists for token operations, and the allowlist is not one.
+                    txRef = await WriteAllowlistAsync(allowlist, operation, ct);
+                }
+                else
+                {
+                    // Which network and which contract come from the issue the operation belongs to.
+                    // Reading them from a global setting is how every issue ends up minting into one
+                    // contract the moment a second issue exists.
+                    var target = await ResolveTargetAsync(context, networks, operation, ct);
 
-                var result = await signer.SignAndSubmitAsync(request, ct);
-                var txRef = result.SubmissionReference ?? result.SignedPayload;
+                    var request = new SigningRequest(
+                        OperationType: operation.Type.ToString(),
+                        UnsignedPayload: operation.Payload,
+                        ChainId: target.ChainId,
+                        TokenContractAddress: target.TokenContractAddress);
+
+                    var result = await signer.SignAndSubmitAsync(request, ct);
+                    txRef = result.SubmissionReference ?? result.SignedPayload;
+                }
 
                 operation.MarkSubmitted(txRef);
 

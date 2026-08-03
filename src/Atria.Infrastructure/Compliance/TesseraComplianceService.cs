@@ -22,6 +22,7 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
     private readonly IComplianceRepository _profiles;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IChainAnchor _chainAnchor;
+    private readonly IChainNetworkResolver _networks;
     private readonly IBlockchainOperationQueue _operationQueue;
     private readonly TesseraOptions _options;
     private readonly ILogger<TesseraComplianceService> _logger;
@@ -30,6 +31,7 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
         IComplianceRepository profiles,
         IUnitOfWork unitOfWork,
         IChainAnchor chainAnchor,
+        IChainNetworkResolver networks,
         IBlockchainOperationQueue operationQueue,
         IOptions<TesseraOptions> options,
         ILogger<TesseraComplianceService> logger)
@@ -37,6 +39,7 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
         _profiles = profiles;
         _unitOfWork = unitOfWork;
         _chainAnchor = chainAnchor;
+        _networks = networks;
         _operationQueue = operationQueue;
         _options = options.Value;
         _logger = logger;
@@ -106,18 +109,19 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
         return verified;
     }
 
-    public Task AddToAllowlistAsync(string walletAddress, CancellationToken ct)
+    public Task AddToAllowlistAsync(string chainTag, string walletAddress, CancellationToken ct)
     {
-        var payload = JsonSerializer.Serialize(new { walletAddress });
-        // Idempotency key ties the queued op to the wallet + operation kind.
-        var key = $"allowlist-add:{walletAddress}";
+        var payload = JsonSerializer.Serialize(new { chain = chainTag, walletAddress });
+        // Idempotency key ties the queued op to the network + wallet + operation kind: the same
+        // wallet can legitimately be allowlisted on more than one network.
+        var key = $"allowlist-add:{chainTag}:{walletAddress}";
         return _operationQueue.EnqueueAsync(BlockchainOperationType.AllowlistAdd, payload, key, ct);
     }
 
-    public Task RemoveFromAllowlistAsync(string walletAddress, CancellationToken ct)
+    public Task RemoveFromAllowlistAsync(string chainTag, string walletAddress, CancellationToken ct)
     {
-        var payload = JsonSerializer.Serialize(new { walletAddress });
-        var key = $"allowlist-remove:{walletAddress}";
+        var payload = JsonSerializer.Serialize(new { chain = chainTag, walletAddress });
+        var key = $"allowlist-remove:{chainTag}:{walletAddress}";
         return _operationQueue.EnqueueAsync(BlockchainOperationType.AllowlistRemove, payload, key, ct);
     }
 
@@ -134,9 +138,14 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
         _profiles.Update(profile);
         await _unitOfWork.SaveChangesAsync(ct);
 
-        // Drop the wallet from the permissioned allowlist on chain.
+        // Drop the wallet from every network's allowlist. Verification was revoked for the person,
+        // not for one issue: leaving them allowed anywhere else would let them keep trading on a
+        // network we simply did not think about.
         if (!string.IsNullOrWhiteSpace(profile.WalletAddress))
-            await RemoveFromAllowlistAsync(profile.WalletAddress, ct);
+        {
+            foreach (var network in _networks.All)
+                await RemoveFromAllowlistAsync(network.Tag, profile.WalletAddress, ct);
+        }
 
         _logger.LogInformation(
             "Revoked attestations for investor {InvestorId} (reason: {Reason}).",
