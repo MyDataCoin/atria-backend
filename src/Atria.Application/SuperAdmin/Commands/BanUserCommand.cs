@@ -2,6 +2,7 @@ using Atria.Application.Abstractions;
 using Atria.Application.Audit;
 using Atria.Application.Common;
 using Atria.Domain.Audit;
+using Atria.Domain.Users;
 
 namespace Atria.Application.SuperAdmin.Commands;
 
@@ -13,6 +14,11 @@ public sealed record BanUserCommand(Guid UserId, string? Reason = null) : IReque
 /// <summary>
 /// Loads the target user, bans it (idempotent), and journals the action. 404 when the user does not
 /// exist. The ban is enforced at login: a banned account is refused a token.
+///
+/// Blocking an <b>investor</b> does not happen here: it cuts someone off from holdings we cannot move
+/// on their behalf, so it goes through dual approval and is carried out by
+/// <c>BlockInvestorExecutor</c>. This path stays for staff accounts (realtor, admin), where a block is
+/// an ordinary operational measure.
 /// </summary>
 public sealed class BanUserCommandHandler : IRequestHandler<BanUserCommand, Result>
 {
@@ -32,6 +38,11 @@ public sealed class BanUserCommandHandler : IRequestHandler<BanUserCommand, Resu
         var user = await _users.GetByIdAsync(request.UserId, ct);
         if (user is null)
             return Result.Failure(Error.NotFound("user.not_found", "User not found."));
+
+        if (user.Role == Role.Investor)
+            return Result.Failure(Error.Conflict(
+                "user.requiresDualApproval",
+                "Blocking an investor requires a second approval. Raise a critical action instead."));
 
         user.Ban(request.Reason);
         _users.Update(user);

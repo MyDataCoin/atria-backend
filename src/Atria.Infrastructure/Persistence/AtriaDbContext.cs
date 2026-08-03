@@ -7,6 +7,7 @@ using Atria.Domain.Compliance;
 using Atria.Domain.Consents;
 using Atria.Domain.Deals;
 using Atria.Domain.Documents;
+using Atria.Domain.Governance;
 using Atria.Domain.Holders;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
@@ -51,6 +52,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<HolderPosition> HolderPositions => Set<HolderPosition>();
     public DbSet<HolderSnapshot> HolderSnapshots => Set<HolderSnapshot>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+    public DbSet<CriticalAction> CriticalActions => Set<CriticalAction>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // Infra-only EF entities.

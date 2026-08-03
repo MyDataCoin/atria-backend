@@ -7,6 +7,7 @@ public static class AuditEntities
     public const string Publication = "Publication";
     public const string SupportTicket = "SupportTicket";
     public const string User = "User";
+    public const string CriticalAction = "CriticalAction";
 }
 
 /// <summary>
@@ -28,4 +29,7 @@ public static class AuditEvents
     public const string PasswordRestored = "PasswordRestored";
     public const string RealtorRegistered = "RealtorRegistered";
     public const string BanAppealSubmitted = "BanAppealSubmitted";
+    public const string CriticalActionRequested = "CriticalActionRequested";
+    public const string CriticalActionApproved = "CriticalActionApproved";
+    public const string CriticalActionRejected = "CriticalActionRejected";
 }

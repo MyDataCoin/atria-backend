@@ -35,7 +35,7 @@ public sealed class RealtorDealFlowTests : IClassFixture<AtriaApiFactory>
     {
         var admin = _factory.CreateClient();
         await AuthenticateAdminAsync(admin);
-        var propertyId = await CreateOpenPropertyAsync(admin);
+        var propertyId = await CreateOpenPropertyAsync(_factory, admin);
 
         var realtor = _factory.CreateClient();
         await AuthenticateRealtorAsync(realtor);
@@ -148,11 +148,10 @@ public sealed class RealtorDealFlowTests : IClassFixture<AtriaApiFactory>
         return doc.RootElement.GetString()!;
     }
 
-    private static async Task<string> CreateOpenPropertyAsync(HttpClient adminClient)
+    private static async Task<string> CreateOpenPropertyAsync(AtriaApiFactory factory, HttpClient adminClient)
     {
         var id = await CreatePropertyAsync(adminClient);
-        (await adminClient.PostAsync($"{PropertiesRoute}/{id}/publish", null))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await GovernanceTestHelpers.PublishAsync(factory, adminClient, id);
         return id;
     }
 

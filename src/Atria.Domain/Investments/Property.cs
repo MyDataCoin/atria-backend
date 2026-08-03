@@ -40,6 +40,39 @@ public sealed class Property : AggregateRoot
     /// <summary>Issuer wallet that holds/mints the issuance. Null until set.</summary>
     public string? IssuerWalletAddress { get; private set; }
 
+    // --- Collateral (what backs the issue) and its state registration ---
+
+    /// <summary>
+    /// Appraised value of the collateral, in <see cref="Currency"/>. Distinct from
+    /// <see cref="TotalValue"/>: that is what the issue is offered at, this is what an appraiser
+    /// certified the backing asset is worth. Null until an appraisal is recorded.
+    /// </summary>
+    public decimal? CollateralValue { get; private set; }
+
+    /// <summary>Date of the appraisal <see cref="CollateralValue"/> comes from.</summary>
+    public DateTime? CollateralValuedAtUtc { get; private set; }
+
+    /// <summary>Appraiser who certified the value.</summary>
+    public string? CollateralAppraiser { get; private set; }
+
+    /// <summary>
+    /// Registration number of the encumbrance recorded against the asset in the state register — the
+    /// evidence that the collateral is actually pledged and not merely declared.
+    /// </summary>
+    public string? EncumbranceRegistrationNumber { get; private set; }
+
+    /// <summary>When the encumbrance was registered.</summary>
+    public DateTime? EncumbranceRegisteredAtUtc { get; private set; }
+
+    /// <summary>State registration number of the issue itself, assigned on registration.</summary>
+    public string? IssueRegistrationNumber { get; private set; }
+
+    /// <summary>
+    /// The user acting as collateral manager for this issue. Their access is deliberately narrow —
+    /// encumbrance status and the holder register, nothing else.
+    /// </summary>
+    public Guid? CollateralManagerUserId { get; private set; }
+
     // Persisted status enum; the current state is derived from it on demand (EF-friendly).
     public PropertyStatus Status { get; private set; }
 
@@ -195,6 +228,45 @@ public sealed class Property : AggregateRoot
         TokenChain = tokenChain;
         IssuerWalletAddress = issuerWalletAddress;
     }
+
+    /// <summary>
+    /// Records the appraisal behind the issue: value, date and appraiser. All three go together — a
+    /// value without a date and an appraiser is not evidence of anything.
+    /// </summary>
+    public void SetCollateralAppraisal(decimal value, DateTime valuedAtUtc, string appraiser)
+    {
+        if (value <= 0)
+            throw new DomainException("Collateral value must be positive.");
+        if (string.IsNullOrWhiteSpace(appraiser))
+            throw new DomainException("Appraiser is required.");
+
+        CollateralValue = value;
+        CollateralValuedAtUtc = valuedAtUtc;
+        CollateralAppraiser = appraiser;
+    }
+
+    /// <summary>Records the encumbrance registered against the asset in the state register.</summary>
+    public void SetEncumbrance(string registrationNumber, DateTime registeredAtUtc)
+    {
+        if (string.IsNullOrWhiteSpace(registrationNumber))
+            throw new DomainException("Encumbrance registration number is required.");
+
+        EncumbranceRegistrationNumber = registrationNumber;
+        EncumbranceRegisteredAtUtc = registeredAtUtc;
+    }
+
+    /// <summary>Records the state registration number assigned to the issue.</summary>
+    public void SetIssueRegistrationNumber(string registrationNumber)
+    {
+        if (string.IsNullOrWhiteSpace(registrationNumber))
+            throw new DomainException("Issue registration number is required.");
+
+        IssueRegistrationNumber = registrationNumber;
+    }
+
+    /// <summary>Assigns (or clears, with null) the collateral manager responsible for this issue.</summary>
+    public void SetCollateralManager(Guid? userId)
+        => CollateralManagerUserId = userId == Guid.Empty ? null : userId;
 
     /// <summary>Adds a photo (max <see cref="MaxImages"/>). Returns the created child.</summary>
     public PropertyImage AddImage(string url)

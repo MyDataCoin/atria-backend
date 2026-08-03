@@ -115,6 +115,7 @@ public static class DependencyInjection
         services.AddScoped<IComplianceRepository, ComplianceRepository>();
         services.AddScoped<IHolderPositionRepository, HolderPositionRepository>();
         services.AddScoped<IHolderSnapshotRepository, HolderSnapshotRepository>();
+        services.AddScoped<ICriticalActionRepository, CriticalActionRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
         services.AddScoped<IAppealRepository, AppealRepository>();
@@ -246,6 +247,11 @@ public static class DependencyInjection
 
         // Open-generic universal audit handler: IDomainEventHandler<> -> AuditAllDomainEventsHandler<>.
         services.AddScoped(typeof(IDomainEventHandler<>), typeof(AuditAllDomainEventsHandler<>));
+
+        // Dual-approval executors. Registered as a set: the approve handler picks the one whose Kind
+        // matches, so adding a kind (the payout run) means adding an executor, nothing else.
+        foreach (var executor in types.Where(t => typeof(ICriticalActionExecutor).IsAssignableFrom(t)))
+            services.AddScoped(typeof(ICriticalActionExecutor), executor);
 
         // FluentValidation validators (IValidator<T>). Registered by reflection so the
         // Infrastructure project needs no FluentValidation.DependencyInjectionExtensions reference.

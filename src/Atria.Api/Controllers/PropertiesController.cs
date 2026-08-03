@@ -121,6 +121,47 @@ public sealed class PropertiesController : ApiControllerBase
             id, request.Name, request.Description, request.Address, request.PropertyType,
             request.City, request.YearBuilt, request.Developer, request.Floors), ct));
 
+    /// <summary>Reads the collateral file of an issue. Admin, collateral manager or auditor.</summary>
+    /// <remarks>
+    /// Kept out of the catalogue DTO on purpose: the appraiser, the encumbrance number and who manages
+    /// the collateral are not public information. The <b>Auditor</b> role reaches it read-only.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet("{id:guid}/collateral")]
+    [Authorize(Roles = "Admin,CollateralManager,Auditor")]
+    [ProducesResponseType<PropertyCollateralDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCollateral(Guid id, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new GetPropertyCollateralQuery(id), ct));
+
+    /// <summary>Records what backs the issue and how it is registered. Admin or collateral manager.</summary>
+    /// <remarks>
+    /// The collateral file: appraised value with its date and appraiser, the encumbrance registered
+    /// against the asset in the state register, the state registration number of the issue, and the
+    /// collateral manager responsible for it. Every field is optional so the file can be filled in as
+    /// documents arrive — but an appraisal is all-or-nothing: value, date and appraiser go together or
+    /// none of them do (400 otherwise). Responds with 404 when the property does not exist.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="request">The collateral fields to record.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPatch("{id:guid}/collateral")]
+    [Authorize(Roles = "Admin,CollateralManager")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetCollateral(
+        Guid id, SetPropertyCollateralRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new SetPropertyCollateralCommand(
+            id, request.CollateralValue, request.CollateralValuedAtUtc, request.CollateralAppraiser,
+            request.EncumbranceRegistrationNumber, request.EncumbranceRegisteredAtUtc,
+            request.IssueRegistrationNumber, request.CollateralManagerUserId), ct));
+
     /// <summary>Announces a property as "coming soon". Admin only.</summary>
     /// <remarks>
     /// Moves a <b>draft</b> or <b>open</b> property to <b>coming soon</b> — teasing a new draft on the
@@ -205,17 +246,19 @@ public sealed class PropertiesController : ApiControllerBase
         return ToActionResult(result);
     }
 
-    /// <summary>Publishes a property's offering, opening it to investors. Admin only.</summary>
+    /// <summary>Asks for a property's offering to be published. Admin only.</summary>
     /// <remarks>
-    /// Opens the property for purchase from either <b>draft</b> or <b>coming soon</b>. Requires the
-    /// <b>Admin</b> role. Responds with 404 when the property does not exist and 409 when the
-    /// property is already open or completed.
+    /// Publication requires two people. This call does not open the property: it raises a dual-approval
+    /// request and returns its id, and the offering opens when a <i>different</i> administrator approves
+    /// it via <c>POST /governance/critical-actions/{id}/approve</c>. Asking twice for the same property
+    /// returns the request already open. Requires the <b>Admin</b> role. Responds with 404 when the
+    /// property does not exist and 409 when it is already open or completed.
     /// </remarks>
     /// <param name="id">The property's unique identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("{id:guid}/publish")]
     [Authorize(Roles = "Admin")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<Guid>(StatusCodes.Status202Accepted)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -223,7 +266,7 @@ public sealed class PropertiesController : ApiControllerBase
     public async Task<IActionResult> Publish(Guid id, CancellationToken ct)
     {
         var result = await Sender.Send(new PublishPropertyCommand(id), ct);
-        return ToActionResult(result);
+        return result.IsSuccess ? Accepted(result.Value) : ToActionResult(result);
     }
 
     /// <summary>Completes a property's offering, closing it. Admin only.</summary>

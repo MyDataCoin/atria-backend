@@ -21,6 +21,13 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Floors);
         b.Property(p => p.TotalValue).HasPrecision(18, 2).IsRequired();
         b.Property(p => p.TokenPrice).HasPrecision(18, 2).IsRequired();
+
+        // Collateral and its state registration. All optional: an issue is drafted before it is
+        // appraised, pledged and registered.
+        b.Property(p => p.CollateralValue).HasPrecision(18, 2);
+        b.Property(p => p.CollateralAppraiser).HasMaxLength(256);
+        b.Property(p => p.EncumbranceRegistrationNumber).HasMaxLength(128);
+        b.Property(p => p.IssueRegistrationNumber).HasMaxLength(128);
         b.Property(p => p.TotalTokens).IsRequired();
         b.Property(p => p.AvailableTokens).IsRequired();
         b.Property(p => p.Currency).HasMaxLength(8).IsRequired();

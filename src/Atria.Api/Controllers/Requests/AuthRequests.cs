@@ -1,5 +1,6 @@
 using Atria.Domain.Consents;
 using Atria.Domain.Documents;
+using Atria.Domain.Governance;
 using Atria.Domain.Holders;
 using Atria.Domain.Kyc;
 
@@ -171,3 +172,30 @@ public sealed record SubmitAppealRequest(string? Username, string Message);
 /// <param name="SnapshotAtUtc">The cut to freeze; omit to cut at the current instant. Must not be in the future.</param>
 public sealed record CreateHolderSnapshotRequest(
     Guid PropertyId, SnapshotPurpose Purpose, DateTime? SnapshotAtUtc = null);
+
+/// <summary>POST /governance/critical-actions body. Raises a request for a second approval.</summary>
+/// <param name="Kind">What is being asked for, sent by name.</param>
+/// <param name="TargetId">The entity the action applies to.</param>
+/// <param name="Reason">Why. Carried into the executed action where it has a meaning (e.g. a ban reason).</param>
+public sealed record RequestCriticalActionRequest(CriticalActionKind Kind, Guid TargetId, string? Reason = null);
+
+/// <summary>POST /governance/critical-actions/{id}/reject body.</summary>
+/// <param name="Note">Why the request is being declined; required.</param>
+public sealed record RejectCriticalActionRequest(string Note);
+
+/// <summary>PATCH /properties/{id}/collateral body. Records the collateral file of an issue.</summary>
+/// <param name="CollateralValue">Appraised value of the collateral, in the issue's currency.</param>
+/// <param name="CollateralValuedAtUtc">Date of that appraisal.</param>
+/// <param name="CollateralAppraiser">Who certified it.</param>
+/// <param name="EncumbranceRegistrationNumber">Registration number of the encumbrance in the state register.</param>
+/// <param name="EncumbranceRegisteredAtUtc">When the encumbrance was registered; defaults to now.</param>
+/// <param name="IssueRegistrationNumber">State registration number of the issue itself.</param>
+/// <param name="CollateralManagerUserId">The user acting as collateral manager for this issue.</param>
+public sealed record SetPropertyCollateralRequest(
+    decimal? CollateralValue = null,
+    DateTime? CollateralValuedAtUtc = null,
+    string? CollateralAppraiser = null,
+    string? EncumbranceRegistrationNumber = null,
+    DateTime? EncumbranceRegisteredAtUtc = null,
+    string? IssueRegistrationNumber = null,
+    Guid? CollateralManagerUserId = null);

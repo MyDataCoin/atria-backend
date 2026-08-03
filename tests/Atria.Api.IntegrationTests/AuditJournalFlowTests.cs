@@ -47,8 +47,7 @@ public sealed class AuditJournalFlowTests : IClassFixture<AtriaApiFactory>
         // announce -> PropertyAnnounced, publish -> PropertyPublished
         (await admin.PostAsync($"{PropertiesRoute}/{propertyId}/announce", null))
             .StatusCode.Should().Be(HttpStatusCode.NoContent);
-        (await admin.PostAsync($"{PropertiesRoute}/{propertyId}/publish", null))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await GovernanceTestHelpers.PublishAsync(_factory, admin, propertyId);
 
         var entries = await ReadJournalAsync(admin, $"{AuditRoute}?entityId={propertyId}&pageSize=100");
 

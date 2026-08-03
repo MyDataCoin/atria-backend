@@ -17,14 +17,17 @@ namespace Atria.Api.Controllers;
 /// </summary>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/holders")]
-[Authorize(Roles = "Admin")]
+// Reads are open to the collateral manager and the auditor as well: the register is exactly the part
+// of the platform their roles exist to watch. Taking a snapshot stays with the operator.
+[Authorize(Roles = "Admin,CollateralManager,Auditor")]
 public sealed class HoldersController : ApiControllerBase
 {
     public HoldersController(ISender sender) : base(sender) { }
 
     /// <summary>Current holder register of an issuance, largest holding first.</summary>
     /// <remarks>
-    /// Requires the <c>Admin</c> role. <c>search</c> matches an address fragment or a whole investor id.
+    /// Open to <c>Admin</c>, <c>CollateralManager</c> and <c>Auditor</c>. <c>search</c> matches an address
+    /// fragment or a whole investor id.
     /// Zero-balance and non-allowlisted positions are included: an address can lose its allowlist standing
     /// yet keep its shares, and such holders belong in the register, flagged.
     /// </remarks>
@@ -42,7 +45,8 @@ public sealed class HoldersController : ApiControllerBase
 
     /// <summary>Freezes the holder register of an issuance at a cut.</summary>
     /// <remarks>
-    /// Requires the <c>Admin</c> role. Idempotent by (property, cut, purpose): repeating the request for
+    /// Requires the <c>Admin</c> role — reading the register is wider than cutting it. Idempotent by
+    /// (property, cut, purpose): repeating the request for
     /// the same cut returns the snapshot already taken rather than building a second one, so trades that
     /// settled in between never change it. Omitting <c>snapshotAtUtc</c> cuts at the current instant; a
     /// future instant is rejected.
@@ -50,6 +54,7 @@ public sealed class HoldersController : ApiControllerBase
     /// <param name="request">Issuance, cut and purpose of the snapshot.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("snapshots")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType<Guid>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -85,7 +90,7 @@ public sealed class HoldersController : ApiControllerBase
 
     /// <summary>Downloads a snapshot as CSV.</summary>
     /// <remarks>
-    /// Requires the <c>Admin</c> role. The file is rendered server-side and is byte-for-byte reproducible:
+    /// The file is rendered server-side and is byte-for-byte reproducible:
     /// what the operator hands to a regulator is exactly what the register holds.
     /// </remarks>
     /// <param name="id">Snapshot identifier.</param>

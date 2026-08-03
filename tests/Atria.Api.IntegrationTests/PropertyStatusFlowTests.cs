@@ -45,9 +45,14 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         (await admin.PostAsync($"{PropertiesRoute}/{id}/complete", null))
             .StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        // Publish (Draft -> Open) is Admin-only.
-        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        // Publish (Draft -> Open) is Admin-only and now takes two people: the admin raises the
+        // request, a different account approves it, and only then does the property open.
+        var publishRequest = await GovernanceTestHelpers.RequestPublishAsync(admin, id);
+        (await GetPropertyAsync(admin, id)).GetProperty("status").GetString()
+            .Should().Be("draft", "a request on its own must not open the offering");
+
+        var approver = await GovernanceTestHelpers.ApproverClientAsync(_factory);
+        await GovernanceTestHelpers.ApproveAsync(approver, publishRequest);
         (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("open");
 
         // Publishing an already-open property is a CONFLICT (not an idempotent 204).
@@ -84,8 +89,7 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
             .StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         // Publish works from coming_soon (ComingSoon -> Open).
-        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await GovernanceTestHelpers.PublishAsync(_factory, admin, id);
         (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("open");
 
         // Complete (Open -> Completed).
@@ -131,8 +135,7 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         var anon = _factory.CreateClient();
 
         var id = await CreatePropertyAsync(admin);
-        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await GovernanceTestHelpers.PublishAsync(_factory, admin, id);
         (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("open");
 
         // Announce from open -> coming_soon.
@@ -209,8 +212,7 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         var id = createdDoc.RootElement.GetString()!;
 
         // Publish so the anonymous public site can read the object, then assert every characteristic.
-        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await GovernanceTestHelpers.PublishAsync(_factory, admin, id);
 
         var anon = _factory.CreateClient();
         var dto = await GetPropertyAsync(anon, id);
@@ -230,8 +232,7 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         var anon = _factory.CreateClient();
 
         var id = await CreatePropertyAsync(admin);
-        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await GovernanceTestHelpers.PublishAsync(_factory, admin, id);
 
         // Fresh open property: salesPaused is false and visible to the public site.
         (await GetPropertyAsync(anon, id)).GetProperty("salesPaused").GetBoolean().Should().BeFalse();

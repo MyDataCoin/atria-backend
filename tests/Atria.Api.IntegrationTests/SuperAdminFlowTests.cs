@@ -25,6 +25,7 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
 {
     private const string AdminLoginRoute = "/api/v1/auth/admin/login";
     private const string UsersRoute = "/api/v1/users";
+    private const string CriticalActionsRoute = "/api/v1/governance/critical-actions";
     private const string AdminsRoute = "/api/v1/admins";
     private const string StatsRoute = "/api/v1/realtors/stats";
     private const string RealtorsRoute = "/api/v1/realtors";
@@ -198,7 +199,29 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
         var superAdmin = _factory.CreateClient();
         await AuthenticateSuperAdminAsync(superAdmin);
 
+        // Blocking an investor takes two people: a single call is refused outright.
         (await superAdmin.PostAsync($"{UsersRoute}/{investorId}/ban", null))
+            .StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        // One account raises the request...
+        var request = await superAdmin.PostAsJsonAsync(CriticalActionsRoute, new
+        {
+            kind = "InvestorBlock",
+            targetId = investorId,
+            reason = "подозрительная активность",
+        });
+        request.StatusCode.Should().Be(HttpStatusCode.Created);
+        using var requestDoc = JsonDocument.Parse(await request.Content.ReadAsStringAsync());
+        var actionId = requestDoc.RootElement.GetGuid();
+
+        // ...and cannot approve their own.
+        (await superAdmin.PostAsync($"{CriticalActionsRoute}/{actionId}/approve", null))
+            .StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        // A different account approves it, and only then is the investor blocked.
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        (await admin.PostAsync($"{CriticalActionsRoute}/{actionId}/approve", null))
             .StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // The banned investor can no longer complete OTP login.
