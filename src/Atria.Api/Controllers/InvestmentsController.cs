@@ -5,6 +5,7 @@ using Atria.Application.Abstractions;
 using Atria.Application.Investments.Commands;
 using Atria.Application.Investments.Dtos;
 using Atria.Application.Investments.Queries;
+using Atria.Domain.Investments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -111,6 +112,28 @@ public sealed class InvestmentsController : ApiControllerBase
         var result = await Sender.Send(new GetMyInvestmentsQuery(), ct);
         return ToActionResult(result);
     }
+
+    /// <summary>Applications across every investor — the operator's queue. Admin only.</summary>
+    /// <remarks>
+    /// Requires the <c>Admin</c> role. This is the one investment read that crosses investor boundaries,
+    /// which is why it is separate from <c>/investments/me</c>. Filter with <c>status</c>
+    /// (<c>Reserved</c>, <c>Active</c>, <c>Rejected</c>, <c>Cancelled</c>, <c>Expired</c>) and
+    /// <c>propertyId</c>; newest first, <c>take</c> capped at 500.
+    /// </remarks>
+    /// <param name="status">Lifecycle status to narrow to; omit for all.</param>
+    /// <param name="propertyId">Issue to narrow to; omit for all.</param>
+    /// <param name="take">How many to return; capped at 500, defaults to 100.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType<IReadOnlyList<InvestmentDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> List(
+        [FromQuery] InvestmentStatus? status, [FromQuery] Guid? propertyId, [FromQuery] int take,
+        CancellationToken ct)
+        => ToActionResult(await Sender.Send(
+            new ListInvestmentsQuery(status, propertyId, take <= 0 ? 100 : take), ct));
 
     /// <summary>Aggregated portfolio totals for the current investor.</summary>
     /// <remarks>

@@ -8,6 +8,14 @@ public interface IInvestmentRepository : IRepository<Investment>
 {
     Task<IReadOnlyList<Investment>> GetByInvestorAsync(Guid investorId, CancellationToken ct);
 
+    /// <summary>
+    /// Applications across every investor, newest first, optionally narrowed to one status or one
+    /// property. The operator's queue: without it there is no way to find the applications waiting for
+    /// a decision. Read-only.
+    /// </summary>
+    Task<IReadOnlyList<Investment>> ListAsync(
+        InvestmentStatus? status, Guid? propertyId, int take, CancellationToken ct);
+
     /// <summary>Fetches investments by id (batched, read-only). Missing ids are simply absent.</summary>
     Task<IReadOnlyList<Investment>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 

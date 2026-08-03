@@ -15,6 +15,24 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
             .Where(i => i.InvestorId == investorId)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Investment>> ListAsync(
+        InvestmentStatus? status, Guid? propertyId, int take, CancellationToken ct)
+    {
+        var query = Set.AsNoTracking().AsQueryable();
+
+        if (status is not null)
+            query = query.Where(i => i.Status == status);
+        if (propertyId is not null)
+            query = query.Where(i => i.PropertyId == propertyId);
+
+        // Newest first: the operator works the top of the queue, and a reservation that lapses drops
+        // out of the Reserved filter on its own.
+        return await query
+            .OrderByDescending(i => i.CreatedAtUtc)
+            .Take(take)
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<Investment>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
     {
         if (ids.Count == 0)

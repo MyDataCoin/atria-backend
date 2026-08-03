@@ -5,6 +5,7 @@ namespace Atria.Application.Investments.Dtos;
 /// <summary>Read model of a single investment.</summary>
 /// <param name="Id">Unique identifier of the investment.</param>
 /// <param name="PropertyId">Identifier of the property the investment is in.</param>
+/// <param name="InvestorId">The investor who applied. Carried so the operator queue can name them.</param>
 /// <param name="TokenCount">How many tokens the investor bought.</param>
 /// <param name="Amount">Invested amount in <paramref name="Currency"/>.</param>
 /// <param name="Currency">ISO currency code of the amount (for example <c>USD</c>).</param>
@@ -21,6 +22,7 @@ namespace Atria.Application.Investments.Dtos;
 public sealed record InvestmentDto(
     Guid Id,
     Guid PropertyId,
+    Guid InvestorId,
     long TokenCount,
     decimal Amount,
     string Currency,

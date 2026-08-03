@@ -30,7 +30,7 @@ public sealed class GetPortfolioQueryHandler
         var investments = await _investments.GetByInvestorAsync(userId.Value, ct);
 
         var dtos = investments
-            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.TokenCount, i.Amount, i.Currency,
+            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.InvestorId, i.TokenCount, i.Amount, i.Currency,
                 i.PricePerToken, i.Status, i.ReservedUntilUtc, i.RejectionReason, i.OnChainStatus,
                 i.TransactionHash, i.CreatedAtUtc))
             .ToList();
