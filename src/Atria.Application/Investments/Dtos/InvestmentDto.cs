@@ -10,6 +10,11 @@ namespace Atria.Application.Investments.Dtos;
 /// <param name="Currency">ISO currency code of the amount (for example <c>USD</c>).</param>
 /// <param name="PricePerToken">Unit token price snapshot at the time the application was made.</param>
 /// <param name="Status">Current lifecycle status of the investment (serialized by name).</param>
+/// <param name="ReservedUntilUtc">
+/// When the reservation lapses if it is not approved before then. Drives the countdown the investor
+/// sees on a Reserved application; already in the past for every other status.
+/// </param>
+/// <param name="RejectionReason">Why an operator declined the application; <c>null</c> unless Rejected.</param>
 /// <param name="OnChainStatus">On-chain confirmation status of the token allocation (serialized by name).</param>
 /// <param name="TransactionHash">Mint transaction hash once submitted on chain; <c>null</c> until then.</param>
 /// <param name="CreatedAtUtc">UTC timestamp when the investment was created.</param>
@@ -21,6 +26,8 @@ public sealed record InvestmentDto(
     string Currency,
     decimal PricePerToken,
     InvestmentStatus Status,
+    DateTime ReservedUntilUtc,
+    string? RejectionReason,
     OnChainStatus OnChainStatus,
     string? TransactionHash,
     DateTime CreatedAtUtc);

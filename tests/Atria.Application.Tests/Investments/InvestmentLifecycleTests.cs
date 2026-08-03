@@ -114,7 +114,28 @@ public sealed class InvestmentLifecycleTests
 
         result.IsSuccess.Should().BeTrue();
         investment.Status.Should().Be(InvestmentStatus.Rejected);
+        investment.RejectionReason.Should().Be("does not meet policy"); // shown to the investor
         property.AvailableTokens.Should().Be(100); // returned to the pool
+    }
+
+    [Fact]
+    public async Task Rejecting_an_application_twice_keeps_the_first_reason()
+    {
+        var property = OpenProperty(100);
+        property.ReserveTokens(5);
+
+        var investment = InvestmentFactory.CreateForInvestor(
+            Guid.NewGuid(), property.Id, 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
+        _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
+        _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
+
+        var handler = new RejectInvestmentCommandHandler(_investments, _properties, _uow);
+        await handler.Handle(new RejectInvestmentCommand(investment.Id, "does not meet policy"), CancellationToken.None);
+        var second = await handler.Handle(
+            new RejectInvestmentCommand(investment.Id, "changed my mind"), CancellationToken.None);
+
+        second.IsFailure.Should().BeTrue();
+        investment.RejectionReason.Should().Be("does not meet policy");
     }
 
     [Fact]

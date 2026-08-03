@@ -37,6 +37,12 @@ public sealed class Investment : AggregateRoot
     /// </summary>
     public DateTime ReservedUntilUtc { get; private set; }
 
+    /// <summary>
+    /// Why an operator declined the application. Set on rejection and kept afterwards so the investor
+    /// can be told the reason and the decision stays auditable; null in every other state.
+    /// </summary>
+    public string? RejectionReason { get; private set; }
+
     // --- On-chain settlement (filled once chain wiring is enabled; null/None until then) ---
 
     /// <summary>Wallet the tokens are allocated to (the investor's whitelisted address).</summary>
@@ -84,8 +90,15 @@ public sealed class Investment : AggregateRoot
         => Status = InvestmentStateFactory.Create(Status).Approve(this).Status;
 
     /// <summary>Reserved -> Rejected: an operator declines the application. Raises the rejected event.</summary>
+    /// <remarks>
+    /// The reason is recorded only once the transition is accepted, so a rejected-state guard cannot
+    /// leave a reason behind on an application that stayed as it was.
+    /// </remarks>
     public void Reject(string reason)
-        => Status = InvestmentStateFactory.Create(Status).Reject(this, reason).Status;
+    {
+        Status = InvestmentStateFactory.Create(Status).Reject(this, reason).Status;
+        RejectionReason = reason;
+    }
 
     /// <summary>Reserved -> Cancelled: the investor withdraws the application. Raises the cancelled event.</summary>
     public void Cancel()

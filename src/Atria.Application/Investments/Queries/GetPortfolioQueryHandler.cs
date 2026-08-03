@@ -31,7 +31,8 @@ public sealed class GetPortfolioQueryHandler
 
         var dtos = investments
             .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.TokenCount, i.Amount, i.Currency,
-                i.PricePerToken, i.Status, i.OnChainStatus, i.TransactionHash, i.CreatedAtUtc))
+                i.PricePerToken, i.Status, i.ReservedUntilUtc, i.RejectionReason, i.OnChainStatus,
+                i.TransactionHash, i.CreatedAtUtc))
             .ToList();
 
         // Only confirmed (Active) investments count toward invested capital; aggregated DB-side.

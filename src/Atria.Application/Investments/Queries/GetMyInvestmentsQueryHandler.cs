@@ -28,7 +28,8 @@ public sealed class GetMyInvestmentsQueryHandler
 
         IReadOnlyList<InvestmentDto> dtos = investments
             .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.TokenCount, i.Amount, i.Currency,
-                i.PricePerToken, i.Status, i.OnChainStatus, i.TransactionHash, i.CreatedAtUtc))
+                i.PricePerToken, i.Status, i.ReservedUntilUtc, i.RejectionReason, i.OnChainStatus,
+                i.TransactionHash, i.CreatedAtUtc))
             .ToList();
 
         return Result.Success(dtos);

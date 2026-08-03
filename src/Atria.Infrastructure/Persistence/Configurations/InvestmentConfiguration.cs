@@ -19,6 +19,7 @@ internal sealed class InvestmentConfiguration : IEntityTypeConfiguration<Investm
         b.Property(i => i.PricePerToken).HasPrecision(18, 2).IsRequired();
         b.Property(i => i.Status).HasConversion<int>().IsRequired();
         b.Property(i => i.ReservedUntilUtc).IsRequired();
+        b.Property(i => i.RejectionReason).HasMaxLength(512);
         b.Property(i => i.ReferralToken).HasMaxLength(64);
 
         // On-chain settlement fields (filled once chain wiring is enabled; null/None until then).
