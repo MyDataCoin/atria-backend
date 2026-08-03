@@ -1,5 +1,6 @@
 using Atria.Domain.Consents;
 using Atria.Domain.Documents;
+using Atria.Domain.Holders;
 using Atria.Domain.Kyc;
 
 namespace Atria.Api.Controllers.Requests;
@@ -163,3 +164,10 @@ public sealed record RegisterRealtorRequest(
 /// <param name="Username">The login the sender tried to use (optional; helps match an account).</param>
 /// <param name="Message">The appeal text; required.</param>
 public sealed record SubmitAppealRequest(string? Username, string Message);
+
+/// <summary>POST /holders/snapshots body. Freezes an issuance's holder register at a cut.</summary>
+/// <param name="PropertyId">The issuance to snapshot.</param>
+/// <param name="Purpose">Why the snapshot is taken (payout run or regulatory statement), sent by name.</param>
+/// <param name="SnapshotAtUtc">The cut to freeze; omit to cut at the current instant. Must not be in the future.</param>
+public sealed record CreateHolderSnapshotRequest(
+    Guid PropertyId, SnapshotPurpose Purpose, DateTime? SnapshotAtUtc = null);

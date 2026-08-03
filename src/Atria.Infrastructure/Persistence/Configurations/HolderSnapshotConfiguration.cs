@@ -19,7 +19,10 @@ internal sealed class HolderSnapshotConfiguration : IEntityTypeConfiguration<Hol
         b.Property(s => s.AddressCount).IsRequired();
         b.Property(s => s.CreatedByUserId).IsRequired();
 
-        b.HasIndex(s => new { s.PropertyId, s.SnapshotAtUtc });
+        // One snapshot per (issuance, cut, purpose). Enforced in the database so two concurrent
+        // requests for the same cut cannot both create one — the idempotent handler and this index
+        // together are what make a snapshot stable once taken.
+        b.HasIndex(s => new { s.PropertyId, s.SnapshotAtUtc, s.Purpose }).IsUnique();
 
         // Immutable once created; no concurrency token needed (never updated).
         // Row lines owned by the snapshot aggregate, mapped via the backing field.

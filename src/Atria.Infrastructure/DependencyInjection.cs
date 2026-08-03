@@ -114,6 +114,7 @@ public static class DependencyInjection
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IComplianceRepository, ComplianceRepository>();
         services.AddScoped<IHolderPositionRepository, HolderPositionRepository>();
+        services.AddScoped<IHolderSnapshotRepository, HolderSnapshotRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
         services.AddScoped<IAppealRepository, AppealRepository>();
