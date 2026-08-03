@@ -22,11 +22,9 @@ services:
       # current password unless you intentionally reset the atria-pgdata volume.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: atria
-    # Postgres is published on the host's 5432. NOTE: this binds 0.0.0.0, exposing the DB
-    # to the public internet on the server — restrict it with a firewall / security group and
-    # keep a strong POSTGRES_PASSWORD. For host-only access use "127.0.0.1:5432:5432" instead.
-    ports:
-      - "5432:5432"
+    # Postgres is NOT published to the host here so the DB is never exposed on the public
+    # server. Local development publishes 5432 via docker-compose.override.yml (auto-merged
+    # by `docker compose up`, but excluded from the server deploy which uses `-f docker-compose.yml`).
     volumes:
       - atria-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -52,15 +50,23 @@ services:
       - path: .env
         required: false
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      # Production by default (this base file is what the server deploy runs). Local dev
+      # overrides this back to Development in docker-compose.override.yml (Swagger, dev keys).
+      ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       # Point the app at the db service (overrides the appsettings default). The password
       # is interpolated from the same POSTGRES_PASSWORD variable used by the db service.
       ConnectionStrings__Postgres: "Host=db;Port=5432;Database=atria;Username=atria;Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       # Auto-apply migrations on startup so the stack is usable immediately.
       Database__MigrateOnStartup: "true"
-      # Seed demo tokenization objects (Properties) on first run (idempotent).
-      Database__SeedOnStartup: "true"
+      # Demo-data seeding is OFF in production. Local dev turns it on via the override file.
+      Database__SeedOnStartup: "false"
+      # JWT signing secret + at-rest PII encryption key. REQUIRED (:? guard fails the deploy
+      # if unset/empty) so production can NEVER fall back to the committed dev keys in
+      # appsettings.json. Supplied from GitHub Actions secrets on deploy (see deploy.yml) and
+      # from the project .env for local runs. Jwt__SigningKey: >=32 chars; Encryption__Key: base64 of 32 bytes.
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
+      Encryption__Key: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
       # Public media (property photos/documents): the API copies files to the media host over SCP
       # and stores an absolute URL served by that host's nginx. Username/password are secrets (from
       # .env locally / GitHub Actions secrets on deploy). Non-secret bits are pinned here.

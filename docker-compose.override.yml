@@ -2,10 +2,20 @@
 # docker-compose.yml — but ONLY locally. The server deploy runs with an explicit
 # `-f docker-compose.yml`, so these local conveniences are never applied in production.
 #
-# Here we publish PostgreSQL on the host so you can connect with pgAdmin/psql at
-# localhost:5432. Safe locally; intentionally excluded from the public-server deploy.
+# Here we (1) publish PostgreSQL on the host so you can connect with pgAdmin/psql at
+# localhost:5432, (2) run the API in the Development environment (Swagger UI + dev-friendly
+# behaviour), and (3) seed demo tokenization objects on first run. All three are safe
+# locally and intentionally excluded from the public-server deploy.
 
 services:
   db:
     ports:
       - "5432:5432"
+
+  api:
+    environment:
+      # Development locally: enables Swagger UI and relaxes HTTPS-metadata requirements.
+      # The production deploy (base file) runs as Production instead.
+      ASPNETCORE_ENVIRONMENT: Development
+      # Seed demo tokenization objects (Properties) on first run (idempotent). Off in prod.
+      Database__SeedOnStartup: "true"

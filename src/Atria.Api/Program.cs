@@ -39,12 +39,31 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // --- Forwarded headers so RemoteIpAddress is the real client IP behind a proxy
 //     (used for OTP request rate limiting / abuse capture). ---
+// SECURITY: X-Forwarded-* is only honoured when the IMMEDIATE peer is a trusted proxy
+// (our nginx/docker ingress on a private network). A direct public client cannot spoof
+// X-Forwarded-For to forge its IP and bypass the per-IP OTP/login rate limiter. The
+// trusted proxy ranges are configurable via ForwardedHeaders:KnownNetworks (comma-separated
+// CIDRs); the default covers the RFC1918 private ranges + loopback where the ingress lives.
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
 {
     o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    // KnownNetworks/KnownProxies are cleared so X-Forwarded-* is trusted from the ingress.
+    // Only trust one hop (the ingress); ignore any further attacker-supplied entries.
+    o.ForwardLimit = 1;
     o.KnownNetworks.Clear();
     o.KnownProxies.Clear();
+
+    var configuredCidrs = builder.Configuration
+        .GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>();
+    var cidrs = configuredCidrs is { Length: > 0 }
+        ? configuredCidrs
+        : new[] { "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "::1/128" };
+
+    foreach (var cidr in cidrs)
+    {
+        var net = System.Net.IPNetwork.Parse(cidr.Trim());
+        o.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(
+            net.BaseAddress, net.PrefixLength));
+    }
 });
 
 // --- MVC controllers. Validators are registered by Infrastructure and run inside the

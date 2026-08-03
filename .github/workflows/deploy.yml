@@ -79,6 +79,11 @@ jobs:
           NIKITA_PRO_API_KEY: ${{ secrets.NIKITA_PRO_API_KEY }}
           DIDIT_API_KEY: ${{ secrets.DIDIT_API_KEY }}
           DIDIT_WEBHOOK_SECRET: ${{ secrets.DIDIT_WEBHOOK_SECRET }}
+          # JWT signing secret + at-rest PII encryption key. Both are REQUIRED by docker-compose
+          # (:? guards) so the app can never boot on the committed dev keys. Add them as GitHub
+          # secrets: JWT_SIGNING_KEY (>=32 chars) and ENCRYPTION_KEY (base64 of exactly 32 bytes).
+          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           # Static admin login. Only ADMIN_PASSWORD is truly secret; username/user-id are not,
           # but are forwarded the same way so all three reach `docker compose` on the server.
           ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
@@ -101,7 +106,7 @@ jobs:
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
-          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,REFERRAL_BASE_URL,MEDIA_SCP_HOST,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
+          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,JWT_SIGNING_KEY,ENCRYPTION_KEY,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,REFERRAL_BASE_URL,MEDIA_SCP_HOST,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
           script: |
             set -euo pipefail
 
