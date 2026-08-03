@@ -126,14 +126,16 @@ public sealed class BlockchainOperationWorker : BackgroundService
     /// <summary>Reconciliation pass: marks submitted operations as confirmed once finalized.</summary>
     private async Task ReconcileSubmittedAsync(AtriaDbContext context, CancellationToken ct)
     {
-        // Finality is gated by configuration. For the pilot AutoConfirmSubmitted is true,
-        // so a submitted operation is treated as confirmed. When false, operations stay
-        // Submitted until a real finality check confirms them.
-        // NOTE: a real implementation MUST query the chain (or IChainAnchor / signer
-        // service) for the receipt of operation.TransactionRef and only confirm on
-        // finality. This pilot path does NOT make any chain call.
+        // Finality is gated by configuration and OFF by default: an operation stays Submitted until
+        // something actually verifies it on chain. The auto-confirm path below makes no chain call at
+        // all — it exists only for local runs against a signer stub, and a real implementation must
+        // fetch the receipt for operation.TransactionRef and confirm on finality instead.
         if (!_autoConfirmSubmitted)
             return;
+
+        _logger.LogWarning(
+            "Blockchain:AutoConfirmSubmitted is ON: submitted operations are being marked confirmed "
+            + "WITHOUT any on-chain finality check. This must never be enabled in production.");
 
         var submitted = await context.Set<BlockchainOperation>()
             .Where(o => o.Status == BlockchainOperationStatus.Submitted)

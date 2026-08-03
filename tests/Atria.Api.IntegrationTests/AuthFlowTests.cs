@@ -19,7 +19,6 @@ public sealed class AuthFlowTests : IClassFixture<AtriaApiFactory>
     private const string VerifyOtpRoute = "/api/v1/auth/register/phone/verify-otp";
 
     // The test host configures Otp:DevFixedCode = 333333 (no SMS sent).
-    private const string DevCode = "333333";
 
     private readonly AtriaApiFactory _factory;
 
@@ -35,7 +34,7 @@ public sealed class AuthFlowTests : IClassFixture<AtriaApiFactory>
         request.IsSuccessStatusCode.Should()
             .BeTrue("requesting an OTP for a valid +996 number should return 2xx, got {0}", request.StatusCode);
 
-        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = DevCode });
+        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = _factory.Sms.CodeFor(phone) });
         verify.IsSuccessStatusCode.Should()
             .BeTrue("verifying the correct code should return 2xx, got {0}", verify.StatusCode);
 

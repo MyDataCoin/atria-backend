@@ -23,19 +23,8 @@ public sealed class OtpOptions
     [Range(1, 100)]
     public int RequestsPerHour { get; init; } = 5;
 
-    /// <summary>
-    /// DEV/TEST ONLY. When set (e.g. "333333"), every OTP is this fixed code and no SMS
-    /// is sent — lets you exercise phone registration without an SMS gateway. MUST be
-    /// null/empty in production (the service logs a loud warning whenever it is active).
-    /// </summary>
-    public string? DevFixedCode { get; init; }
-
-    /// <summary>
-    /// TEMPORARY OUTAGE BYPASS. When set (e.g. "111111"), verify-otp accepts this exact code
-    /// for ANY phone WITHOUT a prior request-otp and WITHOUT contacting the SMS gateway —
-    /// used only while the SMS provider is down. This is an auth bypass: keep it null/empty
-    /// normally and REMOVE it the moment SMS is restored. The service logs a loud warning on
-    /// every use.
-    /// </summary>
-    public string? MagicCode { get; init; }
+    // There is deliberately no fixed development code and no outage "magic code" here. Both were
+    // authentication bypasses that accepted a known value for any phone, and a bypass that only a
+    // configuration flag stands between you and production is one bad deploy away from being live.
+    // Tests stub ISmsSender and read the real generated code instead.
 }

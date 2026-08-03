@@ -52,28 +52,13 @@ public sealed class OtpService : IOtpService
             return Result.Failure(Error.Conflict(
                 "otp.rate_limited", "Too many OTP requests. Please try again later."));
 
-        // DEV/TEST shortcut: when a fixed code is configured, use it and skip the SMS
-        // gateway entirely so phone registration can be tested without a provider.
-        var devCode = _options.DevFixedCode;
-        var devMode = !string.IsNullOrEmpty(devCode);
-
-        var code = devMode ? devCode! : GenerateNumericCode(_options.Length);
+        var code = GenerateNumericCode(_options.Length);
         var codeHash = _hasher.Hash(code);
         var expiresAtUtc = now.AddMinutes(_options.TtlMinutes);
 
         await _store.AddAsync(phone, codeHash, expiresAtUtc, ct);
         // Commit the code BEFORE sending the SMS, otherwise verification can't find it.
         await _unitOfWork.SaveChangesAsync(ct);
-
-        if (devMode)
-        {
-            // Loud, repeated warning so this can never be mistaken for production behavior.
-            // The code value itself is not logged — it lives in configuration.
-            _logger.LogWarning(
-                "OTP DEV MODE ACTIVE: a fixed development code is in use and NO SMS was sent for {Phone}. " +
-                "Set Otp:DevFixedCode to empty in production.", phone);
-            return Result.Success();
-        }
 
         // The message embeds the code; we never log this string.
         var message = $"Добро пожаловать в Atria! Ваш код потверждения: {code}. Он истечёт через {_options.TtlMinutes} минут.";
@@ -113,19 +98,8 @@ public sealed class OtpService : IOtpService
     {
         var now = _clock.UtcNow;
 
-        // TEMPORARY OUTAGE BYPASS: while the SMS provider is down, accept a configured magic
-        // code for ANY phone without a stored code. This is a deliberate auth bypass — it is
-        // OFF unless Otp:MagicCode is set, and MUST be removed once SMS is restored.
-        var magicCode = _options.MagicCode;
-        if (!string.IsNullOrEmpty(magicCode) &&
-            CryptographicOperations.FixedTimeEquals(
-                System.Text.Encoding.UTF8.GetBytes(code), System.Text.Encoding.UTF8.GetBytes(magicCode)))
-        {
-            _logger.LogWarning(
-                "OTP MAGIC-CODE BYPASS ACTIVE: verify-otp accepted the outage magic code for {Phone} " +
-                "WITHOUT SMS. Remove Otp:MagicCode once the SMS provider is restored.", phone);
-            return Result.Success();
-        }
+        // Every verification goes through the stored, hashed, single-use code. There is no bypass
+        // path here on purpose: one accepted for any phone is an unauthenticated account takeover.
 
         var entry = await _store.GetLatestActiveAsync(phone, ct);
         if (entry is null || entry.Consumed || entry.ExpiresAtUtc <= now)

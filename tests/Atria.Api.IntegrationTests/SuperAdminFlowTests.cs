@@ -31,7 +31,6 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
     private const string RealtorsRoute = "/api/v1/realtors";
     private const string RequestOtpRoute = "/api/v1/auth/register/phone/request-otp";
     private const string VerifyOtpRoute = "/api/v1/auth/register/phone/verify-otp";
-    private const string DevCode = "333333";
 
     private readonly AtriaApiFactory _factory;
 
@@ -226,7 +225,7 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
 
         // The banned investor can no longer complete OTP login.
         await investor.PostAsJsonAsync(RequestOtpRoute, new { phone });
-        var verify = await investor.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = DevCode });
+        var verify = await investor.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = _factory.Sms.CodeFor(phone) });
         verify.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         BlockedInOverview(await ReadOverviewAsync(), investorId).Should().BeTrue();
@@ -339,10 +338,10 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
         => client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", await LoginAsync(client, AtriaApiFactory.AdminUsername, AtriaApiFactory.AdminPassword));
 
-    private static async Task AuthenticateInvestorAsync(HttpClient client, string phone)
+    private async Task AuthenticateInvestorAsync(HttpClient client, string phone)
     {
         await client.PostAsJsonAsync(RequestOtpRoute, new { phone });
-        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = DevCode });
+        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = _factory.Sms.CodeFor(phone) });
         verify.IsSuccessStatusCode.Should().BeTrue();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await ReadTokenAsync(verify));
     }

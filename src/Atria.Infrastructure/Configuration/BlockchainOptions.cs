@@ -28,11 +28,13 @@ public sealed class BlockchainOptions
     public string AnchorNetwork { get; init; } = null!;
 
     /// <summary>
-    /// When true (default for the pilot), the reconciliation pass auto-confirms any
-    /// Submitted operation without querying the chain for finality. Set false once a
-    /// real chain/IChainAnchor finality check is wired in.
+    /// When true, the reconciliation pass marks any Submitted operation as confirmed WITHOUT asking
+    /// the chain whether it was finalized. Off by default: reporting an operation as confirmed when
+    /// nothing has been verified on chain is a lie the rest of the system then builds on — the
+    /// investor sees a settled allocation, the registry counts shares that may never have landed.
+    /// Leave it off; a real finality check replaces it.
     /// </summary>
-    public bool AutoConfirmSubmitted { get; init; } = true;
+    public bool AutoConfirmSubmitted { get; init; }
 
     /// <summary>Worker poll interval, in seconds.</summary>
     public int PollSeconds { get; init; } = 10;

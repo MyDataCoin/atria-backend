@@ -23,7 +23,6 @@ public sealed class RealtorProfileFlowTests : IClassFixture<AtriaApiFactory>
     private const string RealtorLoginRoute = "/api/v1/auth/realtor/login";
     private const string RequestOtpRoute = "/api/v1/auth/register/phone/request-otp";
     private const string VerifyOtpRoute = "/api/v1/auth/register/phone/verify-otp";
-    private const string DevCode = "333333";
     private static readonly Guid RealtorUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private readonly AtriaApiFactory _factory;
@@ -90,11 +89,11 @@ public sealed class RealtorProfileFlowTests : IClassFixture<AtriaApiFactory>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await ReadTokenAsync(login));
     }
 
-    private static async Task AuthenticateInvestorAsync(HttpClient client)
+    private async Task AuthenticateInvestorAsync(HttpClient client)
     {
         var phone = UniqueKgPhone();
         await client.PostAsJsonAsync(RequestOtpRoute, new { phone });
-        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = DevCode });
+        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = _factory.Sms.CodeFor(phone) });
         verify.IsSuccessStatusCode.Should().BeTrue();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await ReadTokenAsync(verify));
     }

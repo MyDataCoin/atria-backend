@@ -7,9 +7,46 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using System;
+using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using Atria.Application.Abstractions;
 
 namespace Atria.Api.IntegrationTests;
+
+/// <summary>
+/// Stands in for the SMS gateway and remembers the last message per phone, so tests can read the
+/// verification code the service really produced. The production OTP path is exercised unchanged —
+/// a real random code, hashed and stored, single-use — which is the point: no test convenience is
+/// allowed to live in the shipped code.
+/// </summary>
+public sealed class CapturingSmsSender : ISmsSender
+{
+    private readonly ConcurrentDictionary<string, string> _lastMessage = new();
+
+    public Task SendAsync(string phoneNumber, string message, CancellationToken ct)
+    {
+        _lastMessage[phoneNumber] = message;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The verification code most recently sent to a phone.</summary>
+    public string CodeFor(string phoneNumber)
+    {
+        if (!_lastMessage.TryGetValue(phoneNumber, out var message))
+            throw new InvalidOperationException($"No OTP was sent to {phoneNumber}.");
+
+        var match = Regex.Match(message, @"\b(\d{4,10})\b");
+        if (!match.Success)
+            throw new InvalidOperationException($"No code found in the message sent to {phoneNumber}: {message}");
+
+        return match.Groups[1].Value;
+    }
+}
 
 /// <summary>
 /// Hosts the real <c>Atria.Api</c> pipeline in-process for integration tests. It:
@@ -26,6 +63,12 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
 {
     /// <summary>Shared in-memory database name so all requests in a test see the same data.</summary>
     private const string InMemoryDbName = "atria-tests";
+
+    /// <summary>
+    /// Captures the SMS the API would have sent, so a test can read the OTP the service actually
+    /// generated. Shared with the host through DI.
+    /// </summary>
+    public CapturingSmsSender Sms { get; } = new();
 
     // Well-known credential accounts seeded into the in-memory DB (username / password). Login is
     // purely DB-based now, so tests obtain tokens with these.
@@ -114,13 +157,13 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 // Encryption (section "Encryption"): base64 of exactly 32 bytes.
                 ["Encryption:Key"] = encryptionKey,
 
-                // Otp (section "Otp"). DevFixedCode makes the OTP a known value and skips SMS,
-                // so the phone auth flow can be exercised end-to-end in tests.
+                // Otp (section "Otp"). There is no fixed test code: the production service always
+                // generates a real one and sends it. Tests read it from the captured SMS instead —
+                // see CapturingSmsSender — so no bypass has to exist in the shipped code.
                 ["Otp:Length"] = "6",
                 ["Otp:TtlMinutes"] = "5",
                 ["Otp:MaxAttempts"] = "5",
                 ["Otp:RequestsPerHour"] = "100",
-                ["Otp:DevFixedCode"] = "333333",
 
                 // Didit (section "Didit"): ApiKey/WebhookSecret/BaseUrl are [Required], BaseUrl is [Url].
                 ["Didit:ApiKey"] = "test-didit-api-key",
@@ -179,6 +222,11 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
 
             // Remove the hosted background workers so they do not poll the (fake) DB during tests.
             RemoveHostedServices(services);
+
+            // Capture outgoing SMS instead of calling a gateway. This is what lets the OTP flow be
+            // exercised end to end without a bypass in the production code path.
+            services.RemoveAll<ISmsSender>();
+            services.AddSingleton<ISmsSender>(Sms);
         });
     }
 

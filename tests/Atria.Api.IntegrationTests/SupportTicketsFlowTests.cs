@@ -19,7 +19,6 @@ public sealed class SupportTicketsFlowTests : IClassFixture<AtriaApiFactory>
     private const string RequestOtpRoute = "/api/v1/auth/register/phone/request-otp";
     private const string VerifyOtpRoute = "/api/v1/auth/register/phone/verify-otp";
     private const string TicketsRoute = "/api/v1/support/tickets";
-    private const string DevCode = "333333";
 
     private readonly AtriaApiFactory _factory;
 
@@ -93,11 +92,11 @@ public sealed class SupportTicketsFlowTests : IClassFixture<AtriaApiFactory>
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    private static async Task AuthenticateInvestorAsync(HttpClient client)
+    private async Task AuthenticateInvestorAsync(HttpClient client)
     {
         var phone = UniqueKgPhone();
         await client.PostAsJsonAsync(RequestOtpRoute, new { phone });
-        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = DevCode });
+        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = _factory.Sms.CodeFor(phone) });
         verify.IsSuccessStatusCode.Should().BeTrue("phone OTP verification should authenticate the investor");
 
         using var document = JsonDocument.Parse(await verify.Content.ReadAsStringAsync());
