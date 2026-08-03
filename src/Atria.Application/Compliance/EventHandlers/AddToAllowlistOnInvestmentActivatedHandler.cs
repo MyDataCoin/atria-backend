@@ -107,6 +107,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
             investmentId = domainEvent.InvestmentId,
             investorId,
             propertyId = domainEvent.PropertyId,
+            chain = property.TokenChain,
             wallet,
             tokenCount = domainEvent.TokenCount
         });

@@ -78,6 +78,7 @@ public static class DependencyInjection
         BindValidated<TesseraOptions>(services, configuration, TesseraOptions.SectionName);
         BindValidated<BlockchainOptions>(services, configuration, BlockchainOptions.SectionName);
         BindValidated<EvmAnchorOptions>(services, configuration, EvmAnchorOptions.SectionName);
+        services.Configure<TokenSigningOptions>(configuration.GetSection(TokenSigningOptions.SectionName));
     }
 
     private static void BindValidated<T>(
@@ -235,6 +236,17 @@ public static class DependencyInjection
 
         // Allowlist writes: one cached gateway per network, signed by the same scoped agent key.
         services.AddSingleton<IAllowlistGateway, EvmAllowlistGatewayAdapter>();
+
+        // Token writes go through custody by default. The operational-key path exists for test
+        // networks and has to be asked for explicitly: a key that can issue shares out of nothing
+        // must never become live because a setting was left unset.
+        services.AddSingleton<ITokenGateway>(sp =>
+        {
+            var mode = sp.GetRequiredService<IOptions<TokenSigningOptions>>().Value.Mode;
+            return mode == TokenSigningMode.OperationalKey
+                ? ActivatorUtilities.CreateInstance<EvmTokenGateway>(sp)
+                : ActivatorUtilities.CreateInstance<CustodyTokenGateway>(sp);
+        });
         // External signer calls a configured signer URL via HttpClient (BaseAddress from options).
         services.AddHttpClient<IBlockchainSigner, ExternalBlockchainSigner>((sp, client) =>
         {

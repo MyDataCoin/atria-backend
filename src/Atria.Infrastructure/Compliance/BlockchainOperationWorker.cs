@@ -56,8 +56,9 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 var signer = scope.ServiceProvider.GetRequiredService<IBlockchainSigner>();
                 var networks = scope.ServiceProvider.GetRequiredService<IChainNetworkResolver>();
                 var allowlist = scope.ServiceProvider.GetRequiredService<IAllowlistGateway>();
+                var tokens = scope.ServiceProvider.GetRequiredService<ITokenGateway>();
 
-                await SubmitPendingAsync(context, signer, networks, allowlist, stoppingToken);
+                await SubmitPendingAsync(context, signer, networks, allowlist, tokens, stoppingToken);
                 await ReconcileSubmittedAsync(context, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -78,6 +79,44 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// Issues the shares of an activated application to the investor's address.
+    /// </summary>
+    /// <remarks>
+    /// The contract enforces the order: the address must already be on the allowlist, and a mint to
+    /// an unlisted one reverts. That is why AllowlistAdd is queued before TokenAllocation and why a
+    /// revert here is surfaced as a failure rather than swallowed — a share counted in the registry
+    /// but never minted is exactly the discrepancy the reconciliation exists to prevent.
+    /// </remarks>
+    private static async Task<string> MintAsync(
+        ITokenGateway tokens, BlockchainOperation operation,
+        (string ChainId, string? TokenContractAddress) target, CancellationToken ct)
+    {
+        using var payload = JsonDocument.Parse(operation.Payload);
+        var root = payload.RootElement;
+
+        var wallet = root.TryGetProperty("wallet", out var w) ? w.GetString() : null;
+        var tokenCount = root.TryGetProperty("tokenCount", out var c) && c.TryGetInt64(out var parsed)
+            ? parsed
+            : 0;
+        var chain = root.TryGetProperty("chain", out var ch) ? ch.GetString() : null;
+
+        if (string.IsNullOrWhiteSpace(wallet) || tokenCount <= 0)
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} (TokenAllocation) needs a wallet and a positive token count.");
+
+        if (string.IsNullOrWhiteSpace(target.TokenContractAddress))
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} targets an issue with no token contract recorded; deploy it first.");
+
+        if (string.IsNullOrWhiteSpace(chain))
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} (TokenAllocation) carries no chain tag.");
+
+        var result = await tokens.MintAsync(chain, target.TokenContractAddress, wallet, tokenCount, ct);
+        return result.TransactionRef;
     }
 
     /// <summary>
@@ -150,7 +189,7 @@ public sealed class BlockchainOperationWorker : BackgroundService
     /// <summary>Submits operations still in Created/Failed (under the attempt cap) to the signer.</summary>
     private async Task SubmitPendingAsync(
         AtriaDbContext context, IBlockchainSigner signer, IChainNetworkResolver networks,
-        IAllowlistGateway allowlist, CancellationToken ct)
+        IAllowlistGateway allowlist, ITokenGateway tokens, CancellationToken ct)
     {
         var pending = await context.Set<BlockchainOperation>()
             .Where(o => (o.Status == BlockchainOperationStatus.Created
@@ -179,6 +218,11 @@ public sealed class BlockchainOperationWorker : BackgroundService
                     // signed by the scoped registry/allowlist agent. They never reach the custody
                     // signer: that key exists for token operations, and the allowlist is not one.
                     txRef = await WriteAllowlistAsync(allowlist, operation, ct);
+                }
+                else if (operation.Type == BlockchainOperationType.TokenAllocation)
+                {
+                    var target = await ResolveTargetAsync(context, networks, operation, ct);
+                    txRef = await MintAsync(tokens, operation, target, ct);
                 }
                 else
                 {
