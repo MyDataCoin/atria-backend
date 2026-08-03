@@ -36,6 +36,12 @@ public sealed class TokenSigningOptions
     /// </summary>
     public string? MinterPrivateKey { get; init; }
 
+    /// <summary>
+    /// Oracle key, used only in the operational-key mode. Must hold <c>ORACLE_ROLE</c> and nothing
+    /// else: it attests to what backs the issue and must not be able to touch the shares themselves.
+    /// </summary>
+    public string? OraclePrivateKey { get; init; }
+
     /// <summary>True when the operational-key path is selected but no key was supplied.</summary>
     [MemberNotNullWhen(false, nameof(MinterPrivateKey))]
     public bool IsMisconfigured

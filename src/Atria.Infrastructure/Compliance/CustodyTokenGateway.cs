@@ -72,4 +72,55 @@ public sealed class CustodyTokenGateway : ITokenGateway
         // mined is a separate question the finality check answers.
         return new TokenWriteResult(txRef, Confirmed: false);
     }
+
+    public async Task<TokenWriteResult> ReportCollateralAsync(
+        string chainTag, string tokenContractAddress, byte[] dataHash, decimal valuation,
+        DateTime valuedAtUtc, string uri, CancellationToken ct)
+    {
+        if (dataHash.Length != 32)
+            throw new ArgumentException("The collateral data hash must be 32 bytes.", nameof(dataHash));
+
+        var network = _networks.Resolve(chainTag)
+            ?? throw new InvalidOperationException(
+                $"Chain '{chainTag}' is not configured under Blockchain:Networks.");
+
+        // reportCollateral(bytes32,uint256,uint64,string). Custody picks the oracle key by operation
+        // type — the same reason the operation name travels with the request.
+        var callData = new FunctionCallEncoder().EncodeRequest(
+            sha3Signature: "d2b3d0db",
+            parameters:
+            [
+                new Parameter("bytes32", "dataHash", 1),
+                new Parameter("uint256", "valuation", 2),
+                new Parameter("uint64", "valuedAt", 3),
+                new Parameter("string", "uri", 4)
+            ],
+            values:
+            [
+                dataHash,
+                decimal.Truncate(valuation * 100m),
+                (ulong)new DateTimeOffset(valuedAtUtc, TimeSpan.Zero).ToUnixTimeSeconds(),
+                uri ?? string.Empty
+            ]);
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            to = tokenContractAddress,
+            data = callData,
+            chainId = network.ChainId,
+            value = "0x0"
+        });
+
+        var result = await _signer.SignAndSubmitAsync(
+            new SigningRequest("CollateralReport", payload, network.ChainId.ToString(), tokenContractAddress),
+            ct);
+
+        var txRef = result.SubmissionReference ?? result.SignedPayload;
+
+        _logger.LogInformation(
+            "Submitted a collateral report for {Contract} ({Chain}) to custody; ref {TxRef}.",
+            tokenContractAddress, chainTag, txRef);
+
+        return new TokenWriteResult(txRef, Confirmed: false);
+    }
 }

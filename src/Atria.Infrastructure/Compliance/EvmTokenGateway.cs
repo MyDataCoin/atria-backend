@@ -35,6 +35,7 @@ public sealed class EvmTokenGateway : ITokenGateway
     private readonly TokenSigningOptions _options;
     private readonly ILogger<EvmTokenGateway> _logger;
     private readonly ConcurrentDictionary<string, Web3> _clients = new();
+    private readonly ConcurrentDictionary<string, Web3> _oracleClients = new();
 
     public EvmTokenGateway(
         IChainNetworkResolver networks,
@@ -81,6 +82,63 @@ public sealed class EvmTokenGateway : ITokenGateway
         return new TokenWriteResult(receipt.TransactionHash, Confirmed: true);
     }
 
+    public async Task<TokenWriteResult> ReportCollateralAsync(
+        string chainTag, string tokenContractAddress, byte[] dataHash, decimal valuation,
+        DateTime valuedAtUtc, string uri, CancellationToken ct)
+    {
+        if (dataHash.Length != 32)
+            throw new ArgumentException("The collateral data hash must be 32 bytes.", nameof(dataHash));
+
+        var web3 = OracleClientFor(chainTag);
+        var handler = web3.Eth.GetContractTransactionHandler<ReportCollateralFunction>();
+
+        var report = new ReportCollateralFunction
+        {
+            DataHash = dataHash,
+            // Minor units of the issue's currency: a decimal on the wire would be rounded by whoever
+            // reads it, and the figure the regulator sees must be the figure the appraiser wrote.
+            Valuation = new BigInteger(decimal.Truncate(valuation * 100m)),
+            ValuedAt = (ulong)new DateTimeOffset(valuedAtUtc, TimeSpan.Zero).ToUnixTimeSeconds(),
+            Uri = uri ?? string.Empty
+        };
+
+        var receipt = await handler.SendRequestAndWaitForReceiptAsync(tokenContractAddress, report, null);
+        var succeeded = receipt.Status?.Value == 1;
+
+        _logger.Log(
+            succeeded ? LogLevel.Information : LogLevel.Error,
+            "Collateral report for {Contract} ({Chain}): tx {TxHash}, status {Status}.",
+            tokenContractAddress, chainTag, receipt.TransactionHash,
+            succeeded ? "confirmed" : "REVERTED");
+
+        if (!succeeded)
+            throw new InvalidOperationException(
+                $"Collateral report reverted on chain (tx {receipt.TransactionHash}). The signing key "
+                + "most likely does not hold ORACLE_ROLE on this contract.");
+
+        return new TokenWriteResult(receipt.TransactionHash, Confirmed: true);
+    }
+
+    private Web3 OracleClientFor(string chainTag)
+    {
+        var network = _networks.Resolve(chainTag)
+            ?? throw new InvalidOperationException(
+                $"Chain '{chainTag}' is not configured under Blockchain:Networks.");
+
+        return _oracleClients.GetOrAdd(network.Tag, _ =>
+        {
+            if (string.IsNullOrWhiteSpace(_options.OraclePrivateKey))
+                throw new InvalidOperationException(
+                    "Blockchain:TokenSigning:OraclePrivateKey is not set; collateral cannot be attested.");
+
+            // A separate account on purpose: the oracle attests to what backs the issue and must not
+            // be able to issue shares.
+            var web3 = new Web3(new Account(_options.OraclePrivateKey, network.ChainId), network.RpcUrl);
+            web3.TransactionManager.UseLegacyAsDefault = true;
+            return web3;
+        });
+    }
+
     private Web3 ClientFor(string chainTag)
     {
         var network = _networks.Resolve(chainTag)
@@ -101,6 +159,23 @@ public sealed class EvmTokenGateway : ITokenGateway
             web3.TransactionManager.UseLegacyAsDefault = true;
             return web3;
         });
+    }
+
+    /// <summary>ABI binding for <c>reportCollateral(bytes32,uint256,uint64,string)</c>.</summary>
+    [Function("reportCollateral")]
+    private sealed class ReportCollateralFunction : FunctionMessage
+    {
+        [Parameter("bytes32", "dataHash", 1)]
+        public byte[] DataHash { get; set; } = null!;
+
+        [Parameter("uint256", "valuation", 2)]
+        public BigInteger Valuation { get; set; }
+
+        [Parameter("uint64", "valuedAt", 3)]
+        public ulong ValuedAt { get; set; }
+
+        [Parameter("string", "uri", 4)]
+        public string Uri { get; set; } = null!;
     }
 
     /// <summary>ABI binding for <c>mint(address,uint256)</c> on the property token.</summary>

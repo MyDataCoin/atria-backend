@@ -24,5 +24,11 @@ public enum BlockchainOperationType
     /// Lower the issue size on the contract after part of it is annulled, so the cap keeps matching
     /// the registered issue.
     /// </summary>
-    TokenReduceSupply = 7
+    TokenReduceSupply = 7,
+
+    /// <summary>
+    /// Delivers verified collateral data into the issue's contract (draft Decree, §16). Signed by the
+    /// oracle role, which holds no other power over the token.
+    /// </summary>
+    CollateralReport = 8
 }

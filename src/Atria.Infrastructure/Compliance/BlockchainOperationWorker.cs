@@ -121,6 +121,33 @@ public sealed class BlockchainOperationWorker : BackgroundService
         return result.TransactionRef;
     }
 
+    /// <summary>Delivers the recorded collateral attestation into the issue's contract (§16).</summary>
+    private static async Task<string> ReportCollateralAsync(
+        ITokenGateway tokens, BlockchainOperation operation,
+        (string ChainId, string? TokenContractAddress) target, CancellationToken ct)
+    {
+        using var payload = JsonDocument.Parse(operation.Payload);
+        var root = payload.RootElement;
+
+        var chain = root.TryGetProperty("chain", out var ch) ? ch.GetString() : null;
+        var hashHex = root.TryGetProperty("dataHash", out var h) ? h.GetString() : null;
+        var valuation = root.TryGetProperty("valuation", out var v) ? v.GetDecimal() : 0m;
+        var valuedAt = root.TryGetProperty("valuedAtUtc", out var d) ? d.GetDateTime() : default;
+        var uri = root.TryGetProperty("uri", out var u) ? u.GetString() ?? string.Empty : string.Empty;
+
+        if (string.IsNullOrWhiteSpace(chain) || string.IsNullOrWhiteSpace(hashHex)
+            || string.IsNullOrWhiteSpace(target.TokenContractAddress))
+        {
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} (CollateralReport) is missing the chain, the hash or the contract.");
+        }
+
+        var result = await tokens.ReportCollateralAsync(
+            chain, target.TokenContractAddress, Convert.FromHexString(hashHex), valuation, valuedAt, uri, ct);
+
+        return result.TransactionRef;
+    }
+
     /// <summary>
     /// Applies an allowlist decision on chain. The gateway writes and waits for the receipt, so by
     /// the time it returns the address really is (or is not) permitted; there is no separate
@@ -225,6 +252,11 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 {
                     var target = await ResolveTargetAsync(context, networks, operation, ct);
                     txRef = await MintAsync(tokens, operation, target, ct);
+                }
+                else if (operation.Type == BlockchainOperationType.CollateralReport)
+                {
+                    var target = await ResolveTargetAsync(context, networks, operation, ct);
+                    txRef = await ReportCollateralAsync(tokens, operation, target, ct);
                 }
                 else
                 {

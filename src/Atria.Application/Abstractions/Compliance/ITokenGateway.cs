@@ -22,4 +22,17 @@ public interface ITokenGateway
     /// <summary>Issues <paramref name="amount"/> whole shares to an investor's address.</summary>
     Task<TokenWriteResult> MintAsync(
         string chainTag, string tokenContractAddress, string toAddress, long amount, CancellationToken ct);
+
+    /// <summary>
+    /// Delivers verified collateral data into the contract (draft Decree, §16): the hash of the
+    /// document package, the appraised value and when it was appraised.
+    /// </summary>
+    /// <remarks>
+    /// Signed by the oracle role, never by the minter. The contract does not check the data — it
+    /// records what the oracle attested — so the value of the whole mechanism rests on that key being
+    /// separate from the one that can issue shares.
+    /// </remarks>
+    Task<TokenWriteResult> ReportCollateralAsync(
+        string chainTag, string tokenContractAddress, byte[] dataHash, decimal valuation,
+        DateTime valuedAtUtc, string uri, CancellationToken ct);
 }

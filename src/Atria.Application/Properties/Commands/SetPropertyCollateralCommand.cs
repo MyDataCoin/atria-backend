@@ -1,8 +1,14 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Atria.Application.Abstractions;
 using Atria.Application.Audit;
 using Atria.Application.Common;
 using Atria.Domain.Audit;
 using Atria.Domain.Common;
+using Atria.Domain.Compliance;
+using Atria.Domain.Investments;
 
 namespace Atria.Application.Properties.Commands;
 
@@ -33,13 +39,15 @@ public sealed class SetPropertyCollateralCommandHandler
     : IRequestHandler<SetPropertyCollateralCommand, Result>
 {
     private readonly IPropertyRepository _properties;
+    private readonly IBlockchainOperationQueue _chain;
     private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _uow;
 
     public SetPropertyCollateralCommandHandler(
-        IPropertyRepository properties, IAuditWriter audit, IUnitOfWork uow)
+        IPropertyRepository properties, IBlockchainOperationQueue chain, IAuditWriter audit, IUnitOfWork uow)
     {
         _properties = properties;
+        _chain = chain;
         _audit = audit;
         _uow = uow;
     }
@@ -84,6 +92,31 @@ public sealed class SetPropertyCollateralCommandHandler
 
         _properties.Update(property);
 
+        // §16: the appraisal is not just filed, it is delivered into the contract. Only once there is
+        // a complete appraisal and a deployed contract — attesting to a half-filled file would put a
+        // meaningless commitment on chain that nobody can retract.
+        if (property.CollateralValue is not null
+            && property.CollateralValuedAtUtc is not null
+            && !string.IsNullOrWhiteSpace(property.TokenContractAddress))
+        {
+            var payload = JsonSerializer.Serialize(new
+            {
+                propertyId = property.Id,
+                chain = property.TokenChain,
+                tokenContractAddress = property.TokenContractAddress,
+                dataHash = Convert.ToHexString(CollateralDataHash(property)).ToLowerInvariant(),
+                valuation = property.CollateralValue,
+                valuedAtUtc = property.CollateralValuedAtUtc,
+                uri = string.Empty
+            });
+
+            // Keyed by the content: re-recording the same appraisal converges on one operation, while
+            // a new appraisal is a new attestation.
+            await _chain.EnqueueAsync(
+                BlockchainOperationType.CollateralReport, payload,
+                $"collateral-report:{property.Id}:{Convert.ToHexString(CollateralDataHash(property))[..16]}", ct);
+        }
+
         await _audit.WriteAsync(
             AuditEntities.Property, property.Id, AuditEvents.PropertyUpdated,
             $"Обновлены сведения об обеспечении объекта «{property.Name}»",
@@ -91,5 +124,28 @@ public sealed class SetPropertyCollateralCommandHandler
 
         await _uow.SaveChangesAsync(ct);
         return Result.Success();
+    }
+
+    /// <summary>
+    /// A 32-byte commitment to the collateral file as recorded: value, appraisal date, appraiser and
+    /// the registered encumbrance.
+    /// </summary>
+    /// <remarks>
+    /// Anyone holding the same documents can recompute it and see whether the platform attested to
+    /// the same facts. A hash over a subset — the value alone, say — would let the appraiser or the
+    /// encumbrance change without the on-chain commitment moving.
+    /// </remarks>
+    private static byte[] CollateralDataHash(Property property)
+    {
+        var canonical = string.Join('|',
+            property.Id,
+            property.CollateralValue?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            property.Currency,
+            property.CollateralValuedAtUtc?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty,
+            property.CollateralAppraiser ?? string.Empty,
+            property.EncumbranceRegistrationNumber ?? string.Empty,
+            property.EncumbranceRegisteredAtUtc?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty);
+
+        return SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
     }
 }
