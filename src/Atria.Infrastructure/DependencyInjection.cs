@@ -213,6 +213,8 @@ public static class DependencyInjection
     // --- Compliance / web3 ---
     private static void AddCompliance(IServiceCollection services)
     {
+        services.AddSingleton<IChainNetworkResolver, ChainNetworkResolver>();
+
         // Attestation roots are anchored on the EVM registry through Tessera's adapter, wrapped by
         // EvmChainAnchorAdapter because the two IChainAnchor interfaces are not interchangeable.
         // The adapter is a singleton: it owns a Web3 client and a local nonce tracker, and a second

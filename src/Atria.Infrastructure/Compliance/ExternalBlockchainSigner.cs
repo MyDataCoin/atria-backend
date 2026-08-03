@@ -37,8 +37,12 @@ public sealed class ExternalBlockchainSigner : IBlockchainSigner
         var body = new SignAndSubmitRequest(
             OperationType: request.OperationType,
             UnsignedPayload: request.UnsignedPayload,
-            ChainId: request.ChainId ?? _options.ChainId,
-            TokenContractAddress: _options.TokenContractAddress);
+            // Both come from the operation, which resolved them from the issue. There is no global
+            // fallback on purpose: one would send an operation to the wrong contract silently.
+            ChainId: request.ChainId
+                     ?? throw new InvalidOperationException(
+                         $"Operation {request.OperationType} has no chain id; the issue's network must be resolved before signing."),
+            TokenContractAddress: request.TokenContractAddress);
 
         var endpoint = new Uri(new Uri(_options.SignerUrl), "sign-and-submit");
 
@@ -60,7 +64,7 @@ public sealed class ExternalBlockchainSigner : IBlockchainSigner
         string OperationType,
         string UnsignedPayload,
         string ChainId,
-        string TokenContractAddress);
+        string? TokenContractAddress);
 
     private sealed record SignAndSubmitResponse(string SignedPayload, string? SubmissionReference);
 }

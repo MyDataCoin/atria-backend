@@ -1,4 +1,7 @@
+using System.Globalization;
+using System.Text.Json;
 using Atria.Application.Abstractions;
+using Atria.Domain.Investments;
 using Atria.Domain.Compliance;
 using Atria.Infrastructure.Configuration;
 using Atria.Infrastructure.Persistence;
@@ -51,8 +54,9 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AtriaDbContext>();
                 var signer = scope.ServiceProvider.GetRequiredService<IBlockchainSigner>();
+                var networks = scope.ServiceProvider.GetRequiredService<IChainNetworkResolver>();
 
-                await SubmitPendingAsync(context, signer, stoppingToken);
+                await SubmitPendingAsync(context, signer, networks, stoppingToken);
                 await ReconcileSubmittedAsync(context, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -75,8 +79,50 @@ public sealed class BlockchainOperationWorker : BackgroundService
         }
     }
 
+    /// <summary>
+    /// The network and token contract an operation targets, taken from the issue named in its
+    /// payload. Operations against shared contracts (allowlist, identity registry) carry no token
+    /// address; they still need a network, which comes from the issue that triggered them.
+    /// </summary>
+    private static async Task<(string ChainId, string? TokenContractAddress)> ResolveTargetAsync(
+        AtriaDbContext context, IChainNetworkResolver networks, BlockchainOperation operation,
+        CancellationToken ct)
+    {
+        Guid? propertyId = null;
+        try
+        {
+            using var payload = JsonDocument.Parse(operation.Payload);
+            if (payload.RootElement.TryGetProperty("propertyId", out var value)
+                && value.TryGetGuid(out var parsed))
+            {
+                propertyId = parsed;
+            }
+        }
+        catch (JsonException)
+        {
+            // Malformed payload: fall through and fail below with a message that says why.
+        }
+
+        if (propertyId is null)
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} ({operation.Type}) carries no propertyId, so its network cannot be resolved.");
+
+        var property = await context.Set<Property>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == propertyId, ct)
+            ?? throw new InvalidOperationException(
+                $"Operation {operation.Id} references property {propertyId} which no longer exists.");
+
+        var network = networks.Resolve(property.TokenChain)
+            ?? throw new InvalidOperationException(
+                $"Issue {property.Id} is on chain '{property.TokenChain}', which is not configured under Blockchain:Networks.");
+
+        return (network.ChainId.ToString(CultureInfo.InvariantCulture), property.TokenContractAddress);
+    }
+
     /// <summary>Submits operations still in Created/Failed (under the attempt cap) to the signer.</summary>
-    private async Task SubmitPendingAsync(AtriaDbContext context, IBlockchainSigner signer, CancellationToken ct)
+    private async Task SubmitPendingAsync(
+        AtriaDbContext context, IBlockchainSigner signer, IChainNetworkResolver networks, CancellationToken ct)
     {
         var pending = await context.Set<BlockchainOperation>()
             .Where(o => (o.Status == BlockchainOperationStatus.Created
@@ -96,10 +142,16 @@ public sealed class BlockchainOperationWorker : BackgroundService
 
             try
             {
+                // Which network and which contract come from the issue the operation belongs to.
+                // Reading them from a global setting is how every issue ends up minting into one
+                // contract the moment a second issue exists.
+                var target = await ResolveTargetAsync(context, networks, operation, ct);
+
                 var request = new SigningRequest(
                     OperationType: operation.Type.ToString(),
                     UnsignedPayload: operation.Payload,
-                    ChainId: null);
+                    ChainId: target.ChainId,
+                    TokenContractAddress: target.TokenContractAddress);
 
                 var result = await signer.SignAndSubmitAsync(request, ct);
                 var txRef = result.SubmissionReference ?? result.SignedPayload;

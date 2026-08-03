@@ -15,17 +15,17 @@ public sealed class BlockchainOptions
     [Url]
     public string SignerUrl { get; init; } = null!;
 
-    /// <summary>EVM chain id of the permissioned BEP-20 token network.</summary>
-    [Required]
-    public string ChainId { get; init; } = null!;
-
-    /// <summary>Address of the permissioned token contract (allowlist target).</summary>
-    [Required]
-    public string TokenContractAddress { get; init; } = null!;
-
-    /// <summary>Network used to anchor attestation Merkle roots (Solana for the pilot).</summary>
-    [Required]
-    public string AnchorNetwork { get; init; } = null!;
+    /// <summary>
+    /// Configured networks, keyed by the tag stored in <c>Property.TokenChain</c>.
+    /// </summary>
+    /// <remarks>
+    /// There is deliberately no global chain id and no global token contract address here. The token
+    /// contract belongs to the issue (<c>Property.TokenContractAddress</c>): a single address in
+    /// configuration works until the second issue exists, after which every operation quietly targets
+    /// whichever contract the config file happens to name. What is genuinely shared per network — the
+    /// RPC endpoint, the identity registry, the allowlist — lives here.
+    /// </remarks>
+    public Dictionary<string, ChainNetworkOptions> Networks { get; init; } = new();
 
     /// <summary>
     /// When true, the reconciliation pass marks any Submitted operation as confirmed WITHOUT asking
