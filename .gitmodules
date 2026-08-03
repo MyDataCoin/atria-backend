@@ -1,0 +1,3 @@
+[submodule "external/tessera"]
+	path = external/tessera
+	url = https://github.com/asagynbaev/Tessera
