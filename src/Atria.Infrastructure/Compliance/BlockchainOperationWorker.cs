@@ -24,7 +24,7 @@ public sealed class BlockchainOperationWorker : BackgroundService
     private readonly int _maxAttempts;
     private readonly int _batchSize;
     private readonly TimeSpan _pollInterval;
-    private readonly bool _autoConfirmSubmitted;
+    private readonly int _confirmationsRequired;
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BlockchainOperationWorker> _logger;
@@ -41,7 +41,7 @@ public sealed class BlockchainOperationWorker : BackgroundService
         _maxAttempts = opts.MaxAttempts;
         _batchSize = opts.BatchSize;
         _pollInterval = TimeSpan.FromSeconds(opts.PollSeconds);
-        _autoConfirmSubmitted = opts.AutoConfirmSubmitted;
+        _confirmationsRequired = opts.ConfirmationsRequired;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -59,7 +59,9 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 var tokens = scope.ServiceProvider.GetRequiredService<ITokenGateway>();
 
                 await SubmitPendingAsync(context, signer, networks, allowlist, tokens, stoppingToken);
-                await ReconcileSubmittedAsync(context, stoppingToken);
+                var receipts = scope.ServiceProvider.GetRequiredService<IChainReceiptReader>();
+
+                await ReconcileSubmittedAsync(context, networks, receipts, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -260,36 +262,162 @@ public sealed class BlockchainOperationWorker : BackgroundService
             await context.SaveChangesAsync(ct);
     }
 
-    /// <summary>Reconciliation pass: marks submitted operations as confirmed once finalized.</summary>
-    private async Task ReconcileSubmittedAsync(AtriaDbContext context, CancellationToken ct)
+    /// <summary>
+    /// Reconciliation pass: asks the chain what happened to each submitted operation and settles it
+    /// only on the answer.
+    /// </summary>
+    /// <remarks>
+    /// Three outcomes, and none of them is assumed. No receipt means not mined yet — leave it
+    /// submitted and ask again. A reverted receipt means the transaction consumed gas and changed
+    /// nothing, so the operation failed and must be retried or investigated, never counted. A
+    /// successful receipt is only confirmed once enough blocks sit on top of it: a single-block
+    /// confirmation can be undone by a reorg, and an allocation reported as settled and then
+    /// vanishing is the discrepancy the holder registry can least afford.
+    /// </remarks>
+    private async Task ReconcileSubmittedAsync(
+        AtriaDbContext context, IChainNetworkResolver networks, IChainReceiptReader receipts,
+        CancellationToken ct)
     {
-        // Finality is gated by configuration and OFF by default: an operation stays Submitted until
-        // something actually verifies it on chain. The auto-confirm path below makes no chain call at
-        // all — it exists only for local runs against a signer stub, and a real implementation must
-        // fetch the receipt for operation.TransactionRef and confirm on finality instead.
-        if (!_autoConfirmSubmitted)
-            return;
-
-        _logger.LogWarning(
-            "Blockchain:AutoConfirmSubmitted is ON: submitted operations are being marked confirmed "
-            + "WITHOUT any on-chain finality check. This must never be enabled in production.");
-
         var submitted = await context.Set<BlockchainOperation>()
             .Where(o => o.Status == BlockchainOperationStatus.Submitted)
             .OrderBy(o => o.CreatedAtUtc)
             .Take(_batchSize)
             .ToListAsync(ct);
 
+        var changed = false;
+
         foreach (var operation in submitted)
         {
+            if (string.IsNullOrWhiteSpace(operation.TransactionRef))
+                continue;
+
+            // Allowlist writes are applied synchronously by the gateway, which already waited for
+            // the receipt; their reference is not a transaction hash and there is nothing to poll.
+            if (operation.Type is BlockchainOperationType.AllowlistAdd
+                or BlockchainOperationType.AllowlistRemove)
+            {
+                operation.MarkConfirmed();
+                changed = true;
+                continue;
+            }
+
+            string? chain;
+            try
+            {
+                chain = ChainTagOf(operation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Cannot determine the network of operation {OperationId}.", operation.Id);
+                continue;
+            }
+
+            ChainReceipt? receipt;
+            try
+            {
+                receipt = await receipts.GetReceiptAsync(chain, operation.TransactionRef, ct);
+            }
+            catch (Exception ex)
+            {
+                // A node that is down is not evidence about the transaction. Leave it submitted.
+                _logger.LogWarning(
+                    ex, "Could not read the receipt for operation {OperationId} (tx {TxRef}); will retry.",
+                    operation.Id, operation.TransactionRef);
+                continue;
+            }
+
+            if (receipt is null)
+                continue;
+
+            if (!receipt.Succeeded)
+            {
+                operation.MarkFailed($"Transaction {operation.TransactionRef} reverted in block {receipt.BlockNumber}.");
+                await ApplyToInvestmentAsync(context, operation, OnChainStatus.Failed, ct);
+                changed = true;
+
+                _logger.LogError(
+                    "Blockchain operation {OperationId} ({Type}) reverted on chain; tx {TxRef}.",
+                    operation.Id, operation.Type, operation.TransactionRef);
+                continue;
+            }
+
+            if (receipt.Confirmations < _confirmationsRequired)
+            {
+                _logger.LogDebug(
+                    "Operation {OperationId} has {Confirmations}/{Required} confirmations.",
+                    operation.Id, receipt.Confirmations, _confirmationsRequired);
+                continue;
+            }
+
             operation.MarkConfirmed();
+            await ApplyToInvestmentAsync(context, operation, OnChainStatus.Confirmed, ct);
+            changed = true;
 
             _logger.LogInformation(
-                "Confirmed blockchain operation {OperationId} ({Type}); tx {TransactionRef}.",
-                operation.Id, operation.Type, operation.TransactionRef);
+                "Confirmed blockchain operation {OperationId} ({Type}) with {Confirmations} confirmation(s); tx {TxRef}.",
+                operation.Id, operation.Type, receipt.Confirmations, operation.TransactionRef);
         }
 
-        if (submitted.Count > 0)
+        if (changed)
             await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Writes the on-chain outcome back onto the investment an allocation belongs to, so the
+    /// investor sees the real state of their allocation rather than the platform's intent.
+    /// </summary>
+    private async Task ApplyToInvestmentAsync(
+        AtriaDbContext context, BlockchainOperation operation, OnChainStatus status, CancellationToken ct)
+    {
+        if (operation.Type != BlockchainOperationType.TokenAllocation)
+            return;
+
+        Guid? investmentId = null;
+        try
+        {
+            using var payload = JsonDocument.Parse(operation.Payload);
+            if (payload.RootElement.TryGetProperty("investmentId", out var value)
+                && value.TryGetGuid(out var parsed))
+            {
+                investmentId = parsed;
+            }
+        }
+        catch (JsonException)
+        {
+            // Handled below by the null check.
+        }
+
+        if (investmentId is null)
+        {
+            _logger.LogWarning(
+                "Allocation {OperationId} carries no investmentId; the investment keeps its previous state.",
+                operation.Id);
+            return;
+        }
+
+        var investment = await context.Set<Investment>()
+            .FirstOrDefaultAsync(i => i.Id == investmentId, ct);
+
+        if (investment is null)
+        {
+            _logger.LogWarning(
+                "Allocation {OperationId} references investment {InvestmentId}, which no longer exists.",
+                operation.Id, investmentId);
+            return;
+        }
+
+        investment.SetOnChainResult(operation.TransactionRef!, status);
+    }
+
+    /// <summary>The chain tag an operation targets, taken from its payload.</summary>
+    private static string ChainTagOf(BlockchainOperation operation)
+    {
+        using var payload = JsonDocument.Parse(operation.Payload);
+        var chain = payload.RootElement.TryGetProperty("chain", out var value) ? value.GetString() : null;
+
+        return string.IsNullOrWhiteSpace(chain)
+            ? throw new InvalidOperationException(
+                $"Operation {operation.Id} ({operation.Type}) carries no chain tag.")
+            : chain;
     }
 }

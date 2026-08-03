@@ -28,13 +28,17 @@ public sealed class BlockchainOptions
     public Dictionary<string, ChainNetworkOptions> Networks { get; init; } = new();
 
     /// <summary>
-    /// When true, the reconciliation pass marks any Submitted operation as confirmed WITHOUT asking
-    /// the chain whether it was finalized. Off by default: reporting an operation as confirmed when
-    /// nothing has been verified on chain is a lie the rest of the system then builds on — the
-    /// investor sees a settled allocation, the registry counts shares that may never have landed.
-    /// Leave it off; a real finality check replaces it.
+    /// Blocks that must sit on top of a transaction before it counts as settled, its own included.
     /// </summary>
-    public bool AutoConfirmSubmitted { get; init; }
+    /// <remarks>
+    /// There is deliberately no switch to skip this check. The setting it replaces marked every
+    /// submitted operation confirmed without asking the chain anything, which meant the investor saw
+    /// a settled allocation and the registry counted shares that may never have landed. A single
+    /// confirmation can still be undone by a reorg, so the default is the depth BNB Chain treats as
+    /// final.
+    /// </remarks>
+    [Range(1, 200)]
+    public int ConfirmationsRequired { get; init; } = 15;
 
     /// <summary>Worker poll interval, in seconds.</summary>
     public int PollSeconds { get; init; } = 10;

@@ -215,6 +215,7 @@ public static class DependencyInjection
     private static void AddCompliance(IServiceCollection services)
     {
         services.AddSingleton<IChainNetworkResolver, ChainNetworkResolver>();
+        services.AddSingleton<IChainReceiptReader, EvmReceiptReader>();
 
         // Attestation roots are anchored on the EVM registry through Tessera's adapter, wrapped by
         // EvmChainAnchorAdapter because the two IChainAnchor interfaces are not interchangeable.
