@@ -18,7 +18,9 @@ using Atria.Domain.Regulatory;
 using Atria.Domain.Realtors;
 using Atria.Domain.Refunds;
 using Atria.Domain.Support;
+using Atria.Domain.Payouts;
 using Atria.Domain.Tax;
+using Atria.Domain.TravelRule;
 using Atria.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -60,6 +62,8 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<RegulatoryReport> RegulatoryReports => Set<RegulatoryReport>();
     public DbSet<RefundObligation> RefundObligations => Set<RefundObligation>();
     public DbSet<TaxStatement> TaxStatements => Set<TaxStatement>();
+    public DbSet<PayoutRun> PayoutRuns => Set<PayoutRun>();
+    public DbSet<TravelRuleMessage> TravelRuleMessages => Set<TravelRuleMessage>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // Infra-only EF entities.
@@ -81,6 +85,22 @@ public sealed class AtriaDbContext : DbContext
             .HasConversion(encryptedConverter!);
         modelBuilder.Entity<KycProfile>()
             .Property(k => k.DocumentNumber)
+            .HasConversion(encryptedConverter!);
+
+        // The travel-rule record exists to carry personal data to a counterparty, so the same
+        // at-rest protection applies to it — including the frozen payload, which contains every
+        // field again in assembled form.
+        modelBuilder.Entity<TravelRuleMessage>()
+            .Property(m => m.OriginatorName)
+            .HasConversion(encryptedConverter!);
+        modelBuilder.Entity<TravelRuleMessage>()
+            .Property(m => m.OriginatorDocumentNumber)
+            .HasConversion(encryptedConverter!);
+        modelBuilder.Entity<TravelRuleMessage>()
+            .Property(m => m.BeneficiaryName)
+            .HasConversion(encryptedConverter!);
+        modelBuilder.Entity<TravelRuleMessage>()
+            .Property(m => m.Payload)
             .HasConversion(encryptedConverter!);
     }
 

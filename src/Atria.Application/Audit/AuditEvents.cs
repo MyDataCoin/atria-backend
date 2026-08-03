@@ -9,6 +9,7 @@ public static class AuditEntities
     public const string User = "User";
     public const string CriticalAction = "CriticalAction";
     public const string RegulatoryReport = "RegulatoryReport";
+    public const string PayoutRun = "PayoutRun";
 }
 
 /// <summary>
@@ -37,4 +38,10 @@ public static class AuditEvents
     public const string IssueTokensAnnulled = "IssueTokensAnnulled";
     public const string IssueInvalidated = "IssueInvalidated";
     public const string InvestmentWithdrawn = "InvestmentWithdrawn";
+    public const string PayoutRunCreated = "PayoutRunCreated";
+    public const string PayoutRunApproved = "PayoutRunApproved";
+    public const string PayoutRunCancelled = "PayoutRunCancelled";
+    public const string PayoutRunCompleted = "PayoutRunCompleted";
+    public const string PayoutItemSettled = "PayoutItemSettled";
+    public const string PayoutItemFailed = "PayoutItemFailed";
 }

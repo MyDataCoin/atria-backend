@@ -1,5 +1,6 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
+using Atria.Application.TravelRule;
 using Atria.Domain.Holders;
 
 namespace Atria.Application.Holders.Commands;
@@ -42,6 +43,7 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
     private readonly IChainSyncCursorRepository _cursors;
     private readonly IComplianceRepository _profiles;
     private readonly ITokenReader _tokens;
+    private readonly ITravelRuleReporter _travelRule;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _uow;
 
@@ -51,6 +53,7 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
         IChainSyncCursorRepository cursors,
         IComplianceRepository profiles,
         ITokenReader tokens,
+        ITravelRuleReporter travelRule,
         IDateTimeProvider clock,
         IUnitOfWork uow)
     {
@@ -59,6 +62,7 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
         _cursors = cursors;
         _profiles = profiles;
         _tokens = tokens;
+        _travelRule = travelRule;
         _clock = clock;
         _uow = uow;
     }
@@ -108,6 +112,16 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
 
             if (!IsZero(transfer.To))
                 await AdjustAsync(property.Id, transfer.To, transfer.Amount, now, ct);
+
+            // A move between two real holders is a transfer between service providers as far as the
+            // travel rule is concerned, and this is the only place one is ever seen: a trade settles
+            // on chain without telling the backend. Mints and burns are the platform issuing or
+            // withdrawing shares, not a transfer between people, so they are skipped.
+            if (!IsZero(transfer.From) && !IsZero(transfer.To))
+            {
+                await _travelRule.ReportTransferAsync(
+                    property, transfer.From, transfer.To, transfer.Amount, transfer.TransactionHash, ct);
+            }
         }
 
         cursor.AdvanceTo(toBlock, now);

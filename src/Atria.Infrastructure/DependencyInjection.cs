@@ -2,6 +2,7 @@ using System.Reflection;
 using Amazon;
 using Amazon.S3;
 using Atria.Application.Abstractions;
+using Atria.Application.TravelRule;
 using Atria.Application.Audit.EventHandlers;
 using Atria.Application.Investments;
 using Atria.Domain.Common;
@@ -79,6 +80,7 @@ public static class DependencyInjection
         BindValidated<BlockchainOptions>(services, configuration, BlockchainOptions.SectionName);
         BindValidated<EvmAnchorOptions>(services, configuration, EvmAnchorOptions.SectionName);
         services.Configure<TokenSigningOptions>(configuration.GetSection(TokenSigningOptions.SectionName));
+        BindValidated<TravelRuleOptions>(services, configuration, TravelRuleOptions.SectionName);
     }
 
     private static void BindValidated<T>(
@@ -121,6 +123,14 @@ public static class DependencyInjection
         services.AddScoped<ICriticalActionRepository, CriticalActionRepository>();
         services.AddScoped<IRegulatoryReportRepository, RegulatoryReportRepository>();
         services.AddScoped<IRefundObligationRepository, RefundObligationRepository>();
+        services.AddScoped<IPayoutRunRepository, PayoutRunRepository>();
+        services.AddScoped<ITravelRuleRepository, TravelRuleRepository>();
+        // Travel rule: the obligation is assembled and queued regardless of whether a counterparty
+        // has been chosen, so the reporter is always live and only delivery is stubbed out.
+        services.AddScoped<ITravelRuleSettings>(
+            sp => sp.GetRequiredService<IOptions<TravelRuleOptions>>().Value);
+        services.AddScoped<ITravelRuleReporter, TravelRuleReporter>();
+        services.AddScoped<ITravelRuleGateway, UnconfiguredTravelRuleGateway>();
         services.AddScoped<ITaxStatementRepository, TaxStatementRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
