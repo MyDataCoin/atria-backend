@@ -1,5 +1,6 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
+using Atria.Application.Holders.Queries;
 using Atria.Domain.Holders;
 
 namespace Atria.Application.Holders.Commands;
@@ -20,6 +21,11 @@ public sealed record CreateHolderSnapshotCommand(
 /// stable — trades settled after it was taken never alter it, and a payout recomputed against the same
 /// cut gets the same register back. Recomputing a past payout differently means taking a new snapshot,
 /// never editing the old one.
+///
+/// Once the issue is on chain, the registry is reconciled against the contract first and a
+/// discrepancy blocks the snapshot outright. A payout or a regulatory statement drawn on a register
+/// that disagrees with the chain is worse than a missing one: the numbers look authoritative and are
+/// wrong, and the money moves on them.
 /// </summary>
 public sealed class CreateHolderSnapshotCommandHandler
     : IRequestHandler<CreateHolderSnapshotCommand, Result<Guid>>
@@ -27,6 +33,7 @@ public sealed class CreateHolderSnapshotCommandHandler
     private readonly IHolderSnapshotRepository _snapshots;
     private readonly IHolderPositionRepository _positions;
     private readonly IPropertyRepository _properties;
+    private readonly ISender _sender;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _uow;
@@ -35,6 +42,7 @@ public sealed class CreateHolderSnapshotCommandHandler
         IHolderSnapshotRepository snapshots,
         IHolderPositionRepository positions,
         IPropertyRepository properties,
+        ISender sender,
         ICurrentUserService currentUser,
         IDateTimeProvider clock,
         IUnitOfWork uow)
@@ -42,6 +50,7 @@ public sealed class CreateHolderSnapshotCommandHandler
         _snapshots = snapshots;
         _positions = positions;
         _properties = properties;
+        _sender = sender;
         _currentUser = currentUser;
         _clock = clock;
         _uow = uow;
@@ -67,6 +76,23 @@ public sealed class CreateHolderSnapshotCommandHandler
         var existing = await _snapshots.FindByCutAsync(request.PropertyId, cut, request.Purpose, ct);
         if (existing is not null)
             return Result.Success(existing.Id);
+
+        // Deployed issues are checked against the chain before anything is frozen. An issue with no
+        // contract yet has nothing to disagree with, so it skips straight to the cut.
+        if (!string.IsNullOrWhiteSpace(property.TokenContractAddress))
+        {
+            var reconciliation = await _sender.Send(new ReconcileRegistryQuery(property.Id), ct);
+            if (reconciliation.IsFailure)
+                return Result.Failure<Guid>(reconciliation.Error);
+
+            if (!reconciliation.Value.IsClean)
+            {
+                var detail = string.Join(" ", reconciliation.Value.Discrepancies.Select(d => d.Detail));
+                return Result.Failure<Guid>(Error.Conflict(
+                    "holderSnapshot.registryDiscrepancy",
+                    $"Реестр расходится с состоянием сети, срез не снят. {detail}"));
+            }
+        }
 
         var positions = await _positions.GetByPropertyAsync(request.PropertyId, ct);
         var entries = positions.Select(p => new HolderSnapshotEntry(p.WalletAddress, p.TokenCount, p.InvestorId));

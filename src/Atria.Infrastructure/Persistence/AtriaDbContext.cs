@@ -54,6 +54,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<BlockchainOperation> BlockchainOperations => Set<BlockchainOperation>();
     public DbSet<HolderPosition> HolderPositions => Set<HolderPosition>();
     public DbSet<HolderSnapshot> HolderSnapshots => Set<HolderSnapshot>();
+    public DbSet<ChainSyncCursor> ChainSyncCursors => Set<ChainSyncCursor>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<CriticalAction> CriticalActions => Set<CriticalAction>();
     public DbSet<RegulatoryReport> RegulatoryReports => Set<RegulatoryReport>();

@@ -43,6 +43,45 @@ public sealed class HoldersController : ApiControllerBase
         [FromQuery] Guid propertyId, [FromQuery] string? search, CancellationToken ct)
         => ToActionResult(await Sender.Send(new GetHolderRegistryQuery(propertyId, search), ct));
 
+    /// <summary>Compares an issue's registry against its token contract.</summary>
+    /// <remarks>
+    /// Three checks: the shares the registry counts equal the contract's total supply, they equal
+    /// what the issue records as placed, and every holder is on the allowlist. A clean report is what
+    /// makes the registry usable for a payout or a regulatory statement — and a snapshot is refused
+    /// while anything disagrees. 409 when the issue has no contract yet; 502 when the node cannot be
+    /// reached, because an unanswered question is not the same as an answer of "all good".
+    /// </remarks>
+    /// <param name="propertyId">The issue to check.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet("reconciliation")]
+    [ProducesResponseType<RegistryReconciliationReport>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> GetReconciliation([FromQuery] Guid propertyId, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new ReconcileRegistryQuery(propertyId), ct));
+
+    /// <summary>Replays the issue's transfers from the chain into the registry. Admin only.</summary>
+    /// <remarks>
+    /// Applies <c>Transfer</c> events from the last processed block up to a depth that is already
+    /// final, then advances the cursor. This is what makes the chain the source of truth: a trade
+    /// between two investors never passes through the platform, and without the replay the register
+    /// silently stops matching reality. Safe to call repeatedly — the cursor never moves backwards,
+    /// so no transfer is applied twice. Returns how many transfers were applied.
+    /// </remarks>
+    /// <param name="propertyId">The issue to sync.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("sync")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType<int>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Sync([FromQuery] Guid propertyId, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new SyncHolderRegistryFromChainCommand(propertyId), ct));
+
     /// <summary>Freezes the holder register of an issuance at a cut.</summary>
     /// <remarks>
     /// Requires the <c>Admin</c> role — reading the register is wider than cutting it. Idempotent by

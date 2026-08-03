@@ -20,6 +20,7 @@ public sealed class CreateHolderSnapshotCommandHandlerTests
     private readonly IPropertyRepository _properties = Substitute.For<IPropertyRepository>();
     private readonly ICurrentUserService _currentUser = Substitute.For<ICurrentUserService>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
+    private readonly ISender _sender = Substitute.For<ISender>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
     private static readonly DateTime Now = new(2026, 8, 3, 12, 0, 0, DateTimeKind.Utc);
@@ -40,7 +41,7 @@ public sealed class CreateHolderSnapshotCommandHandlerTests
     }
 
     private CreateHolderSnapshotCommandHandler NewHandler() =>
-        new(_snapshots, _positions, _properties, _currentUser, _clock, _uow);
+        new(_snapshots, _positions, _properties, _sender, _currentUser, _clock, _uow);
 
     private void GivenPositions(params (string Wallet, long Tokens, Guid? Investor)[] holdings)
         => _positions.GetByPropertyAsync(_property.Id, Arg.Any<CancellationToken>())

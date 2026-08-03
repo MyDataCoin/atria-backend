@@ -117,6 +117,7 @@ public static class DependencyInjection
         services.AddScoped<IComplianceRepository, ComplianceRepository>();
         services.AddScoped<IHolderPositionRepository, HolderPositionRepository>();
         services.AddScoped<IHolderSnapshotRepository, HolderSnapshotRepository>();
+        services.AddScoped<IChainSyncCursorRepository, ChainSyncCursorRepository>();
         services.AddScoped<ICriticalActionRepository, CriticalActionRepository>();
         services.AddScoped<IRegulatoryReportRepository, RegulatoryReportRepository>();
         services.AddScoped<IRefundObligationRepository, RefundObligationRepository>();
@@ -216,6 +217,7 @@ public static class DependencyInjection
     {
         services.AddSingleton<IChainNetworkResolver, ChainNetworkResolver>();
         services.AddSingleton<IChainReceiptReader, EvmReceiptReader>();
+        services.AddSingleton<ITokenReader, EvmTokenReader>();
 
         // Attestation roots are anchored on the EVM registry through Tessera's adapter, wrapped by
         // EvmChainAnchorAdapter because the two IChainAnchor interfaces are not interchangeable.

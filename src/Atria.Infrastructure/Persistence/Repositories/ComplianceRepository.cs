@@ -10,4 +10,8 @@ public sealed class ComplianceRepository : Repository<ComplianceProfile>, ICompl
 
     public Task<ComplianceProfile?> GetByInvestorAsync(Guid investorId, CancellationToken ct)
         => Set.FirstOrDefaultAsync(c => c.InvestorId == investorId, ct);
+
+    // Read-only: the caller only needs the investor behind the address.
+    public Task<ComplianceProfile?> GetByWalletAsync(string walletAddress, CancellationToken ct)
+        => Set.AsNoTracking().FirstOrDefaultAsync(c => c.WalletAddress == walletAddress, ct);
 }
