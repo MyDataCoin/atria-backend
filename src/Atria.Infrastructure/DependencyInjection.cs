@@ -116,6 +116,7 @@ public static class DependencyInjection
         services.AddScoped<IHolderPositionRepository, HolderPositionRepository>();
         services.AddScoped<IHolderSnapshotRepository, HolderSnapshotRepository>();
         services.AddScoped<ICriticalActionRepository, CriticalActionRepository>();
+        services.AddScoped<IRegulatoryReportRepository, RegulatoryReportRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
         services.AddScoped<IAppealRepository, AppealRepository>();
@@ -228,6 +229,7 @@ public static class DependencyInjection
         services.AddHostedService<BlockchainOperationWorker>();
         services.AddHostedService<DealExpiryBackgroundService>();
         services.AddHostedService<Investments.ReservationExpiryBackgroundService>();
+        services.AddHostedService<Regulatory.RegulatoryReportSweepBackgroundService>();
     }
 
     // --- Application assembly scan: request handlers, event handlers, validators ---
@@ -252,6 +254,10 @@ public static class DependencyInjection
         // matches, so adding a kind (the payout run) means adding an executor, nothing else.
         foreach (var executor in types.Where(t => typeof(ICriticalActionExecutor).IsAssignableFrom(t)))
             services.AddScoped(typeof(ICriticalActionExecutor), executor);
+
+        // Regulatory report composers, resolved by kind the same way.
+        foreach (var composer in types.Where(t => typeof(IRegulatoryReportComposer).IsAssignableFrom(t)))
+            services.AddScoped(typeof(IRegulatoryReportComposer), composer);
 
         // FluentValidation validators (IValidator<T>). Registered by reflection so the
         // Infrastructure project needs no FluentValidation.DependencyInjectionExtensions reference.

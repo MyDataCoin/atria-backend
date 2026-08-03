@@ -3,6 +3,7 @@ using Atria.Domain.Documents;
 using Atria.Domain.Governance;
 using Atria.Domain.Holders;
 using Atria.Domain.Kyc;
+using Atria.Domain.Regulatory;
 
 namespace Atria.Api.Controllers.Requests;
 
@@ -199,3 +200,15 @@ public sealed record SetPropertyCollateralRequest(
     DateTime? EncumbranceRegisteredAtUtc = null,
     string? IssueRegistrationNumber = null,
     Guid? CollateralManagerUserId = null);
+
+/// <summary>POST /regulatory-reports body. Records a filing obligation and its deadline.</summary>
+/// <param name="Kind">Which notification, sent by name.</param>
+/// <param name="PeriodStartUtc">Start of the period covered.</param>
+/// <param name="PeriodEndUtc">End of the period covered — the deadline counts from here.</param>
+/// <param name="PropertyId">The issue it concerns; omit for platform-wide notifications.</param>
+public sealed record RaiseRegulatoryReportRequest(
+    RegulatoryReportKind Kind, DateTime PeriodStartUtc, DateTime PeriodEndUtc, Guid? PropertyId = null);
+
+/// <summary>POST /regulatory-reports/{id}/file body.</summary>
+/// <param name="FilingReference">The regulator's acknowledgement reference; required.</param>
+public sealed record MarkReportFiledRequest(string FilingReference);

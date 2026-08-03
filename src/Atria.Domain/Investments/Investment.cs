@@ -38,6 +38,12 @@ public sealed class Investment : AggregateRoot
     public DateTime ReservedUntilUtc { get; private set; }
 
     /// <summary>
+    /// When the application was activated by an operator. Null while it has not been. Drives which
+    /// reporting period a placement falls into.
+    /// </summary>
+    public DateTime? ActivatedAtUtc { get; private set; }
+
+    /// <summary>
     /// Why an operator declined the application. Set on rejection and kept afterwards so the investor
     /// can be told the reason and the decision stays auditable; null in every other state.
     /// </summary>
@@ -86,8 +92,15 @@ public sealed class Investment : AggregateRoot
         };
 
     /// <summary>Reserved -> Active: an operator approves the application. Raises the activation event.</summary>
-    public void Approve()
-        => Status = InvestmentStateFactory.Create(Status).Approve(this).Status;
+    /// <remarks>
+    /// The activation instant is recorded because the regulator's placement figures are per period:
+    /// an application made in one month and approved in the next belongs to the month it activated in.
+    /// </remarks>
+    public void Approve(DateTime activatedAtUtc)
+    {
+        Status = InvestmentStateFactory.Create(Status).Approve(this).Status;
+        ActivatedAtUtc = activatedAtUtc;
+    }
 
     /// <summary>Reserved -> Rejected: an operator declines the application. Raises the rejected event.</summary>
     /// <remarks>

@@ -18,11 +18,14 @@ public sealed record ApproveInvestmentCommand(Guid InvestmentId) : IRequest<Resu
 public sealed class ApproveInvestmentCommandHandler : IRequestHandler<ApproveInvestmentCommand, Result>
 {
     private readonly IInvestmentRepository _investments;
+    private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
 
-    public ApproveInvestmentCommandHandler(IInvestmentRepository investments, IUnitOfWork unitOfWork)
+    public ApproveInvestmentCommandHandler(
+        IInvestmentRepository investments, IDateTimeProvider clock, IUnitOfWork unitOfWork)
     {
         _investments = investments;
+        _clock = clock;
         _unitOfWork = unitOfWork;
     }
 
@@ -36,7 +39,7 @@ public sealed class ApproveInvestmentCommandHandler : IRequestHandler<ApproveInv
             return Result.Failure(Error.Conflict(
                 "investment.notReserved", "Only a reserved application awaiting approval can be approved."));
 
-        investment.Approve();
+        investment.Approve(_clock.UtcNow);
         _investments.Update(investment);
         await _unitOfWork.SaveChangesAsync(ct);
 

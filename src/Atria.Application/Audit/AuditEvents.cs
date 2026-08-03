@@ -8,6 +8,7 @@ public static class AuditEntities
     public const string SupportTicket = "SupportTicket";
     public const string User = "User";
     public const string CriticalAction = "CriticalAction";
+    public const string RegulatoryReport = "RegulatoryReport";
 }
 
 /// <summary>
@@ -32,4 +33,5 @@ public static class AuditEvents
     public const string CriticalActionRequested = "CriticalActionRequested";
     public const string CriticalActionApproved = "CriticalActionApproved";
     public const string CriticalActionRejected = "CriticalActionRejected";
+    public const string RegulatoryReportFiled = "RegulatoryReportFiled";
 }

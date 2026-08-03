@@ -14,6 +14,7 @@ using Atria.Domain.Kyc;
 using Atria.Domain.Notifications;
 using Atria.Domain.Outbox;
 using Atria.Domain.Publications;
+using Atria.Domain.Regulatory;
 using Atria.Domain.Realtors;
 using Atria.Domain.Support;
 using Atria.Domain.Users;
@@ -53,6 +54,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<HolderSnapshot> HolderSnapshots => Set<HolderSnapshot>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<CriticalAction> CriticalActions => Set<CriticalAction>();
+    public DbSet<RegulatoryReport> RegulatoryReports => Set<RegulatoryReport>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // Infra-only EF entities.

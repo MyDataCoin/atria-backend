@@ -75,7 +75,7 @@ public sealed class InvestmentStateTests
     {
         var investment = NewReservedInvestment();
 
-        investment.Approve();
+        investment.Approve(DateTime.UtcNow);
 
         investment.Status.Should().Be(InvestmentStatus.Active);
         var activated = investment.DomainEvents.OfType<InvestmentActivatedEvent>().Single();
@@ -87,9 +87,9 @@ public sealed class InvestmentStateTests
     public void Approve_WhenAlreadyActive_Throws()
     {
         var investment = NewReservedInvestment();
-        investment.Approve();
+        investment.Approve(DateTime.UtcNow);
 
-        var act = () => investment.Approve();
+        var act = () => investment.Approve(DateTime.UtcNow);
 
         act.Should().Throw<InvalidStateTransitionException>();
         investment.Status.Should().Be(InvestmentStatus.Active);
@@ -122,7 +122,7 @@ public sealed class InvestmentStateTests
     public void Reject_WhenAlreadyActive_Throws()
     {
         var investment = NewReservedInvestment();
-        investment.Approve();
+        investment.Approve(DateTime.UtcNow);
 
         var act = () => investment.Reject("too late");
 
@@ -136,7 +136,7 @@ public sealed class InvestmentStateTests
         var investment = NewReservedInvestment();
         investment.Reject("declined");
 
-        var act = () => investment.Approve();
+        var act = () => investment.Approve(DateTime.UtcNow);
 
         act.Should().Throw<InvalidStateTransitionException>();
         investment.Status.Should().Be(InvestmentStatus.Rejected);

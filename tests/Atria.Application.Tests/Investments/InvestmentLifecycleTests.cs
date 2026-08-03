@@ -74,7 +74,7 @@ public sealed class InvestmentLifecycleTests
             Guid.NewGuid(), property.Id, 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
 
-        var result = await new ApproveInvestmentCommandHandler(_investments, _uow)
+        var result = await new ApproveInvestmentCommandHandler(_investments, _clock, _uow)
             .Handle(new ApproveInvestmentCommand(investment.Id), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -87,10 +87,10 @@ public sealed class InvestmentLifecycleTests
     {
         var investment = InvestmentFactory.CreateForInvestor(
             Guid.NewGuid(), Guid.NewGuid(), 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
-        investment.Approve(); // already Active
+        investment.Approve(DateTime.UtcNow); // already Active
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
 
-        var result = await new ApproveInvestmentCommandHandler(_investments, _uow)
+        var result = await new ApproveInvestmentCommandHandler(_investments, _clock, _uow)
             .Handle(new ApproveInvestmentCommand(investment.Id), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
