@@ -24,7 +24,7 @@ public sealed class SolanaChainAnchor : IChainAnchor
         _logger = logger;
     }
 
-    public Task<AnchorResult> AnchorAsync(string merkleRoot, CancellationToken ct)
+    public Task<AnchorResult> AnchorAsync(string did, string merkleRoot, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(merkleRoot))
             throw new ArgumentException("Merkle root is required.", nameof(merkleRoot));
@@ -32,7 +32,7 @@ public sealed class SolanaChainAnchor : IChainAnchor
         // NOTE: a real implementation would submit a memo/anchor instruction to the
         // Solana cluster (BlockchainOptions.AnchorNetwork) via the external signer and
         // return the actual transaction signature. Here we derive a deterministic ref.
-        var seed = $"{_options.AnchorNetwork}:{merkleRoot}";
+        var seed = $"{_options.AnchorNetwork}:{did}:{merkleRoot}";
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(seed))).ToLowerInvariant();
         var txRef = $"sol_{_options.AnchorNetwork}_{hash}";
 

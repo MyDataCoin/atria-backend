@@ -31,5 +31,5 @@ public interface ITesseraComplianceService
     Task RevokeAttestationsAsync(Guid investorId, string reason, CancellationToken ct);
 
     /// <summary>Anchor an attestation Merkle root; returns the anchor reference.</summary>
-    Task<string> AnchorMerkleRootAsync(string merkleRoot, CancellationToken ct);
+    Task<string> AnchorMerkleRootAsync(string did, string merkleRoot, CancellationToken ct);
 }

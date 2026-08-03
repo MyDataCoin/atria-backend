@@ -77,6 +77,7 @@ public static class DependencyInjection
         BindValidated<S3Options>(services, configuration, S3Options.SectionName);
         BindValidated<TesseraOptions>(services, configuration, TesseraOptions.SectionName);
         BindValidated<BlockchainOptions>(services, configuration, BlockchainOptions.SectionName);
+        BindValidated<EvmAnchorOptions>(services, configuration, EvmAnchorOptions.SectionName);
     }
 
     private static void BindValidated<T>(
@@ -212,7 +213,23 @@ public static class DependencyInjection
     // --- Compliance / web3 ---
     private static void AddCompliance(IServiceCollection services)
     {
-        services.AddScoped<IChainAnchor, SolanaChainAnchor>();
+        // Attestation roots are anchored on the EVM registry through Tessera's adapter, wrapped by
+        // EvmChainAnchorAdapter because the two IChainAnchor interfaces are not interchangeable.
+        // The adapter is a singleton: it owns a Web3 client and a local nonce tracker, and a second
+        // instance racing on nonces would drop transactions.
+        services.AddSingleton(sp =>
+        {
+            var o = sp.GetRequiredService<IOptions<EvmAnchorOptions>>().Value;
+            return new Tessera.Chains.Evm.EvmChainAnchor(new Tessera.Chains.Evm.EvmChainAnchorOptions
+            {
+                RpcUrl = o.RpcUrl,
+                ChainId = o.ChainId,
+                ContractAddress = o.IdentityRegistryAddress,
+                PrivateKey = o.AgentPrivateKey,
+                UseLegacyGasPricing = o.UseLegacyGasPricing
+            });
+        });
+        services.AddSingleton<IChainAnchor, EvmChainAnchorAdapter>();
         // External signer calls a configured signer URL via HttpClient (BaseAddress from options).
         services.AddHttpClient<IBlockchainSigner, ExternalBlockchainSigner>((sp, client) =>
         {

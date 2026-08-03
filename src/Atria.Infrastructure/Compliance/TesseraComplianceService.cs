@@ -74,7 +74,7 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
 
         // Compute a Merkle-root-ish hash over the attestation set and anchor it.
         var merkleRoot = ComputeAttestationRoot(did, wireTypes);
-        var anchorResult = await _chainAnchor.AnchorAsync(merkleRoot, ct);
+        var anchorResult = await _chainAnchor.AnchorAsync(did, merkleRoot, ct);
 
         _logger.LogInformation(
             "Issued DID and {AttestationCount} attestation(s) for investor {InvestorId}; anchored root {TransactionRef}.",
@@ -143,9 +143,9 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
             investorId, reason);
     }
 
-    public async Task<string> AnchorMerkleRootAsync(string merkleRoot, CancellationToken ct)
+    public async Task<string> AnchorMerkleRootAsync(string did, string merkleRoot, CancellationToken ct)
     {
-        var result = await _chainAnchor.AnchorAsync(merkleRoot, ct);
+        var result = await _chainAnchor.AnchorAsync(did, merkleRoot, ct);
         return result.TransactionRef;
     }
 

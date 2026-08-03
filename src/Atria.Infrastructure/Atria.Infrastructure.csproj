@@ -7,6 +7,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Atria.Application\Atria.Application.csproj" />
+
+    <!--
+      Tessera's EVM chain adapter, vendored as a git submodule (external/tessera). It is not
+      published to NuGet, so source is the only way to consume it; this pulls in
+      Tessera.Chains.Abstractions and Tessera.Core transitively, plus Nethereum.
+    -->
+    <ProjectReference Include="..\..\external\tessera\src\Tessera.Chains.Evm\Tessera.Chains.Evm.csproj" />
   </ItemGroup>
 
   <ItemGroup Label="Persistence (EF Core + Npgsql)">

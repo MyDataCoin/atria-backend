@@ -166,6 +166,15 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 ["Otp:RequestsPerHour"] = "100",
 
                 // Didit (section "Didit"): ApiKey/WebhookSecret/BaseUrl are [Required], BaseUrl is [Url].
+                // Blockchain:Anchor (EVM attestation anchoring). Bound and validated on start, so it
+                // needs values; the anchor itself is constructed lazily and never reached in tests.
+                ["Blockchain:Anchor:RpcUrl"] = "https://rpc.test.invalid",
+                ["Blockchain:Anchor:ChainId"] = "97",
+                ["Blockchain:Anchor:IdentityRegistryAddress"] = "0x3838f73f9787f8b4f8a1e0173de7c7030a570806",
+                ["Blockchain:Anchor:AgentPrivateKey"] =
+                    "0x0000000000000000000000000000000000000000000000000000000000000001",
+                ["Blockchain:Anchor:UseLegacyGasPricing"] = "true",
+
                 ["Didit:ApiKey"] = "test-didit-api-key",
                 ["Didit:WebhookSecret"] = "test-didit-webhook-secret",
                 ["Didit:BaseUrl"] = "https://verification.didit.test",
