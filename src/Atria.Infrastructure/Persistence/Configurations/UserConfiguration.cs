@@ -20,6 +20,14 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         b.Property(u => u.BanReason).HasMaxLength(1000);
         b.Property(u => u.PasswordHash).HasMaxLength(200);
         b.Property(u => u.MustResetPassword).IsRequired().HasDefaultValue(false);
+        b.Property(u => u.FailedLoginCount).IsRequired().HasDefaultValue(0);
+        b.Property(u => u.LockedUntilUtc);
+        // Existing rows get a stamp so tokens minted before this column existed do not validate:
+        // an unverifiable token must not be a trusted one.
+        b.Property(u => u.SecurityStamp)
+            .IsRequired()
+            .HasMaxLength(64)
+            .HasDefaultValueSql("replace(gen_random_uuid()::text, '-', '')");
 
         b.HasIndex(u => u.PhoneNumber).IsUnique().HasFilter(null);
         // Username is unique among the rows that have one (credential accounts); investors are null.

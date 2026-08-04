@@ -13,4 +13,10 @@ public sealed class OtpCode
     public int Attempts { get; set; }
     public bool Consumed { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+
+    /// <summary>
+    /// Address the code was requested from. Feeds the per-IP issuance cap and gives an abuse
+    /// investigation something to work with; null when the request arrived without a resolvable peer.
+    /// </summary>
+    public string? RequestedFromIp { get; set; }
 }

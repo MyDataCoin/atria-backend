@@ -31,10 +31,6 @@ public sealed class CurrentUserService : ICurrentUserService
         }
     }
 
-    public string? Email
-        => Principal?.FindFirstValue(ClaimTypes.Email)
-           ?? Principal?.FindFirstValue("email");
-
     public Role? Role
     {
         get

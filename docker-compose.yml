@@ -33,6 +33,9 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
 
   api:
     build:
@@ -67,6 +70,9 @@ services:
       # from the project .env for local runs. Jwt__SigningKey: >=32 chars; Encryption__Key: base64 of 32 bytes.
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
       Encryption__Key: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      # Pepper for the stored OTP hash — see OtpOptions.HashPepper. Must differ from ENCRYPTION_KEY:
+      # one leaked secret should not hand over both the PII at rest and the login codes.
+      Otp__HashPepper: ${OTP_HASH_PEPPER:?OTP_HASH_PEPPER is required}
       # Public media (property photos/documents): the API copies files to the media host over SCP
       # and stores an absolute URL served by that host's nginx. Username/password are secrets (from
       # .env locally / GitHub Actions secrets on deploy). Non-secret bits are pinned here.
@@ -87,9 +93,10 @@ services:
       NikitaPro__ApiKey: ${NIKITA_PRO_API_KEY:?NIKITA_PRO_API_KEY is required}
       # Sender is not secret; pin it explicitly so it can't drift from the approved name.
       NikitaPro__Sender: MYDATACOIN
-      # !!! TEMPORARY SMS-OUTAGE BYPASS — REMOVE THIS LINE once the SMS provider is restored !!!
-      # Lets verify-otp accept code 111111 for any phone without SMS. This is an auth bypass.
-      Otp__MagicCode: "111111"
+      # There is deliberately no Otp__MagicCode here. A fixed code accepted for any phone is an
+      # unauthenticated account takeover, and OtpOptions no longer binds such a setting at all. If
+      # the SMS provider goes down again, the answer is an audited admin-side action against a named
+      # account — not a global bypass one env var away from being live.
       # Admin / Realtor / SuperAdmin logins are DB-only: each is an ordinary users row (username +
       # password hash) created via scripts/seed-superadmin.sql. No credentials in config or secrets —
       # they log in through POST /auth/admin/login (admin & super-admin) and /auth/realtor/login.
@@ -106,6 +113,24 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+    # Container hardening (CIS Docker Benchmark 5.3 / 5.10 / 5.12 / 5.25). The app writes nothing to
+    # its own filesystem — uploads go to S3 and the media host over SCP — so a read-only root costs
+    # nothing and removes the usual foothold for dropping a payload next to the binary.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 1g
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health/live || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   atria-pgdata:

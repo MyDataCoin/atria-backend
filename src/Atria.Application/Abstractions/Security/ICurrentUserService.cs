@@ -9,7 +9,9 @@ namespace Atria.Application.Abstractions;
 public interface ICurrentUserService
 {
     Guid? UserId { get; }
-    string? Email { get; }
+
+    // No email/phone here on purpose. The token is stored client-side, so every claim in it is a
+    // claim published to whoever gets hold of it; the user id is enough to look the rest up.
     Role? Role { get; }
     bool IsAuthenticated { get; }
     bool IsInRole(Role role);

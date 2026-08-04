@@ -15,7 +15,13 @@ public sealed class DiditOptions
     public string ApiKey { get; set; } = string.Empty;
 
     /// <summary>HMAC secret used to verify inbound webhook signatures. Secret.</summary>
+    /// <remarks>
+    /// This is the only thing standing between an applicant and approving their own KYC, so a short
+    /// or guessable value is not merely untidy. <see cref="SecretsGuard"/> additionally rejects
+    /// placeholders that were once committed.
+    /// </remarks>
     [Required]
+    [MinLength(16, ErrorMessage = "Didit:WebhookSecret must be at least 16 characters.")]
     public string WebhookSecret { get; set; } = string.Empty;
 
     /// <summary>Didit API base URL (e.g. https://verification.didit.me).</summary>

@@ -16,6 +16,22 @@ public sealed class BlockchainOptions
     public string SignerUrl { get; init; } = null!;
 
     /// <summary>
+    /// Shared secret the API authenticates itself to the signer with, and signs each request under.
+    /// Base64 of 32 random bytes.
+    /// </summary>
+    /// <remarks>
+    /// Without it the only thing standing between an attacker and minting shares is network
+    /// placement: anything that can reach <see cref="SignerUrl"/> — a compromised sidecar, an SSRF in
+    /// a neighbouring service — can ask custody to issue to any address. Reachability is not
+    /// authorization. Leave empty ONLY where the signer is a local stub with no real key behind it.
+    /// </remarks>
+    public string? SignerSharedSecret { get; init; }
+
+    /// <summary>How long to wait on the signer before giving up.</summary>
+    [Range(1, 120)]
+    public int SignerTimeoutSeconds { get; init; } = 20;
+
+    /// <summary>
     /// Configured networks, keyed by the tag stored in <c>Property.TokenChain</c>.
     /// </summary>
     /// <remarks>

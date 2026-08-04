@@ -59,6 +59,7 @@ public static class DependencyInjection
         BindValidated<JwtOptions>(services, configuration, JwtOptions.SectionName);
         BindValidated<EncryptionOptions>(services, configuration, EncryptionOptions.SectionName);
         BindValidated<OtpOptions>(services, configuration, OtpOptions.SectionName);
+        BindValidated<AuthLockoutOptions>(services, configuration, AuthLockoutOptions.SectionName);
 
         // Admin/Realtor/SuperAdmin have no configuration: they are ordinary rows in the users table
         // (username + password hash) and log in purely against the database.
@@ -106,6 +107,9 @@ public static class DependencyInjection
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
         // Specialized repositories.
+        services.AddSingleton<IAuthLockoutPolicy>(
+            sp => sp.GetRequiredService<IOptions<AuthLockoutOptions>>().Value);
+
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IKycRepository, KycRepository>();
         services.AddScoped<IConsentRepository, ConsentRepository>();
@@ -182,6 +186,9 @@ public static class DependencyInjection
             var opts = sp.GetRequiredService<IOptions<DiditOptions>>().Value;
             if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
                 client.BaseAddress = new Uri(opts.BaseUrl);
+            // The default is 100 seconds. A provider that stops answering should fail this request,
+            // not hold a request thread for a minute and a half while the pool drains.
+            client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddScoped<IKycProviderStrategy, ManualKycProvider>();
 
@@ -198,6 +205,7 @@ public static class DependencyInjection
             var opts = sp.GetRequiredService<IOptions<NikitaProOptions>>().Value;
             if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
                 client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddScoped<IEmailSender, EmailNotificationAdapter>();
         services.AddScoped<INotificationSender, NotificationSender>();
@@ -253,7 +261,11 @@ public static class DependencyInjection
         // Token writes go through custody by default. The operational-key path exists for test
         // networks and has to be asked for explicitly: a key that can issue shares out of nothing
         // must never become live because a setting was left unset.
-        services.AddSingleton<ITokenGateway>(sp =>
+        // Scoped, not singleton: CustodyTokenGateway depends on the typed HttpClient behind
+        // IBlockchainSigner, and a singleton resolving it from the root provider pins one
+        // HttpMessageHandler for the life of the process — defeating the factory's handler rotation
+        // and, with it, its reaction to DNS changes.
+        services.AddScoped<ITokenGateway>(sp =>
         {
             var mode = sp.GetRequiredService<IOptions<TokenSigningOptions>>().Value.Mode;
             return mode == TokenSigningMode.OperationalKey
@@ -266,6 +278,7 @@ public static class DependencyInjection
             var opts = sp.GetRequiredService<IOptions<BlockchainOptions>>().Value;
             if (!string.IsNullOrWhiteSpace(opts.SignerUrl))
                 client.BaseAddress = new Uri(opts.SignerUrl);
+            client.Timeout = TimeSpan.FromSeconds(opts.SignerTimeoutSeconds);
         });
         services.AddScoped<IBlockchainOperationQueue, BlockchainOperationQueue>();
         services.AddScoped<ITesseraComplianceService, TesseraComplianceService>();
@@ -279,6 +292,7 @@ public static class DependencyInjection
         services.AddHostedService<DealExpiryBackgroundService>();
         services.AddHostedService<Investments.ReservationExpiryBackgroundService>();
         services.AddHostedService<Regulatory.RegulatoryReportSweepBackgroundService>();
+        services.AddHostedService<Identity.ExpiredRefreshTokenSweepBackgroundService>();
     }
 
     // --- Application assembly scan: request handlers, event handlers, validators ---

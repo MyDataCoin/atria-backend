@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -27,6 +28,15 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext()
     .WriteTo.Console(outputTemplate:
         "[{Timestamp:HH:mm:ss} {Level:u3}] {CorrelationId} {Message:lj}{NewLine}{Exception}"));
+
+// --- Secrets gate. Runs before anything is wired so a process that cannot be trusted to
+//     authenticate anyone never reaches the point of listening on a port. Outside Development a
+//     missing / placeholder / previously-committed secret throws here; in Development the same
+//     findings come back as warnings. ---
+foreach (var warning in SecretsGuard.Validate(builder.Configuration, builder.Environment))
+{
+    Console.Error.WriteLine($"[secrets] {warning}");
+}
 
 // --- Infrastructure composition root: DbContext, validated options, repositories,
 //     mediator + pipeline, domain-event dispatcher, strategies/adapters, identity,
@@ -78,8 +88,14 @@ builder.Services
 // --- CORS: let browsers on the configured origins call the API directly. The public marketing
 //     site has no dev-proxy (unlike the admin dashboard), so it needs cross-origin access to the
 //     anonymous catalogue (GET /properties). Origins come from Cors:AllowedOrigins, falling back
-//     to the public site. Auth is via the Authorization header (bearer), not cookies, so
-//     AllowCredentials is not needed. ---
+//     to the public site.
+//
+//     Credentials ARE allowed, because the refresh token now travels in an HttpOnly cookie rather
+//     than in localStorage where any script on the page could read it (see RefreshTokenCookie).
+//     That is why the origins must stay an explicit list — AllowCredentials and a wildcard origin
+//     are mutually exclusive for good reason, and the browser enforces it. Ordinary endpoints still
+//     authenticate with the bearer header, which no browser attaches automatically, so widening CORS
+//     this far does not make any of them reachable cross-site. ---
 const string CorsPolicy = "AtriaCors";
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() is { Length: > 0 } configured
     ? configured
@@ -88,7 +104,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy => policy
         .WithOrigins(corsOrigins)
         .AllowAnyHeader()
-        .AllowAnyMethod()));
+        .AllowAnyMethod()
+        .AllowCredentials()));
 
 // --- API versioning: default v1.0, URL segment reader, grouped explorer for Swagger. ---
 builder.Services
@@ -125,11 +142,23 @@ builder.Services
             ValidAudience = jwt.Audience,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+            // Only the algorithm we actually sign with. A symmetric key already rules out the
+            // RS256->HS256 confusion and 'alg: none', but pinning it costs nothing and means a future
+            // change to asymmetric keys cannot silently widen what the API accepts.
+            ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30),
             // Map the JWT 'role' claim to the role claim type so [Authorize(Roles=...)] matches.
             RoleClaimType = "role",
             NameClaimType = "sub"
+        };
+
+        // A signed, unexpired token is not enough: the account behind it must still be in the state
+        // it was issued under. Without this, banning someone leaves their token working for the rest
+        // of its 15 minutes — long enough for a compliance key to burn shares on the way out.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = SecurityStampValidator.ValidateAsync
         };
     });
 
@@ -193,17 +222,48 @@ builder.Services.AddHealthChecks()
         name: "postgres",
         tags: new[] { "ready" });
 
-// --- Rate limiting: throttle ONLY the auth + OTP endpoints (login, register, request-otp)
-//     to slow brute force / SMS abuse. All other paths are not partitioned (no limit). ---
+// --- Rate limiting: throttle the unauthenticated endpoints that are worth attacking — credential
+//     logins, token refresh, the OTP pair and the anonymous appeal form. All other paths are not
+//     partitioned (no limit).
+//
+// SECURITY: these are the ACTUAL routes off AuthController ([Route("api/v{version}/auth")]), not a
+// guessed prefix. The list previously named "/api/v1/auth/login", an endpoint that does not exist,
+// while the real /auth/admin/login (Admin AND SuperAdmin) and /auth/realtor/login matched nothing and
+// took unlimited password attempts. Keep this list in step with the controller — the integration test
+// AuthRateLimitTests fails if a throttled route stops being throttled.
+//
+// Per-IP is only half of it: an attacker with a pool of addresses spends one attempt each and never
+// trips a per-IP window. The per-ACCOUNT limit lives in AuthTokensFactory (lockout after 10 failures)
+// and in OtpService (per-phone and per-IP caps). ---
 string[] throttledPaths =
 {
-    "/api/v1/auth/login",
+    "/api/v1/auth/admin/login",
+    "/api/v1/auth/realtor/login",
+    "/api/v1/auth/refresh",
     "/api/v1/auth/register",
-    "/api/v1/auth/register/phone/request-otp"
+    "/api/v1/appeals"
 };
+// Configurable so an operator can tighten them without a deploy, and so the integration suite —
+// which drives every test through one loopback address — can raise them out of its own way.
+var rateLimitPermits = builder.Configuration.GetValue("RateLimiting:PermitLimit", 5);
+var rateLimitWindowSeconds = builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60);
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Tell the caller when to come back instead of leaving them to guess (and hammer).
+    options.OnRejected = (context, _) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((int)retryAfter.TotalSeconds).ToString(NumberFormatInfo.InvariantInfo);
+        }
+
+        return ValueTask.CompletedTask;
+    };
+
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
         var path = httpContext.Request.Path.Value ?? string.Empty;
@@ -220,8 +280,8 @@ builder.Services.AddRateLimiter(options =>
         return RateLimitPartition.GetFixedWindowLimiter($"{ip}:{path}", _ =>
             new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = rateLimitPermits,
+                Window = TimeSpan.FromSeconds(rateLimitWindowSeconds),
                 QueueLimit = 0,
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             });

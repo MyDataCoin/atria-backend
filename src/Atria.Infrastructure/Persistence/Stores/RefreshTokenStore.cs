@@ -38,13 +38,57 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
             : new RefreshTokenInfo(entity.UserId, refreshToken, entity.ExpiresAtUtc, entity.IsRevoked);
     }
 
-    public async Task RevokeAsync(string refreshToken, CancellationToken ct)
+    public async Task<bool> TryRevokeAsync(string refreshToken, CancellationToken ct)
     {
         var hash = Hash(refreshToken);
+
+        // Conditional update executed BY THE DATABASE: of two concurrent refreshes presenting the
+        // same token, exactly one flips the flag and the other is told it lost. Reading the row and
+        // then setting a property instead lets both callers pass the not-revoked check and rotate
+        // one token into two live sessions.
+        if (SupportsBulkOperations)
+        {
+            var affected = await _db.RefreshTokens
+                .Where(r => r.TokenHash == hash && !r.IsRevoked)
+                .ExecuteUpdateAsync(set => set.SetProperty(r => r.IsRevoked, true), ct);
+
+            return affected == 1;
+        }
+
+        // The in-memory provider used by the test host has no bulk operations. It also has no
+        // concurrency to protect against, being a single process with a serialized store, so the
+        // tracked equivalent is behaviourally identical there.
         var entity = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash, ct);
-        if (entity is not null)
-            entity.IsRevoked = true;
+        if (entity is null || entity.IsRevoked)
+            return false;
+
+        entity.IsRevoked = true;
+        return true;
     }
+
+    public async Task RevokeAsync(string refreshToken, CancellationToken ct)
+        => await TryRevokeAsync(refreshToken, ct);
+
+    public async Task<int> DeleteExpiredAsync(DateTime olderThanUtc, CancellationToken ct)
+    {
+        // Expired rows are only ever read by hash and every path re-checks the expiry, so nothing
+        // needs them once they can no longer authenticate anything. Without this the table grows for
+        // the life of the product — rotation writes a row per refresh.
+        if (SupportsBulkOperations)
+        {
+            return await _db.RefreshTokens
+                .Where(r => r.ExpiresAtUtc < olderThanUtc)
+                .ExecuteDeleteAsync(ct);
+        }
+
+        var stale = await _db.RefreshTokens.Where(r => r.ExpiresAtUtc < olderThanUtc).ToListAsync(ct);
+        _db.RefreshTokens.RemoveRange(stale);
+        await _db.SaveChangesAsync(ct);
+        return stale.Count;
+    }
+
+    /// <summary>False for the in-memory provider, which implements neither ExecuteUpdate nor ExecuteDelete.</summary>
+    private bool SupportsBulkOperations => _db.Database.IsRelational();
 
     public async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct)
     {

@@ -66,8 +66,16 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
             return Result.Failure<AuthTokensDto>(InvalidToken);
         }
 
-        // Rotate: revoke the old token, then issue + store the new pair (IssueAsync commits both).
-        await _refreshTokens.RevokeAsync(request.RefreshToken, ct);
+        // Rotate. The revoke is a compare-and-set rather than a read-then-write: two requests
+        // presenting the same token concurrently — which the dashboards do whenever several calls
+        // 401 at once — would otherwise both pass the IsRevoked check above and both mint a pair,
+        // turning one token into two live sessions. Only the caller that actually flipped the flag
+        // gets to continue; the loser is told to retry with its (now current) token.
+        if (!await _refreshTokens.TryRevokeAsync(request.RefreshToken, ct))
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+            return Result.Failure<AuthTokensDto>(InvalidToken);
+        }
 
         var tokens = await AuthTokensFactory.IssueAsync(user, _jwt, _refreshTokens, _unitOfWork, ct);
         return Result.Success(tokens);

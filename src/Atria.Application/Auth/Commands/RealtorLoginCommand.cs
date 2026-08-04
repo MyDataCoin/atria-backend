@@ -18,6 +18,8 @@ public sealed class RealtorLoginCommandHandler : IRequestHandler<RealtorLoginCom
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwt;
     private readonly IRefreshTokenStore _refreshTokens;
+    private readonly IDateTimeProvider _clock;
+    private readonly IAuthLockoutPolicy _lockout;
     private readonly IUnitOfWork _unitOfWork;
 
     public RealtorLoginCommandHandler(
@@ -25,17 +27,21 @@ public sealed class RealtorLoginCommandHandler : IRequestHandler<RealtorLoginCom
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwt,
         IRefreshTokenStore refreshTokens,
+        IDateTimeProvider clock,
+        IAuthLockoutPolicy lockout,
         IUnitOfWork unitOfWork)
     {
         _users = users;
         _passwordHasher = passwordHasher;
         _jwt = jwt;
         _refreshTokens = refreshTokens;
+        _clock = clock;
+        _lockout = lockout;
         _unitOfWork = unitOfWork;
     }
 
     public Task<Result<AuthTokensDto>> Handle(RealtorLoginCommand request, CancellationToken ct)
         => AuthTokensFactory.IssueForCredentialLoginAsync(
             request.Username, request.Password,
-            _users, _passwordHasher, _jwt, _refreshTokens, _unitOfWork, ct);
+            _users, _passwordHasher, _jwt, _refreshTokens, _clock, _lockout, _unitOfWork, ct);
 }

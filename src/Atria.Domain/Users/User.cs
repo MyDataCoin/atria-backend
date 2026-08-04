@@ -47,6 +47,27 @@ public sealed class User : AggregateRoot
     /// </summary>
     public bool MustResetPassword { get; private set; }
 
+    /// <summary>
+    /// Consecutive failed credential logins. Reset on a successful sign-in and when a lockout expires.
+    /// </summary>
+    /// <remarks>
+    /// Per-IP throttling alone does not stop credential stuffing — an attacker with a pool of addresses
+    /// spends one attempt per address. The count that has to hold is the one on the account itself.
+    /// </remarks>
+    public int FailedLoginCount { get; private set; }
+
+    /// <summary>When set and still in the future, credential login is refused regardless of the password.</summary>
+    public DateTime? LockedUntilUtc { get; private set; }
+
+    /// <summary>
+    /// Changes whenever the account's security context changes — ban, unban, deactivation, password
+    /// change. Access tokens carry the stamp they were issued under and are rejected once it moves, so
+    /// a ban takes effect immediately instead of at the end of the token's lifetime.
+    /// </summary>
+    public string SecurityStamp { get; private set; } = NewSecurityStamp();
+
+    private static string NewSecurityStamp() => Guid.NewGuid().ToString("N");
+
     // private ctor: creation only through the static factory methods
     private User() { }
 
@@ -87,7 +108,53 @@ public sealed class User : AggregateRoot
 
     public void MarkPhoneVerified() => IsPhoneVerified = true;
 
-    public void Deactivate() => IsActive = false;
+    public void Deactivate()
+    {
+        IsActive = false;
+        SecurityStamp = NewSecurityStamp();
+    }
+
+    // ── Credential-login lockout ─────────────────────────────────────────────
+
+    /// <summary>True while an active lockout is in force.</summary>
+    public bool IsLockedOut(DateTime utcNow) => LockedUntilUtc is { } until && until > utcNow;
+
+    /// <summary>
+    /// Records a failed password attempt and locks the account once <paramref name="maxAttempts"/> is
+    /// reached. The counter is cleared alongside the lock so a lifted lockout starts from zero.
+    /// </summary>
+    public void RegisterFailedLogin(DateTime utcNow, int maxAttempts, TimeSpan lockoutFor)
+    {
+        // A lapsed lockout means the previous streak is spent; start counting again from this attempt.
+        if (LockedUntilUtc is { } until && until <= utcNow)
+        {
+            LockedUntilUtc = null;
+            FailedLoginCount = 0;
+        }
+
+        FailedLoginCount++;
+        if (FailedLoginCount >= maxAttempts)
+        {
+            LockedUntilUtc = utcNow.Add(lockoutFor);
+            FailedLoginCount = 0;
+        }
+    }
+
+    /// <summary>True when a successful sign-in would actually have something to clear.</summary>
+    /// <remarks>
+    /// Callers check this before writing. A successful login is by far the common case, and issuing
+    /// an UPDATE against the account row on every one of them buys nothing while adding a write —
+    /// and a chance of two concurrent sign-ins colliding on the same row — to a path that otherwise
+    /// only reads.
+    /// </remarks>
+    public bool HasLoginFailureState => FailedLoginCount != 0 || LockedUntilUtc is not null;
+
+    /// <summary>Clears the failure streak and any lapsed lock after a successful sign-in.</summary>
+    public void RegisterSuccessfulLogin()
+    {
+        FailedLoginCount = 0;
+        LockedUntilUtc = null;
+    }
 
     /// <summary>
     /// Bans the account (idempotent). A banned account cannot obtain a token. An optional
@@ -98,6 +165,8 @@ public sealed class User : AggregateRoot
     {
         IsBanned = true;
         BanReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        // Invalidate tokens already in the banned user's hands rather than waiting out their lifetime.
+        SecurityStamp = NewSecurityStamp();
     }
 
     /// <summary>Lifts a ban (idempotent) and clears the stored ban reason.</summary>
@@ -105,6 +174,7 @@ public sealed class User : AggregateRoot
     {
         IsBanned = false;
         BanReason = null;
+        SecurityStamp = NewSecurityStamp();
     }
 
     /// <summary>
@@ -120,6 +190,9 @@ public sealed class User : AggregateRoot
 
         PasswordHash = passwordHash;
         MustResetPassword = mustReset;
+        // A password change ends every session issued under the old one.
+        SecurityStamp = NewSecurityStamp();
+        RegisterSuccessfulLogin();
     }
 
     /// <summary>
@@ -141,5 +214,6 @@ public sealed class User : AggregateRoot
     {
         DeletedAtUtc = utc;
         IsActive = false;
+        SecurityStamp = NewSecurityStamp();
     }
 }

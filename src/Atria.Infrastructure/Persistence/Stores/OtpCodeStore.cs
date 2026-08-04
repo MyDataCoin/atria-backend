@@ -13,7 +13,8 @@ public sealed class OtpCodeStore : IOtpCodeStore
 
     public OtpCodeStore(AtriaDbContext db) => _db = db;
 
-    public async Task AddAsync(string phone, string codeHash, DateTime expiresAtUtc, CancellationToken ct)
+    public async Task AddAsync(
+        string phone, string codeHash, DateTime expiresAtUtc, string? requestedFromIp, CancellationToken ct)
         => await _db.OtpCodes.AddAsync(new OtpCode
         {
             Id = Guid.NewGuid(),
@@ -22,7 +23,8 @@ public sealed class OtpCodeStore : IOtpCodeStore
             ExpiresAtUtc = expiresAtUtc,
             Attempts = 0,
             Consumed = false,
-            CreatedAtUtc = DateTime.UtcNow
+            CreatedAtUtc = DateTime.UtcNow,
+            RequestedFromIp = requestedFromIp
         }, ct);
 
     public async Task<OtpEntry?> GetLatestActiveAsync(string phone, CancellationToken ct)
@@ -54,4 +56,16 @@ public sealed class OtpCodeStore : IOtpCodeStore
 
     public Task<int> CountRequestsSinceAsync(string phone, DateTime sinceUtc, CancellationToken ct)
         => _db.OtpCodes.CountAsync(o => o.Phone == phone && o.CreatedAtUtc >= sinceUtc, ct);
+
+    public async Task<(int Requests, int DistinctPhones)> CountRequestsFromIpSinceAsync(
+        string ipAddress, DateTime sinceUtc, CancellationToken ct)
+    {
+        // One pass over the window rather than two round trips: both numbers come from the same rows.
+        var phones = await _db.OtpCodes.AsNoTracking()
+            .Where(o => o.RequestedFromIp == ipAddress && o.CreatedAtUtc >= sinceUtc)
+            .Select(o => o.Phone)
+            .ToListAsync(ct);
+
+        return (phones.Count, phones.Distinct(StringComparer.Ordinal).Count());
+    }
 }

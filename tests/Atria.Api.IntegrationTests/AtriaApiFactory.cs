@@ -59,10 +59,49 @@ public sealed class CapturingSmsSender : ISmsSender
 ///   <item>removes the hosted background workers so they do not run during tests.</item>
 /// </list>
 /// </summary>
-public sealed class AtriaApiFactory : WebApplicationFactory<Program>
+public class AtriaApiFactory : WebApplicationFactory<Program>
 {
     /// <summary>Shared in-memory database name so all requests in a test see the same data.</summary>
     private const string InMemoryDbName = "atria-tests";
+
+    /// <summary>Throwaway 32-byte keys, base64-encoded. Distinct so a mix-up shows up as a failure.</summary>
+    private static readonly string TestSigningKey = Convert.ToBase64String(Enumerable.Repeat((byte)0x11, 32).ToArray());
+    private static readonly string TestEncryptionKey = Convert.ToBase64String(new byte[32]);
+    private static readonly string TestOtpPepper = Convert.ToBase64String(Enumerable.Repeat((byte)0x22, 32).ToArray());
+
+    static AtriaApiFactory()
+    {
+        // Secrets go in as ENVIRONMENT VARIABLES, not through ConfigureAppConfiguration, because the
+        // host reads two things before that source is merged: SecretsGuard (which refuses to start
+        // without them) and the eager Configuration.Get<JwtOptions>() that builds the bearer
+        // validation parameters. Setting them here means the test host is configured the same way
+        // production is — the guard runs for real rather than being switched off for tests.
+        SetIfUnset("ConnectionStrings__Postgres",
+            "Host=localhost;Port=5432;Database=atria_test;Username=test;Password=test");
+        SetIfUnset("Jwt__Issuer", "https://atria.local");
+        SetIfUnset("Jwt__Audience", "atria-api");
+        SetIfUnset("Jwt__SigningKey", TestSigningKey);
+        SetIfUnset("Encryption__Key", TestEncryptionKey);
+        SetIfUnset("Otp__HashPepper", TestOtpPepper);
+        SetIfUnset("Didit__ApiKey", "test-didit-api-key");
+        SetIfUnset("Didit__WebhookSecret", "test-didit-webhook-secret");
+        SetIfUnset("NikitaPro__Login", "test-login");
+        SetIfUnset("NikitaPro__ApiKey", "test-nikita-api-key");
+
+        // Rate limiting is read eagerly too (the limiter is built while the pipeline is composed),
+        // so it belongs here rather than in ConfigureAppConfiguration. The suite drives every request
+        // through one loopback address; at the production 5-per-minute window on the auth routes most
+        // of it would be rejected. The limiter's ROUTE COVERAGE — the actual finding — is asserted by
+        // AuthRateLimitTests, which sets the production numbers for itself.
+        SetIfUnset("RateLimiting__PermitLimit", "100000");
+        SetIfUnset("RateLimiting__WindowSeconds", "60");
+    }
+
+    private static void SetIfUnset(string name, string value)
+    {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(name)))
+            Environment.SetEnvironmentVariable(name, value);
+    }
 
     /// <summary>
     /// Captures the SMS the API would have sent, so a test can read the OTP the service actually
@@ -123,9 +162,6 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            // 32 zero bytes -> a valid base64 256-bit AES key for EncryptionOptions.Key.
-            var encryptionKey = System.Convert.ToBase64String(new byte[32]);
-
             var settings = new Dictionary<string, string?>
             {
                 // EF still binds Postgres at startup (health check + AddDbContext); a dummy is fine
@@ -133,16 +169,10 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 ["ConnectionStrings:Postgres"] =
                     "Host=localhost;Port=5432;Database=atria_test;Username=test;Password=test",
 
-                // Jwt (section "Jwt"). NOTE: Program.cs reads these EAGERLY
-                // (Configuration.Get<JwtOptions>()) to build the bearer VALIDATION parameters,
-                // which happens before this in-memory source is merged — so validation uses
-                // appsettings.json's Jwt values. Token SIGNING, by contrast, uses
-                // IOptions<JwtOptions> resolved lazily at request time and DOES see these overrides.
-                // Keep Issuer/Audience/SigningKey identical to appsettings.json so the signing and
-                // validation sides agree and tokens issued in tests validate on protected routes.
-                ["Jwt:Issuer"] = "https://atria.local",
-                ["Jwt:Audience"] = "atria-api",
-                ["Jwt:SigningKey"] = "dev-only-signing-key-not-a-real-secret-change-me-32+bytes",
+                // Jwt: Issuer/Audience/SigningKey are supplied as environment variables in the
+                // static constructor, because Program.cs reads them EAGERLY (to build the bearer
+                // VALIDATION parameters) before this in-memory source is merged. Setting them here
+                // too would leave signing and validation using different keys.
                 ["Jwt:AccessTokenMinutes"] = "15",
                 ["Jwt:RefreshTokenDays"] = "30",
 
@@ -154,8 +184,13 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 // Referral (section "Referral"): base URL used to build shareable deal links.
                 ["Referral:BaseUrl"] = "https://atria.test/invest",
 
-                // Encryption (section "Encryption"): base64 of exactly 32 bytes.
-                ["Encryption:Key"] = encryptionKey,
+                // Auth lockout (section "Auth:Lockout"). Every test class shares the one seeded
+                // "admin" row in the one in-memory database, and several of them deliberately log in
+                // with a wrong password. Under the production policy those attempts accumulate on the
+                // shared account and lock it out from under the tests that expect to sign in. The
+                // lockout itself is covered directly by AuthLockoutTests, which uses its own account.
+                ["Auth:Lockout:MaxFailedLogins"] = "1000",
+                ["Auth:Lockout:LockoutMinutes"] = "1",
 
                 // Otp (section "Otp"). There is no fixed test code: the production service always
                 // generates a real one and sends it. Tests read it from the captured SMS instead —
@@ -164,6 +199,9 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                 ["Otp:TtlMinutes"] = "5",
                 ["Otp:MaxAttempts"] = "5",
                 ["Otp:RequestsPerHour"] = "100",
+                // Generous per-address caps: the whole suite runs from one loopback address.
+                ["Otp:RequestsPerHourPerIp"] = "1000",
+                ["Otp:DistinctPhonesPerHourPerIp"] = "1000",
 
                 // Didit (section "Didit"): ApiKey/WebhookSecret/BaseUrl are [Required], BaseUrl is [Url].
                 // Blockchain:Anchor (EVM attestation anchoring). Bound and validated on start, so it
@@ -175,8 +213,7 @@ public sealed class AtriaApiFactory : WebApplicationFactory<Program>
                     "0x0000000000000000000000000000000000000000000000000000000000000001",
                 ["Blockchain:Anchor:UseLegacyGasPricing"] = "true",
 
-                ["Didit:ApiKey"] = "test-didit-api-key",
-                ["Didit:WebhookSecret"] = "test-didit-webhook-secret",
+                // ApiKey/WebhookSecret come from the environment (see the static constructor).
                 ["Didit:BaseUrl"] = "https://verification.didit.test",
                 ["Didit:WebhookToleranceSeconds"] = "300",
 

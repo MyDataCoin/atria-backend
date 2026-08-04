@@ -18,10 +18,9 @@ namespace Atria.Application.Tests.Auth;
 ///     across separate verify calls (anti-brute-force) and returns the locked error.
 ///
 /// Exercised end-to-end against a real <see cref="AtriaDbContext"/> (InMemory) +
-/// <see cref="UnitOfWork"/> + <see cref="OtpCodeStore"/>. The real <see cref="BcryptPasswordHasher"/>
-/// is used so the hashed/stored code round-trips exactly as in production. The SMS sender is a
-/// substitute (and is also used to capture the plaintext code the service generated, since the
-/// service never returns it).
+/// <see cref="UnitOfWork"/> + <see cref="OtpCodeStore"/>, so the peppered code hash round-trips
+/// exactly as in production. The SMS sender is a substitute (and is also used to capture the
+/// plaintext code the service generated, since the service never returns it).
 /// </summary>
 public sealed class OtpServiceRegressionTests
 {
@@ -32,12 +31,15 @@ public sealed class OtpServiceRegressionTests
         Length = 6,
         TtlMinutes = 5,
         MaxAttempts = 5,
-        RequestsPerHour = 100
+        RequestsPerHour = 100,
+        RequestsPerHourPerIp = 1000,
+        DistinctPhonesPerHourPerIp = 1000,
+        // Test-only pepper; production supplies one via Otp__HashPepper.
+        HashPepper = "dGVzdC1vbmx5LXBlcHBlci0zMi1ieXRlcy1sb25nISE="
     };
 
     private readonly AtriaDbContext _db = CreateDbContext();
     private readonly ISmsSender _sms = Substitute.For<ISmsSender>();
-    private readonly IPasswordHasher _hasher = new BcryptPasswordHasher();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
 
     public OtpServiceRegressionTests()
@@ -48,7 +50,7 @@ public sealed class OtpServiceRegressionTests
         var store = new OtpCodeStore(_db);
         var uow = new UnitOfWork(_db);
         var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<OtpService>.Instance;
-        return new OtpService(store, _sms, _hasher, _clock, uow, logger, Microsoft.Extensions.Options.Options.Create(Options));
+        return new OtpService(store, _sms, _clock, uow, logger, Microsoft.Extensions.Options.Options.Create(Options));
     }
 
     [Fact]

@@ -215,9 +215,14 @@ public sealed class DiditKycProvider : IKycProviderStrategy
     public bool VerifySignature(WebhookPayload payload)
     {
         // Never trust the body until both signature AND timestamp freshness pass.
-        if (string.IsNullOrEmpty(_options.WebhookSecret))
+        //
+        // "Configured" has to mean more than "non-empty": the committed default used to be the
+        // literal string CHANGE_ME, which passed an IsNullOrEmpty check and then produced a valid
+        // HMAC under a secret printed in the repository — i.e. anyone could forge an approval for
+        // their own KYC. SecretsGuard blocks that at startup; this is the second line.
+        if (string.IsNullOrWhiteSpace(_options.WebhookSecret) || _options.WebhookSecret.Length < 16)
         {
-            _logger.LogWarning("Didit webhook secret not configured; rejecting webhook.");
+            _logger.LogWarning("Didit webhook secret is missing or too short; rejecting webhook.");
             return false;
         }
 

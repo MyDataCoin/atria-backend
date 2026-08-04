@@ -61,7 +61,12 @@ public sealed class EvmTokenGateway : ITokenGateway
         // million million shares.
         var mint = new MintFunction { To = toAddress, Amount = new BigInteger(amount) };
 
-        var receipt = await handler.SendRequestAndWaitForReceiptAsync(tokenContractAddress, mint, null);
+        // Pass the caller's token through: waiting for a receipt polls indefinitely by default, so a
+        // shut-down or an abandoned request would otherwise leave a worker parked on a chain that has
+        // stopped producing blocks.
+        using var receiptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var receipt = await handler.SendRequestAndWaitForReceiptAsync(
+            tokenContractAddress, mint, receiptCts);
 
         // A receipt with status 0 is a reverted transaction — most often the address never made it
         // onto the allowlist. It costs gas and changes nothing, and reporting it as a successful
@@ -102,7 +107,9 @@ public sealed class EvmTokenGateway : ITokenGateway
             Uri = uri ?? string.Empty
         };
 
-        var receipt = await handler.SendRequestAndWaitForReceiptAsync(tokenContractAddress, report, null);
+        using var receiptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var receipt = await handler.SendRequestAndWaitForReceiptAsync(
+            tokenContractAddress, report, receiptCts);
         var succeeded = receipt.Status?.Value == 1;
 
         _logger.Log(

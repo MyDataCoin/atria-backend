@@ -16,7 +16,11 @@ internal sealed class OtpCodeConfiguration : IEntityTypeConfiguration<OtpCode>
         b.Property(o => o.Attempts).IsRequired();
         b.Property(o => o.Consumed).IsRequired();
         b.Property(o => o.CreatedAtUtc).IsRequired();
+        b.Property(o => o.RequestedFromIp).HasMaxLength(45); // IPv6 textual maximum
 
         b.HasIndex(o => o.Phone);
+        // Both issuance caps are "count rows since T", so both want the timestamp in the index.
+        b.HasIndex(o => new { o.Phone, o.CreatedAtUtc });
+        b.HasIndex(o => new { o.RequestedFromIp, o.CreatedAtUtc });
     }
 }

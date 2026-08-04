@@ -1,9 +1,11 @@
 using Asp.Versioning;
 using Atria.Api.Controllers.Common;
 using Atria.Api.Controllers.Requests;
+using Atria.Api.Security;
 using Atria.Application.Abstractions;
 using Atria.Application.Auth.Commands;
 using Atria.Application.Auth.Dtos;
+using Atria.Application.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,6 +23,26 @@ namespace Atria.Api.Controllers;
 public sealed class AuthController : ApiControllerBase
 {
     public AuthController(ISender sender) : base(sender) { }
+
+    /// <summary>
+    /// Returns the token pair and, on success, ALSO plants the refresh token in an HttpOnly cookie.
+    /// </summary>
+    /// <remarks>
+    /// The body keeps carrying the refresh token so non-browser callers (the integration suite,
+    /// scripts, any future mobile client) are unaffected. Browsers are expected to ignore it and let
+    /// the cookie do the work — see <see cref="RefreshTokenCookie"/> for why leaving a thirty-day
+    /// credential in localStorage was the problem worth solving.
+    /// </remarks>
+    private IActionResult TokensWithRefreshCookie(Result<AuthTokensDto> result)
+    {
+        if (result.IsSuccess)
+        {
+            RefreshTokenCookie.MarkUncacheable(Response);
+            RefreshTokenCookie.Write(Response, result.Value.RefreshToken, result.Value.RefreshExpiresAtUtc);
+        }
+
+        return ToActionResult(result);
+    }
 
     /// <summary>Logs an admin (or super admin) in with a username/password and returns a token pair.</summary>
     /// <remarks>
@@ -42,7 +64,7 @@ public sealed class AuthController : ApiControllerBase
     public async Task<IActionResult> AdminLogin(AdminLoginRequest request, CancellationToken ct)
     {
         var result = await Sender.Send(new AdminLoginCommand(request.Username, request.Password), ct);
-        return ToActionResult(result);
+        return TokensWithRefreshCookie(result);
     }
 
     /// <summary>Logs a realtor in with a username/password and returns a token pair.</summary>
@@ -64,7 +86,7 @@ public sealed class AuthController : ApiControllerBase
     public async Task<IActionResult> RealtorLogin(RealtorLoginRequest request, CancellationToken ct)
     {
         var result = await Sender.Send(new RealtorLoginCommand(request.Username, request.Password), ct);
-        return ToActionResult(result);
+        return TokensWithRefreshCookie(result);
     }
 
     /// <summary>Rotates a refresh token into a fresh access + refresh pair.</summary>
@@ -83,10 +105,20 @@ public sealed class AuthController : ApiControllerBase
     [ProducesResponseType<AuthTokensDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Refresh(RefreshTokenRequest request, CancellationToken ct)
+    public async Task<IActionResult> Refresh(RefreshTokenRequest? request, CancellationToken ct)
     {
-        var result = await Sender.Send(new RefreshTokenCommand(request.RefreshToken), ct);
-        return ToActionResult(result);
+        // The cookie wins when present: a browser that stopped storing the token sends an empty
+        // body, and a stale copy in a body should never override the one the browser holds.
+        var presented = RefreshTokenCookie.Read(Request) ?? request?.RefreshToken;
+
+        var result = await Sender.Send(new RefreshTokenCommand(presented ?? string.Empty), ct);
+
+        // A refused refresh means the cookie cannot authenticate anything any more; leaving it in
+        // place only guarantees the next attempt fails the same way.
+        if (result.IsFailure)
+            RefreshTokenCookie.Clear(Response);
+
+        return TokensWithRefreshCookie(result);
     }
 
     /// <summary>Requests a one-time SMS code for phone registration/login.</summary>
@@ -138,6 +170,29 @@ public sealed class AuthController : ApiControllerBase
     public async Task<IActionResult> VerifyPhoneOtp(VerifyOtpRequest request, CancellationToken ct)
     {
         var result = await Sender.Send(new VerifyPhoneOtpCommand(request.Phone, request.Code), ct);
+        return TokensWithRefreshCookie(result);
+    }
+
+    /// <summary>Ends the session: revokes the refresh token and clears its cookie.</summary>
+    /// <remarks>
+    /// Anonymous, because a session that has already lost its access token still has to be endable.
+    /// The refresh token is taken from the cookie when present, else from the body. Always answers
+    /// <c>204</c>: whether the token existed is not something an unauthenticated caller needs told.
+    /// </remarks>
+    /// <param name="request">Optional body carrying the refresh token (non-browser clients).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="204">The session was ended.</response>
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Logout(RefreshTokenRequest? request, CancellationToken ct)
+    {
+        var presented = RefreshTokenCookie.Read(Request) ?? request?.RefreshToken;
+
+        var result = await Sender.Send(new LogoutCommand(presented ?? string.Empty), ct);
+
+        RefreshTokenCookie.MarkUncacheable(Response);
+        RefreshTokenCookie.Clear(Response);
+
         return ToActionResult(result);
     }
 }

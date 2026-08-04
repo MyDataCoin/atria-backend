@@ -16,6 +16,9 @@ namespace Atria.Infrastructure.Identity;
 /// </summary>
 public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
+    /// <summary>Claim carrying <c>User.SecurityStamp</c>; re-validated on every authenticated request.</summary>
+    public const string SecurityStampClaimType = "sstamp";
+
     private readonly JwtOptions _options;
     private readonly IDateTimeProvider _clock;
 
@@ -25,7 +28,7 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
         _clock = clock;
     }
 
-    public AccessToken GenerateAccessToken(Guid userId, string email, Role role)
+    public AccessToken GenerateAccessToken(Guid userId, Role role, string securityStamp)
     {
         var now = _clock.UtcNow;
         var expiresAtUtc = now.AddMinutes(_options.AccessTokenMinutes);
@@ -36,11 +39,13 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new(JwtRegisteredClaimNames.Email, email),
+            // No email/phone claim: the token is stored client-side, so anything in it is published
+            // to whoever gets the token. The subject is enough to look the account up server-side.
             // Emit the role under the literal "role" claim so it matches the API's
             // RoleClaimType="role" (MapInboundClaims=false). Using ClaimTypes.Role here
             // would put it under the long schema URI and break [Authorize(Roles=...)].
             new("role", role.ToString()),
+            new(SecurityStampClaimType, securityStamp),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 

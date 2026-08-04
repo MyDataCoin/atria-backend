@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Infrastructure.Configuration;
@@ -9,15 +10,14 @@ using Microsoft.Extensions.Options;
 namespace Atria.Infrastructure.Identity;
 
 /// <summary>
-/// Phone OTP service: rate-limited issuance, hashed single-use codes, attempt lockout,
-/// and constant-time verification. The plaintext code never leaves this method scope,
-/// is never returned, and is never logged.
+/// Phone OTP service: rate-limited issuance (per phone AND per address), peppered single-use
+/// code hashes, attempt lockout, and constant-time verification. The plaintext code never leaves
+/// this method scope, is never returned, and is never logged; phone numbers are masked in logs.
 /// </summary>
 public sealed class OtpService : IOtpService
 {
     private readonly IOtpCodeStore _store;
     private readonly ISmsSender _sms;
-    private readonly IPasswordHasher _hasher;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<OtpService> _logger;
@@ -26,7 +26,6 @@ public sealed class OtpService : IOtpService
     public OtpService(
         IOtpCodeStore store,
         ISmsSender sms,
-        IPasswordHasher hasher,
         IDateTimeProvider clock,
         IUnitOfWork unitOfWork,
         ILogger<OtpService> logger,
@@ -34,7 +33,6 @@ public sealed class OtpService : IOtpService
     {
         _store = store;
         _sms = sms;
-        _hasher = hasher;
         _clock = clock;
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -44,19 +42,40 @@ public sealed class OtpService : IOtpService
     public async Task<Result> RequestAsync(string phone, string? ipAddress, CancellationToken ct)
     {
         var now = _clock.UtcNow;
-
-        // Rate limit: cap codes issued per phone within the rolling hour.
         var sinceUtc = now.AddHours(-1);
+
+        var rateLimited = Result.Failure(Error.Conflict(
+            "otp.rate_limited", "Too many OTP requests. Please try again later."));
+
+        // Cap 1 — per phone. Stops someone spamming one victim's handset.
         var recentRequests = await _store.CountRequestsSinceAsync(phone, sinceUtc, ct);
         if (recentRequests >= _options.RequestsPerHour)
-            return Result.Failure(Error.Conflict(
-                "otp.rate_limited", "Too many OTP requests. Please try again later."));
+            return rateLimited;
+
+        // Cap 2 — per address. The per-phone cap says nothing about a caller walking a list of
+        // numbers: five codes each, no phone limit tripped, and the SMS bill is ours. The count of
+        // DISTINCT numbers is what separates a person retrying their own login from enumeration.
+        if (!string.IsNullOrWhiteSpace(ipAddress))
+        {
+            var (requestsFromIp, distinctPhones) =
+                await _store.CountRequestsFromIpSinceAsync(ipAddress, sinceUtc, ct);
+
+            if (requestsFromIp >= _options.RequestsPerHourPerIp ||
+                distinctPhones >= _options.DistinctPhonesPerHourPerIp)
+            {
+                _logger.LogWarning(
+                    "OTP issuance refused for {Phone}: {Requests} request(s) across {DistinctPhones} "
+                    + "number(s) from {Ip} in the last hour.",
+                    Mask(phone), requestsFromIp, distinctPhones, ipAddress);
+                return rateLimited;
+            }
+        }
 
         var code = GenerateNumericCode(_options.Length);
-        var codeHash = _hasher.Hash(code);
+        var codeHash = HashCode(phone, code);
         var expiresAtUtc = now.AddMinutes(_options.TtlMinutes);
 
-        await _store.AddAsync(phone, codeHash, expiresAtUtc, ct);
+        await _store.AddAsync(phone, codeHash, expiresAtUtc, ipAddress, ct);
         // Commit the code BEFORE sending the SMS, otherwise verification can't find it.
         await _unitOfWork.SaveChangesAsync(ct);
 
@@ -74,7 +93,7 @@ public sealed class OtpService : IOtpService
             // status code instead of an opaque 500 "An unexpected error occurred".
             _logger.LogError(
                 ex, "OTP SMS delivery failed for {Phone}. GatewayStatus={GatewayStatus}",
-                phone, ex.GatewayStatus?.ToString() ?? "<none>");
+                Mask(phone), ex.GatewayStatus?.ToString() ?? "<none>");
             return Result.Failure(Error.ExternalService(
                 "sms.gateway_error",
                 ex.GatewayStatus is { } gatewayStatus
@@ -85,7 +104,7 @@ public sealed class OtpService : IOtpService
         {
             // Any other unexpected failure while contacting the gateway: still a downstream
             // problem, not a server bug — return 502 rather than letting it become a generic 500.
-            _logger.LogError(ex, "OTP SMS delivery failed unexpectedly for {Phone}.", phone);
+            _logger.LogError(ex, "OTP SMS delivery failed unexpectedly for {Phone}.", Mask(phone));
             return Result.Failure(Error.ExternalService(
                 "sms.gateway_unreachable",
                 "SMS gateway is currently unavailable. Please try again later."));
@@ -110,8 +129,7 @@ public sealed class OtpService : IOtpService
             return Result.Failure(Error.Conflict(
                 "otp.locked", "Too many incorrect attempts. Please request a new code."));
 
-        // BCrypt.Verify performs a constant-time comparison of the candidate vs stored hash.
-        if (!_hasher.Verify(code, entry.CodeHash))
+        if (!VerifyCode(phone, code, entry.CodeHash))
         {
             await _store.IncrementAttemptsAsync(entry.Id, ct);
             // Persist the attempt so the MaxAttempts lockout actually accumulates (anti-brute-force).
@@ -134,4 +152,58 @@ public sealed class OtpService : IOtpService
             digits[i] = (char)('0' + RandomNumberGenerator.GetInt32(0, 10));
         return new string(digits);
     }
+
+    /// <summary>
+    /// Hashes a code as <c>HMAC-SHA256(pepper, phone | code)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This deliberately is NOT a slow KDF. BCrypt at cost 12 was ~250 ms of CPU per call on two
+    /// anonymous endpoints, which turned request-otp and verify-otp into a way to spend the server's
+    /// processor from the outside — one request, a quarter second of work, no authentication needed.
+    /// </para>
+    /// <para>
+    /// A slow hash was buying nothing anyway. What protects a six-digit code is the attempt limit and
+    /// the five-minute expiry, not the cost of one guess; and against an offline attacker holding the
+    /// table, cost 12 over a million-value keyspace is hours, not safety. The pepper is what actually
+    /// helps there — it is not in the database, so a dump alone does not reverse the codes.
+    /// </para>
+    /// <para>
+    /// The phone is bound into the hash so a row cannot be replayed against a different number.
+    /// </para>
+    /// </remarks>
+    private string HashCode(string phone, string code)
+    {
+        var pepper = Convert.FromBase64String(_options.HashPepper);
+        var message = Encoding.UTF8.GetBytes($"{phone}|{code}");
+        return Convert.ToHexString(HMACSHA256.HashData(pepper, message));
+    }
+
+    /// <summary>Constant-time comparison of a candidate code against the stored hash.</summary>
+    private bool VerifyCode(string phone, string code, string storedHash)
+    {
+        byte[] stored;
+        try
+        {
+            stored = Convert.FromHexString(storedHash);
+        }
+        catch (FormatException)
+        {
+            // A row written by an older scheme cannot be verified under this one; fail closed.
+            return false;
+        }
+
+        var candidate = Convert.FromHexString(HashCode(phone, code));
+        return CryptographicOperations.FixedTimeEquals(stored, candidate);
+    }
+
+    /// <summary>
+    /// Masks a phone number for logging: <c>+996700123456</c> becomes <c>+996***456</c>.
+    /// </summary>
+    /// <remarks>
+    /// Full numbers in application logs are personal data sitting outside every control built for
+    /// the database — no encryption at rest, no retention rule, no access log of its own.
+    /// </remarks>
+    private static string Mask(string phone)
+        => phone.Length <= 7 ? "***" : $"{phone[..4]}***{phone[^3..]}";
 }

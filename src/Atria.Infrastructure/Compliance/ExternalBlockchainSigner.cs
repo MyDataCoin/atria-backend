@@ -1,4 +1,7 @@
+using System.Globalization;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Atria.Application.Abstractions;
 using Atria.Infrastructure.Configuration;
@@ -50,13 +53,65 @@ public sealed class ExternalBlockchainSigner : IBlockchainSigner
             "Submitting {OperationType} to external signer on chain {ChainId}.",
             request.OperationType, body.ChainId);
 
-        using var response = await _httpClient.PostAsJsonAsync(endpoint, body, ct);
+        // Serialize once: the bytes that are signed must be the bytes that are sent, or the
+        // signature covers a different request than the one custody receives.
+        var payloadJson = JsonSerializer.Serialize(body);
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
+        };
+
+        AuthenticateRequest(message, payloadJson);
+
+        using var response = await _httpClient.SendAsync(message, ct);
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<SignAndSubmitResponse>(cancellationToken: ct)
                      ?? throw new JsonException("External signer returned an empty response.");
 
         return new SigningResult(result.SignedPayload, result.SubmissionReference);
+    }
+
+    /// <summary>
+    /// Signs the outgoing request so custody can tell a genuine instruction from anything else that
+    /// happens to be able to reach it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Sending an unauthenticated POST and relying on the signer being on a private network makes
+    /// network placement the whole of the access control. It is not enough for an endpoint whose job
+    /// is to create shares out of nothing: a compromised neighbouring pod or a server-side request
+    /// forgery elsewhere in the cluster reaches it just as easily as we do.
+    /// </para>
+    /// <para>
+    /// The scheme is HMAC-SHA256 over <c>timestamp.nonce.body</c>, sent alongside the timestamp and
+    /// nonce. Covering the body means the recipient address and amount cannot be altered in flight;
+    /// the timestamp lets custody bound replays, and the nonce lets it reject exact repeats inside
+    /// that window.
+    /// </para>
+    /// </remarks>
+    private void AuthenticateRequest(HttpRequestMessage message, string payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(_options.SignerSharedSecret))
+        {
+            // Loud, because an unsigned mint instruction is not a normal operating state.
+            _logger.LogWarning(
+                "Blockchain:SignerSharedSecret is not configured — the request to custody is "
+                + "unauthenticated and anything able to reach the signer can impersonate this API.");
+            return;
+        }
+
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+        var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+
+        var signature = Convert.ToHexString(HMACSHA256.HashData(
+            Convert.FromBase64String(_options.SignerSharedSecret),
+            Encoding.UTF8.GetBytes($"{timestamp}.{nonce}.{payloadJson}")));
+
+        message.Headers.TryAddWithoutValidation("X-Atria-Timestamp", timestamp);
+        message.Headers.TryAddWithoutValidation("X-Atria-Nonce", nonce);
+        message.Headers.TryAddWithoutValidation("X-Atria-Signature", signature);
     }
 
     // Wire DTOs for the external signer contract.

@@ -3,6 +3,7 @@ using System;
 using Atria.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Atria.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AtriaDbContext))]
-    partial class AtriaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260804034204_AddUserLockoutAndSecurityStamp")]
+    partial class AddUserLockoutAndSecurityStamp
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1694,17 +1697,9 @@ namespace Atria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<string>("RequestedFromIp")
-                        .HasMaxLength(45)
-                        .HasColumnType("character varying(45)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Phone");
-
-                    b.HasIndex("Phone", "CreatedAtUtc");
-
-                    b.HasIndex("RequestedFromIp", "CreatedAtUtc");
 
                     b.ToTable("otp_codes", (string)null);
                 });

@@ -8,7 +8,14 @@ namespace Atria.Application.Auth.Dtos;
 /// <param name="AccessToken">The signed JWT access token to send as a Bearer token on subsequent requests.</param>
 /// <param name="ExpiresAtUtc">UTC instant at which the access token expires.</param>
 /// <param name="RefreshToken">The rotating refresh token; exchange it at <c>auth/refresh</c> for a new pair.</param>
-public sealed record AuthTokensDto(string AccessToken, DateTime ExpiresAtUtc, string RefreshToken);
+/// <param name="RefreshExpiresAtUtc">
+/// UTC instant at which the REFRESH token expires. Reported separately because it outlives the
+/// access token by weeks, and the API needs it to give the refresh cookie the right lifetime —
+/// scoping that cookie to the access token's fifteen minutes would log everyone out a quarter of an
+/// hour after signing in.
+/// </param>
+public sealed record AuthTokensDto(
+    string AccessToken, DateTime ExpiresAtUtc, string RefreshToken, DateTime RefreshExpiresAtUtc);
 
 /// <summary>
 /// Builds an <see cref="AuthTokensDto"/> for a user: issues a fresh access token +
@@ -19,6 +26,7 @@ public sealed record AuthTokensDto(string AccessToken, DateTime ExpiresAtUtc, st
 /// </summary>
 internal static class AuthTokensFactory
 {
+
     public static async Task<AuthTokensDto> IssueAsync(
         User user,
         IJwtTokenGenerator jwt,
@@ -26,9 +34,7 @@ internal static class AuthTokensFactory
         IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        // Identifier claim: a credential account's username, else the phone number (OTP accounts).
-        var identifier = user.Username ?? user.PhoneNumber ?? string.Empty;
-        var access = jwt.GenerateAccessToken(user.Id, identifier, user.Role);
+        var access = jwt.GenerateAccessToken(user.Id, user.Role, user.SecurityStamp);
         var refresh = jwt.GenerateRefreshToken();
 
         // Store with the refresh token's OWN lifetime (RefreshTokenDays), not the access TTL.
@@ -38,7 +44,7 @@ internal static class AuthTokensFactory
         // revoked old token or a newly created user) so rotation actually works.
         await unitOfWork.SaveChangesAsync(ct);
 
-        return new AuthTokensDto(access.Token, access.ExpiresAtUtc, refresh.Token);
+        return new AuthTokensDto(access.Token, access.ExpiresAtUtc, refresh.Token, refresh.ExpiresAtUtc);
     }
 
     /// <summary>
@@ -49,6 +55,11 @@ internal static class AuthTokensFactory
     /// same generic 401 so nothing is leaked. The account must have a password hash (a credential
     /// account); a row without one (e.g. an investor) is treated as invalid.
     /// </summary>
+    /// <remarks>
+    /// The account itself counts failures and locks per <see cref="IAuthLockoutPolicy"/>. Per-IP
+    /// throttling in the pipeline does not cover this case: an attacker with a pool of addresses spends
+    /// one attempt per address and never trips it, so the limit that has to hold lives on the row.
+    /// </remarks>
     public static async Task<Result<AuthTokensDto>> IssueForCredentialLoginAsync(
         string username,
         string password,
@@ -56,21 +67,49 @@ internal static class AuthTokensFactory
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwt,
         IRefreshTokenStore refreshTokens,
+        IDateTimeProvider clock,
+        IAuthLockoutPolicy lockout,
         IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
         var invalid = Result.Failure<AuthTokensDto>(
             Error.Unauthorized("auth.invalid_credentials", "Invalid username or password."));
 
+        var now = clock.UtcNow;
         var user = await users.GetByUsernameAsync(username, ct);
-        if (user is null || user.PasswordHash is null || !passwordHasher.Verify(password, user.PasswordHash))
+
+        // Unknown account: nothing to count against, and the answer must not differ from a wrong
+        // password or the endpoint becomes a username oracle.
+        if (user is null || user.PasswordHash is null)
             return invalid;
+
+        // A locked account is refused before the password is even checked — otherwise the lockout
+        // still burns a BCrypt verification per attempt and stays a CPU amplifier.
+        if (user.IsLockedOut(now))
+            return invalid;
+
+        if (!passwordHasher.Verify(password, user.PasswordHash))
+        {
+            user.RegisterFailedLogin(now, lockout.MaxFailedLogins, lockout.LockoutDuration);
+            users.Update(user);
+            await unitOfWork.SaveChangesAsync(ct);
+            return invalid;
+        }
 
         // Correct credentials but banned: distinct 403 so the client can show the blocked screen and
         // offer an appeal. A wrong password stays a generic 401 (ban status is not leaked). The ban
         // reason (when set) is carried in the error message so the API surfaces it as banReason/detail.
         if (user.IsBanned)
             return Result.Failure<AuthTokensDto>(Error.AccountBanned(user.BanReason));
+
+        // Only touch the row when there is a streak or a lapsed lock to clear. Writing on every
+        // successful sign-in turns the common path into an UPDATE for no gain, and lets two
+        // concurrent logins for the same account collide on it.
+        if (user.HasLoginFailureState)
+        {
+            user.RegisterSuccessfulLogin();
+            users.Update(user);
+        }
 
         return Result.Success(await IssueAsync(user, jwt, refreshTokens, unitOfWork, ct));
     }
