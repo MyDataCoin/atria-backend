@@ -79,6 +79,45 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Check deploy credentials
+        # appleboy/ssh-action reports a missing key as "can't connect without a private SSH key or
+        # password", which does not say WHICH secret is absent or what to do about it. Fail here
+        # instead, before a bundle is built and copied, with the actual instruction.
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_SSH_PASSWORD: ${{ secrets.DEPLOY_SSH_PASSWORD }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          missing=""
+          [ -z "$DEPLOY_HOST" ] && missing="$missing DEPLOY_HOST"
+          [ -z "$DEPLOY_USER" ] && missing="$missing DEPLOY_USER"
+          # Either credential will do. The key is preferred; the password keeps the deploy
+          # working until one is issued.
+          if [ -z "$DEPLOY_SSH_KEY" ] && [ -z "$DEPLOY_SSH_PASSWORD" ]; then
+            missing="$missing DEPLOY_SSH_KEY-or-DEPLOY_SSH_PASSWORD"
+          fi
+
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secret(s):$missing"
+            echo ""
+            echo "Set DEPLOY_SSH_PASSWORD to deploy with the password you already have, or"
+            echo "DEPLOY_SSH_KEY to switch to key authentication (preferred — the same session"
+            echo "carries the database password and the provider API keys to the server):"
+            echo "  ssh-keygen -t ed25519 -C 'github-actions-deploy' -f ./atria_deploy -N ''"
+            echo "  ssh-copy-id -i ./atria_deploy.pub $DEPLOY_USER@$DEPLOY_HOST"
+            echo "  gh secret set DEPLOY_SSH_KEY < ./atria_deploy   # the PRIVATE key, whole file"
+            echo "  rm ./atria_deploy ./atria_deploy.pub"
+            exit 1
+          fi
+
+          if [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo "::warning::Deploying with a PASSWORD. This session also carries the database" \
+                 "password and the provider API keys — move to DEPLOY_SSH_KEY when one is issued."
+          else
+            echo "Deploying with an SSH key."
+          fi
+
       - name: Package deployment bundle
         # `external` carries the Tessera submodule that Atria.Infrastructure project-references.
         # Leaving it out ships a bundle whose `docker compose build` cannot restore.
@@ -98,7 +137,16 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
+          # Key first, password as a fallback. appleboy's actions use whichever is non-empty, so
+          # provisioning DEPLOY_SSH_KEY later switches this over on its own — no workflow edit, and
+          # the password stops being consulted the moment a key exists.
+          #
+          # SECURITY: a password on the production host is the weakest link in this pipeline. The
+          # same session carries POSTGRES_PASSWORD, DIDIT_API_KEY and NIKITA_PRO_API_KEY to the
+          # server, so whoever holds it holds those too. Finding M-14 of the 2026-08-04 review stays
+          # OPEN until a key is issued and `PasswordAuthentication no` is set on the host.
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
           source: "deploy.tar.gz"
           # Dedicated to this repo only — do NOT point this at /opt/atria. That path is also
@@ -141,7 +189,16 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
+          # Key first, password as a fallback. appleboy's actions use whichever is non-empty, so
+          # provisioning DEPLOY_SSH_KEY later switches this over on its own — no workflow edit, and
+          # the password stops being consulted the moment a key exists.
+          #
+          # SECURITY: a password on the production host is the weakest link in this pipeline. The
+          # same session carries POSTGRES_PASSWORD, DIDIT_API_KEY and NIKITA_PRO_API_KEY to the
+          # server, so whoever holds it holds those too. Finding M-14 of the 2026-08-04 review stays
+          # OPEN until a key is issued and `PasswordAuthentication no` is set on the host.
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
           envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,JWT_SIGNING_KEY,ENCRYPTION_KEY,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,REFERRAL_BASE_URL,MEDIA_SCP_HOST,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
           script: |
