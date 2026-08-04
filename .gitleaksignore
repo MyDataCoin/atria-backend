@@ -1,0 +1,11 @@
+# Findings that have been reviewed and handled. One fingerprint per line
+# (commit:file:rule:line), so a NEW occurrence of the same pattern still fails the build.
+
+# The at-rest PII encryption key that shipped in the first commit's appsettings.json.
+# This was a REAL leak — finding C-2 of the 2026-08-04 code review.
+#
+# Handling: blanked at HEAD, and SecretsGuard now refuses to start when a secret hashes to this
+# value, so it cannot authenticate anything even if someone pastes it back. It is being rotated.
+# History is left alone deliberately: rewriting it would invalidate every existing clone and the
+# value is already public, so the rewrite buys nothing the rotation does not.
+517cfa6bf57b0db4f42cbb52fd4eaa046c730bc1:src/Atria.Api/appsettings.json:generic-api-key:23

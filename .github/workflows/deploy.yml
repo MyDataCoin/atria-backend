@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # external/tessera is a git SUBMODULE, and Atria.Infrastructure reaches Nethereum only
+          # through its ProjectReference into it. A plain checkout leaves that directory empty, the
+          # reference resolves to nothing, and the build fails on every Nethereum type.
+          submodules: recursive
 
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v4
@@ -53,9 +58,12 @@ jobs:
           fetch-depth: 0
 
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The gitleaks ACTION requires a paid licence for organisation-owned repositories; the
+        # scanner it wraps does not. Pinned by digest-less tag on the official image, which is the
+        # same binary without the licence check.
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.21.2 \
+            detect --source . --redact --no-banner --verbose
 
   deploy:
     name: Deploy to server
@@ -68,8 +76,12 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Package deployment bundle
+        # `external` carries the Tessera submodule that Atria.Infrastructure project-references.
+        # Leaving it out ships a bundle whose `docker compose build` cannot restore.
         run: |
           tar -czf deploy.tar.gz \
             Dockerfile \
@@ -78,7 +90,8 @@ jobs:
             Directory.Build.props \
             Directory.Packages.props \
             Atria.sln \
-            src
+            src \
+            external
 
       - name: Copy bundle to server
         uses: appleboy/scp-action@v0.1.7
