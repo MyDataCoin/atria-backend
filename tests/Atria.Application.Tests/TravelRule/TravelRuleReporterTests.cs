@@ -41,7 +41,13 @@ public sealed class TravelRuleReporterTests
     private void GivenOurInvestorAt(string address, bool verified = true)
     {
         var profile = ComplianceProfile.Create(_investorId, address);
-        _profiles.GetByWalletAsync(address, Arg.Any<CancellationToken>()).Returns(profile);
+
+        // The repository resolves an address whatever case it arrives in; the substitute has to do
+        // the same, or this suite would pass while the real lookup silently matched nothing.
+        _profiles.GetByWalletAsync(
+                Arg.Is<string>(a => string.Equals(a, address, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<CancellationToken>())
+            .Returns(profile);
 
         if (!verified) return;
 
@@ -74,6 +80,23 @@ public sealed class TravelRuleReporterTests
         message.Amount.Should().Be(100_000m);
         message.Status.Should().Be(TravelRuleStatus.Pending);
         message.BeneficiaryName.Should().BeNull("we do not guess at who is on the other side");
+    }
+
+    /// <summary>
+    /// The chain hands back lowercase hex; the investor's file holds the EIP-55 mixed-case form they
+    /// submitted. If those two do not resolve to one investor, no disclosure is ever assembled and
+    /// the queue looks reassuringly empty.
+    /// </summary>
+    [Fact]
+    public async Task An_address_off_the_chain_resolves_to_the_investor_who_submitted_it_mixed_case()
+    {
+        GivenOurInvestorAt("0xAbC1111111111111111111111111111111111111");
+
+        var message = await NewReporter().ReportTransferAsync(
+            Issue(), "0xabc1111111111111111111111111111111111111", Outside, 1_000, TxHash,
+            CancellationToken.None);
+
+        message.Should().NotBeNull();
     }
 
     [Fact]

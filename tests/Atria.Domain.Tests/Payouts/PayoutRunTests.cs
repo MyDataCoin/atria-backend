@@ -133,6 +133,18 @@ public sealed class PayoutRunTests
         act.Should().Throw<DomainException>().WithMessage("*purpose*");
     }
 
+    /// <summary>
+    /// A third decimal cannot be divided into minor units, so the lines would add up to one number
+    /// while the run reported another and the outstanding balance never reached zero.
+    /// </summary>
+    [Fact]
+    public void An_amount_finer_than_a_minor_unit_is_refused_rather_than_rounded()
+    {
+        var act = () => Run(Register(1, 1), declared: 100.005m);
+
+        act.Should().Throw<DomainException>().WithMessage("*decimal places*");
+    }
+
     [Fact]
     public void A_new_distribution_is_a_draft_and_pays_nobody_yet()
     {

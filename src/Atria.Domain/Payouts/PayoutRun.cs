@@ -94,6 +94,15 @@ public sealed class PayoutRun : AggregateRoot
                 "A distribution must be computed against a snapshot taken for that purpose.");
         if (declaredAmount <= 0)
             throw new DomainException("The declared amount must be positive.");
+
+        // Refused rather than rounded. The lines are divided in minor units, so a third decimal in
+        // the declared total would leave the run permanently short of itself: the lines would add up
+        // to one number and DeclaredAmount would report another, and OutstandingAmount would never
+        // reach zero however many holders were paid. Quietly rounding someone's declared
+        // distribution is the other way to get there, and it is worse — nobody would be told.
+        if (decimal.Round(declaredAmount, MinorUnitScale) != declaredAmount)
+            throw new DomainException(
+                $"The declared amount must be given to {MinorUnitScale} decimal places.");
         if (string.IsNullOrWhiteSpace(currency))
             throw new DomainException("Currency is required.");
         if (createdByUserId == Guid.Empty)
