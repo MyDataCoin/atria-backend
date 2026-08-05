@@ -79,7 +79,15 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Check deploy credentials
+      - name: Check deploy secrets
+        # TWO classes of secret are checked here, both before anything is copied to the server.
+        #
+        # SSH credentials, so a missing one is not reported as appleboy's opaque "can't connect
+        # without a private SSH key or password"; and every variable docker-compose.yml marks
+        # required with `${VAR:?}`, because otherwise the first sign of a missing one is compose
+        # aborting ON THE SERVER, after the bundle has been copied and with the running stack
+        # already torn down. The required list is read out of the compose file rather than
+        # duplicated, so adding a `${NEW_VAR:?}` there cannot drift from this check.
         # appleboy/ssh-action reports a missing key as "can't connect without a private SSH key or
         # password", which does not say WHICH secret is absent or what to do about it. Fail here
         # instead, before a bundle is built and copied, with the actual instruction.
@@ -88,6 +96,16 @@ jobs:
           DEPLOY_SSH_PASSWORD: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          # The application secrets docker-compose.yml marks required. Checked here so a missing
+          # one fails in ten seconds rather than after the bundle is on the server.
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          OTP_HASH_PEPPER: ${{ secrets.OTP_HASH_PEPPER }}
+          NIKITA_PRO_LOGIN: ${{ secrets.NIKITA_PRO_LOGIN }}
+          NIKITA_PRO_API_KEY: ${{ secrets.NIKITA_PRO_API_KEY }}
+          DIDIT_API_KEY: ${{ secrets.DIDIT_API_KEY }}
+          DIDIT_WEBHOOK_SECRET: ${{ secrets.DIDIT_WEBHOOK_SECRET }}
         run: |
           missing=""
           [ -z "$DEPLOY_HOST" ] && missing="$missing DEPLOY_HOST"
@@ -117,6 +135,24 @@ jobs:
           else
             echo "Deploying with an SSH key."
           fi
+
+          # Every ${VAR:?...} in docker-compose.yml has to arrive in the remote shell.
+          app_missing=""
+          for var in $(grep -oE '\$\{[A-Z_]+:\?' docker-compose.yml | tr -d '${:?' | sort -u); do
+            eval "value=\${$var:-}"
+            [ -z "$value" ] && app_missing="$app_missing $var"
+          done
+
+          if [ -n "$app_missing" ]; then
+            echo "::error::docker-compose.yml requires these, and they are not set as repository secrets:$app_missing"
+            echo ""
+            echo "Each is a secret the app refuses to start without, by design — see SecretsGuard."
+            echo "Generate a value with:  openssl rand -base64 32"
+            echo "Then, for each one:     gh secret set <NAME>"
+            exit 1
+          fi
+
+          echo "All secrets required by docker-compose.yml are present."
 
       - name: Package deployment bundle
         # `external` carries the Tessera submodule that Atria.Infrastructure project-references.
@@ -170,6 +206,12 @@ jobs:
           # secrets: JWT_SIGNING_KEY (>=32 chars) and ENCRYPTION_KEY (base64 of exactly 32 bytes).
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          # Pepper for the stored OTP hashes. Must differ from ENCRYPTION_KEY: one leaked secret
+          # should not hand over both the PII at rest and the login codes.
+          OTP_HASH_PEPPER: ${{ secrets.OTP_HASH_PEPPER }}
+          # Authenticates this API to the custody signer. Optional — an empty value only means the
+          # request goes unsigned, which the app logs a warning about.
+          BLOCKCHAIN_SIGNER_SHARED_SECRET: ${{ secrets.BLOCKCHAIN_SIGNER_SHARED_SECRET }}
           # Static admin login. Only ADMIN_PASSWORD is truly secret; username/user-id are not,
           # but are forwarded the same way so all three reach `docker compose` on the server.
           ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
@@ -200,7 +242,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
-          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,JWT_SIGNING_KEY,ENCRYPTION_KEY,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,REFERRAL_BASE_URL,MEDIA_SCP_HOST,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
+          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,JWT_SIGNING_KEY,ENCRYPTION_KEY,OTP_HASH_PEPPER,BLOCKCHAIN_SIGNER_SHARED_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,REFERRAL_BASE_URL,MEDIA_SCP_HOST,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
           script: |
             set -euo pipefail
 
