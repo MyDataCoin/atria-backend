@@ -75,7 +75,9 @@ public static class DependencyInjection
         // Public media storage location (property photos/documents).
         services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
         BindValidated<DiditOptions>(services, configuration, DiditOptions.SectionName);
-        BindValidated<NikitaProOptions>(services, configuration, NikitaProOptions.SectionName);
+        // TEMPORARY: SMS is disabled (see AddAdapters). Nothing resolves NikitaProOptions, so its
+        // credentials are no longer required for the app to boot.
+        // BindValidated<NikitaProOptions>(services, configuration, NikitaProOptions.SectionName);
         BindValidated<S3Options>(services, configuration, S3Options.SectionName);
         BindValidated<TesseraOptions>(services, configuration, TesseraOptions.SectionName);
         BindValidated<BlockchainOptions>(services, configuration, BlockchainOptions.SectionName);
@@ -199,14 +201,18 @@ public static class DependencyInjection
     // --- Notification + storage adapters ---
     private static void AddAdapters(IServiceCollection services)
     {
-        // Nikita Pro SMS adapter requires an HttpClient -> typed client (BaseAddress from options).
-        services.AddHttpClient<ISmsSender, NikitaProSmsAdapter>((sp, client) =>
-        {
-            var opts = sp.GetRequiredService<IOptions<NikitaProOptions>>().Value;
-            if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
-                client.BaseAddress = new Uri(opts.BaseUrl);
-            client.Timeout = TimeSpan.FromSeconds(15);
-        });
+        // TEMPORARY: the Nikita Pro SMS gateway must not be contacted at all. The real adapter is
+        // left in the tree but is NOT registered, so nothing — OTP or notification — can reach
+        // smspro.nikita.kg. Every SMS is swallowed by DisabledSmsSender instead.
+        // To restore: delete the DisabledSmsSender line and uncomment the block below.
+        services.AddScoped<ISmsSender, DisabledSmsSender>();
+        // services.AddHttpClient<ISmsSender, NikitaProSmsAdapter>((sp, client) =>
+        // {
+        //     var opts = sp.GetRequiredService<IOptions<NikitaProOptions>>().Value;
+        //     if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
+        //         client.BaseAddress = new Uri(opts.BaseUrl);
+        //     client.Timeout = TimeSpan.FromSeconds(15);
+        // });
         services.AddScoped<IEmailSender, EmailNotificationAdapter>();
         services.AddScoped<INotificationSender, NotificationSender>();
 

@@ -48,8 +48,10 @@ public static class SecretsGuard
         ("Otp:HashPepper", 44, "the OTP hash pepper (base64 of 32 bytes)"),
         ("Didit:ApiKey", 8, "the Didit API key"),
         ("Didit:WebhookSecret", 16, "the Didit webhook signing secret"),
-        ("NikitaPro:Login", 1, "the Nikita Pro SMS login"),
-        ("NikitaPro:ApiKey", 8, "the Nikita Pro SMS API key"),
+        // TEMPORARY: SMS delivery is disabled and the Nikita Pro adapter is unregistered, so these
+        // credentials are not needed to boot. Restore both lines when SMS comes back.
+        // ("NikitaPro:Login", 1, "the Nikita Pro SMS login"),
+        // ("NikitaPro:ApiKey", 8, "the Nikita Pro SMS API key"),
     };
 
     /// <summary>

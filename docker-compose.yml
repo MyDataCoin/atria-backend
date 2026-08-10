@@ -93,10 +93,13 @@ services:
       # ${...} from the shell env or .env). `environment:` overrides any stale server-side .env,
       # and the :? guard FAILS the deploy with a clear message if a variable is unset/empty,
       # so a misconfigured secret can never boot the app with blank credentials.
-      NikitaPro__Login: ${NIKITA_PRO_LOGIN:?NIKITA_PRO_LOGIN is required}
-      NikitaPro__ApiKey: ${NIKITA_PRO_API_KEY:?NIKITA_PRO_API_KEY is required}
+      # TEMPORARY: SMS delivery is disabled in code (DisabledSmsSender) and the gateway
+      # credentials are no longer read by the app, so they are not passed into the container
+      # at all. Uncomment all three lines when SMS is turned back on.
+      # NikitaPro__Login: ${NIKITA_PRO_LOGIN:?NIKITA_PRO_LOGIN is required}
+      # NikitaPro__ApiKey: ${NIKITA_PRO_API_KEY:?NIKITA_PRO_API_KEY is required}
       # Sender is not secret; pin it explicitly so it can't drift from the approved name.
-      NikitaPro__Sender: MYDATACOIN
+      # NikitaPro__Sender: MYDATACOIN
       # There is deliberately no Otp__MagicCode here. A fixed code accepted for any phone is an
       # unauthenticated account takeover, and OtpOptions no longer binds such a setting at all. If
       # the SMS provider goes down again, the answer is an audited admin-side action against a named
