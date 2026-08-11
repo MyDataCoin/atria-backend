@@ -99,7 +99,7 @@ builder.Services
 const string CorsPolicy = "AtriaCors";
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() is { Length: > 0 } configured
     ? configured
-    : new[] { "https://atria.eaysdev.online" };
+    : new[] { "https://atria.kg", "https://www.atria.kg", "https://app.atria.kg", "https://admin.atria.kg" };
 builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy => policy
         .WithOrigins(corsOrigins)

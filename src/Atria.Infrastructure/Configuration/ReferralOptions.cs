@@ -10,7 +10,7 @@ public sealed class ReferralOptions
     public const string SectionName = "Referral";
 
     /// <summary>
-    /// Absolute base of the investor landing URL, e.g. <c>https://atria.app/invest</c>. The token is
+    /// Absolute base of the investor landing URL, e.g. <c>https://app.atria.kg/invest</c>. The token is
     /// appended as <c>?ref={token}</c>.
     /// </summary>
     public string BaseUrl { get; init; } = string.Empty;

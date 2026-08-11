@@ -80,7 +80,7 @@ services:
       # Public media (property photos/documents): the API copies files to the media host over SCP
       # and stores an absolute URL served by that host's nginx. Username/password are secrets (from
       # .env locally / GitHub Actions secrets on deploy). Non-secret bits are pinned here.
-      Media__PublicBaseUrl: https://atria-api.eaysdev.online
+      Media__PublicBaseUrl: https://api.atria.kg
       Media__PublicBasePath: /media
       Media__RemoteRoot: /media
       Media__ScpHost: ${MEDIA_SCP_HOST:-84.54.12.242}

@@ -10,7 +10,7 @@ public sealed class MediaOptions
 {
     public const string SectionName = "Media";
 
-    /// <summary>Absolute base of the public URL, e.g. <c>https://atria-api.eaysdev.online</c>.</summary>
+    /// <summary>Absolute base of the public URL, e.g. <c>https://api.atria.kg</c>.</summary>
     public string PublicBaseUrl { get; init; } = string.Empty;
 
     /// <summary>URL path prefix the files are served under, e.g. <c>/media</c>.</summary>

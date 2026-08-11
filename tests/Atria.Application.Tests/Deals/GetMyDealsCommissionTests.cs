@@ -27,7 +27,7 @@ public sealed class GetMyDealsCommissionTests
     public GetMyDealsCommissionTests()
     {
         _currentUser.UserId.Returns(RealtorId);
-        _links.BuildReferralUrl(Arg.Any<string>()).Returns("https://atria.app/invest?ref=x");
+        _links.BuildReferralUrl(Arg.Any<string>()).Returns("https://app.atria.kg/invest?ref=x");
     }
 
     [Fact]

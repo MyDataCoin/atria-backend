@@ -27,7 +27,7 @@ public sealed class CreateDealTests
     public CreateDealTests()
     {
         _clock.UtcNow.Returns(new DateTime(2026, 7, 13, 12, 0, 0, DateTimeKind.Utc));
-        _links.BuildReferralUrl(Arg.Any<string>()).Returns(ci => $"https://atria.app/invest?ref={ci.Arg<string>()}");
+        _links.BuildReferralUrl(Arg.Any<string>()).Returns(ci => $"https://app.atria.kg/invest?ref={ci.Arg<string>()}");
     }
 
     private static Property OpenProperty()
