@@ -11,8 +11,15 @@ namespace Atria.Api.Controllers.Requests;
 // evolve independently and so multipart/route-bound inputs (IFormFile, phone OTP, IP) map cleanly.
 
 /// <summary>POST /auth/refresh body.</summary>
-/// <param name="RefreshToken">A valid, unexpired refresh token previously issued by an auth endpoint.</param>
-public sealed record RefreshTokenRequest(string RefreshToken);
+/// <remarks>
+/// The token is NULLABLE on purpose. The browser clients hold no refresh token — it lives in the
+/// HttpOnly cookie the API sets — so they post an empty <c>{}</c> body and let the cookie do the
+/// work. With a non-nullable <c>string</c> under &lt;Nullable&gt;enable&lt;/Nullable&gt; MVC infers an
+/// implicit [Required] and rejects that body with 400 during model validation, i.e. BEFORE the
+/// controller ever reads the cookie — which silently breaks every cookie-based refresh.
+/// </remarks>
+/// <param name="RefreshToken">A valid, unexpired refresh token, or null to authenticate by cookie.</param>
+public sealed record RefreshTokenRequest(string? RefreshToken);
 
 /// <summary>POST /auth/admin/login body. Static admin credentials from server configuration.</summary>
 /// <param name="Username">The configured admin username.</param>
