@@ -80,6 +80,15 @@ services:
       # on purpose: an empty value only means the request goes unsigned, which the app warns about
       # loudly rather than refusing to start — the signer is not reachable from every environment.
       Blockchain__SignerSharedSecret: ${BLOCKCHAIN_SIGNER_SHARED_SECRET:-}
+      # Key of the registry/allowlist agent that signs anchor writes (Blockchain:Anchor). REQUIRED:
+      # EvmAnchorOptions marks it [Required] and validates on start, so the API refuses to boot
+      # without it — appsettings.json ships it blank because it is a secret.
+      #
+      # Two names are accepted. The server .env predates this line and holds the raw config key
+      # (Blockchain__Anchor__AgentPrivateKey), which used to reach the container only because
+      # `env_file:` injected that file wholesale; the shell-style name matches every other secret
+      # here and is what deploy.yml forwards. Whichever is set wins, so no .env has to be rewritten.
+      Blockchain__Anchor__AgentPrivateKey: ${BLOCKCHAIN_ANCHOR_AGENT_PRIVATE_KEY:-${Blockchain__Anchor__AgentPrivateKey:-}}
       # Public media (property photos/documents): the API copies files to the media host over SCP
       # and stores an absolute URL served by that host's nginx. ONLY the credentials live here —
       # PublicBaseUrl, PublicBasePath, RemoteRoot, ScpHost and ScpPort are in appsettings.json.
