@@ -222,12 +222,14 @@ jobs:
           REALTOR_USERNAME: ${{ secrets.REALTOR_USERNAME }}
           REALTOR_PASSWORD: ${{ secrets.REALTOR_PASSWORD }}
           REALTOR_USER_ID: ${{ secrets.REALTOR_USER_ID }}
-          # Base URL for realtor referral links (not secret; forwarded the same way).
-          REFERRAL_BASE_URL: ${{ secrets.REFERRAL_BASE_URL }}
-          # SCP media host credentials (the API copies property photos/documents there).
-          MEDIA_SCP_HOST: ${{ secrets.MEDIA_SCP_HOST }}
+          # SCP media host credentials (the API copies property photos/documents there). The media
+          # host address and public base URL are not secret and live in appsettings.json, so they
+          # are deliberately not forwarded — see the note on REFERRAL_BASE_URL below.
           MEDIA_SCP_USERNAME: ${{ secrets.MEDIA_SCP_USERNAME }}
           MEDIA_SCP_PASSWORD: ${{ secrets.MEDIA_SCP_PASSWORD }}
+          # REFERRAL_BASE_URL / MEDIA_SCP_HOST are gone on purpose: they were public URLs carried as
+          # deploy "secrets", which put the deployed hostnames somewhere no diff could show them.
+          # They are plain values in appsettings.json now. The repository secrets can be deleted.
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -242,7 +244,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
-          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,JWT_SIGNING_KEY,ENCRYPTION_KEY,OTP_HASH_PEPPER,BLOCKCHAIN_SIGNER_SHARED_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,REFERRAL_BASE_URL,MEDIA_SCP_HOST,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
+          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,JWT_SIGNING_KEY,ENCRYPTION_KEY,OTP_HASH_PEPPER,BLOCKCHAIN_SIGNER_SHARED_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
           script: |
             set -euo pipefail
 

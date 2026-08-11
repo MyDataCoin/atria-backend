@@ -45,13 +45,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Real secrets (Didit, JWT, Encryption, real DB password, etc.) come from an OPTIONAL
-    # .env file placed next to this compose on the server (gitignored, never committed).
-    # Use double-underscore keys, e.g. Didit__ApiKey, Didit__WebhookSecret, Didit__WorkflowId.
-    # If .env is absent the app falls back to appsettings defaults (so the stack still boots).
-    env_file:
-      - path: .env
-        required: false
+    # There is deliberately NO `env_file:` here. It injected the server's whole .env into the
+    # container, so ANY key sitting in that file — including ones this compose never mentions,
+    # like AllowedHosts or Cors__AllowedOrigins — silently outranked appsettings.json. That is how
+    # the deployed hostnames drifted away from the committed config with nothing in the repo to
+    # show it. Secrets still come from that same .env: compose interpolates ${VAR} below from the
+    # shell environment (exported by deploy.yml) or from the project .env, without handing the
+    # container anything that was not asked for by name here.
+    #
+    # Rule of thumb: SECRETS are ${...} in this file, everything else — hostnames, URLs, paths —
+    # belongs in appsettings.json where it is reviewable in a diff.
     environment:
       # Production by default (this base file is what the server deploy runs). Local dev
       # overrides this back to Development in docker-compose.override.yml (Swagger, dev keys).
@@ -78,21 +81,18 @@ services:
       # loudly rather than refusing to start — the signer is not reachable from every environment.
       Blockchain__SignerSharedSecret: ${BLOCKCHAIN_SIGNER_SHARED_SECRET:-}
       # Public media (property photos/documents): the API copies files to the media host over SCP
-      # and stores an absolute URL served by that host's nginx. Username/password are secrets (from
-      # .env locally / GitHub Actions secrets on deploy). Non-secret bits are pinned here.
-      Media__PublicBaseUrl: https://api.atria.kg
-      Media__PublicBasePath: /media
-      Media__RemoteRoot: /media
-      Media__ScpHost: ${MEDIA_SCP_HOST:-84.54.12.242}
-      Media__ScpPort: "22"
+      # and stores an absolute URL served by that host's nginx. ONLY the credentials live here —
+      # PublicBaseUrl, PublicBasePath, RemoteRoot, ScpHost and ScpPort are in appsettings.json.
+      # PublicBaseUrl especially: it is baked into every media URL written to the database, so an
+      # environment override rots the links of everything uploaded while it was in force.
       Media__ScpUsername: ${MEDIA_SCP_USERNAME:-}
       Media__ScpPassword: ${MEDIA_SCP_PASSWORD:-}
       # Nikita Pro SMS gateway credentials, mapped from the NIKITA_PRO_* variables. On deploy
       # those come from GitHub Actions secrets exported into the SSH session (see deploy.yml);
       # for a local `docker compose up` they come from the project .env (compose interpolates
-      # ${...} from the shell env or .env). `environment:` overrides any stale server-side .env,
-      # and the :? guard FAILS the deploy with a clear message if a variable is unset/empty,
-      # so a misconfigured secret can never boot the app with blank credentials.
+      # ${...} from the shell env or .env). The :? guard FAILS the deploy with a clear message if
+      # a variable is unset/empty, so a misconfigured secret can never boot the app with blank
+      # credentials.
       # TEMPORARY: SMS delivery is disabled in code (DisabledSmsSender) and the gateway
       # credentials are no longer read by the app, so they are not passed into the container
       # at all. Uncomment all three lines when SMS is turned back on.
@@ -107,9 +107,8 @@ services:
       # Admin / Realtor / SuperAdmin logins are DB-only: each is an ordinary users row (username +
       # password hash) created via scripts/seed-superadmin.sql. No credentials in config or secrets —
       # they log in through POST /auth/admin/login (admin & super-admin) and /auth/realtor/login.
-      # Base URL for realtor referral links (token appended as ?ref=...). Points at the investor
-      # frontend's invest landing. Optional — a relative /invest?ref= link is returned when unset.
-      Referral__BaseUrl: ${REFERRAL_BASE_URL:-}
+      # Referral__BaseUrl is NOT here: the realtor referral link target is a plain public URL,
+      # so it lives in appsettings.json (Referral:BaseUrl) like every other hostname.
       # Didit hosted-KYC secrets, mapped from the DIDIT_* variables (same flow as NIKITA_PRO_*:
       # GitHub Actions secrets exported into the SSH session, see deploy.yml; local `docker
       # compose up` reads them from the project .env). The :? guard fails the deploy with a
