@@ -140,8 +140,20 @@ services:
       - ALL
     mem_limit: 1g
     pids_limit: 256
+    # Probed with bash's /dev/tcp rather than a HTTP client: the aspnet runtime image ships
+    # neither wget nor curl, so the previous `wget -qO- ...` test failed with "wget: not found"
+    # on every single run and the container sat permanently (unhealthy) while serving traffic
+    # perfectly well — a health signal that is always red is the same as having none.
+    #
+    # This speaks HTTP/1.1 over that socket using only what the image already has (bash, head,
+    # grep — verified present), and matches the STATUS LINE, so a port that listens but answers
+    # 404 or 503 still fails. No shell variable is used, so there is no $-escaping to get wrong.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health/live || exit 1"]
+      test:
+        - CMD
+        - bash
+        - -c
+        - 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && head -1 <&3 | grep -q " 200 "'
       interval: 30s
       timeout: 5s
       retries: 3
