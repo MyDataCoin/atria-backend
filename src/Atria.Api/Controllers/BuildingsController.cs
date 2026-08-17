@@ -88,6 +88,25 @@ public sealed class BuildingsController : ApiControllerBase
             id, request.Name, request.Description, request.Address, request.City,
             request.Developer, request.YearBuilt, request.Floors, request.BuildingType), ct));
 
+    /// <summary>Publishes every unit of the building in one go. Admin only.</summary>
+    /// <remarks>
+    /// Opens all the building's draft and coming-soon units to investors, so the whole object goes
+    /// on sale in one action instead of unit by unit. Units already open are counted and left alone
+    /// rather than treated as an error; units past publication (completed, invalidated) are skipped.
+    /// Returns how many of each. 409 when the building has no units at all.
+    /// </remarks>
+    /// <param name="id">The building's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/publish")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType<PublishBuildingResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Publish(Guid id, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new PublishBuildingCommand(id), ct));
+
     /// <summary>Deletes an empty building. Admin only.</summary>
     /// <remarks>
     /// Refuses with <c>409</c> while any unit is still registered inside: those units are live token

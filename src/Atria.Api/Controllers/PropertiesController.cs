@@ -306,28 +306,23 @@ public sealed class PropertiesController : ApiControllerBase
         return ToActionResult(result);
     }
 
-    /// <summary>Asks for a property's offering to be published. Admin only.</summary>
+    /// <summary>Publishes a property's offering, opening it to investors. Admin only.</summary>
     /// <remarks>
-    /// Publication requires two people. This call does not open the property: it raises a dual-approval
-    /// request and returns its id, and the offering opens when a <i>different</i> administrator approves
-    /// it via <c>POST /governance/critical-actions/{id}/approve</c>. Asking twice for the same property
-    /// returns the request already open. Requires the <b>Admin</b> role. Responds with 404 when the
-    /// property does not exist and 409 when it is already open or completed.
+    /// Moves a <b>draft</b> or <b>coming soon</b> property to <b>open</b>, so the public site lists it
+    /// as open for purchase. Takes effect on this call. Requires the <b>Admin</b> role. Responds with
+    /// 404 when the property does not exist and 409 when it is already open or completed.
     /// </remarks>
     /// <param name="id">The property's unique identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("{id:guid}/publish")]
     [Authorize(Roles = "Admin")]
-    [ProducesResponseType<Guid>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Publish(Guid id, CancellationToken ct)
-    {
-        var result = await Sender.Send(new PublishPropertyCommand(id), ct);
-        return result.IsSuccess ? Accepted(result.Value) : ToActionResult(result);
-    }
+        => ToActionResult(await Sender.Send(new PublishPropertyCommand(id), ct));
 
     /// <summary>Completes a property's offering, closing it. Admin only.</summary>
     /// <remarks>

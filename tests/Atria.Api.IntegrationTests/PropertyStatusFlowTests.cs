@@ -44,14 +44,9 @@ public sealed class PropertyStatusFlowTests : IClassFixture<AtriaApiFactory>
         (await admin.PostAsync($"{PropertiesRoute}/{id}/complete", null))
             .StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        // Publish (Draft -> Open) is Admin-only and now takes two people: the admin raises the
-        // request, a different account approves it, and only then does the property open.
-        var publishRequest = await GovernanceTestHelpers.RequestPublishAsync(admin, id);
-        (await GetPropertyAsync(admin, id)).GetProperty("status").GetString()
-            .Should().Be("draft", "a request on its own must not open the offering");
-
-        var approver = await GovernanceTestHelpers.ApproverClientAsync(_factory);
-        await GovernanceTestHelpers.ApproveAsync(approver, publishRequest);
+        // Publish (Draft -> Open) is Admin-only and takes effect on the call.
+        (await admin.PostAsync($"{PropertiesRoute}/{id}/publish", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await GetPropertyAsync(anon, id)).GetProperty("status").GetString().Should().Be("open");
 
         // Publishing an already-open property is a CONFLICT (not an idempotent 204).
