@@ -2,16 +2,15 @@
 # docker-compose.yml — but ONLY locally. The server deploy runs with an explicit
 # `-f docker-compose.yml`, so these local conveniences are never applied in production.
 #
-# Here we (1) publish PostgreSQL on the host so you can connect with pgAdmin/psql at
-# localhost:5432, (2) run the API in the Development environment (Swagger UI + dev-friendly
-# behaviour), and (3) seed demo tokenization objects on first run. All three are safe
-# locally and intentionally excluded from the public-server deploy.
+# Here we (1) run the API in the Development environment (Swagger UI + dev-friendly
+# behaviour) and (2) seed demo tokenization objects on first run. Both are safe locally
+# and intentionally excluded from the public-server deploy.
+#
+# Postgres is no longer republished here: the base file already maps 127.0.0.1:5432, which
+# is exactly what a local pgAdmin/psql/DBeaver needs. Adding a second mapping would make
+# Compose bind the port twice (0.0.0.0 and 127.0.0.1) and fail with "address already in use".
 
 services:
-  db:
-    ports:
-      - "5432:5432"
-
   api:
     environment:
       # Development locally: enables Swagger UI and relaxes HTTPS-metadata requirements.

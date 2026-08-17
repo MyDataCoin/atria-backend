@@ -22,9 +22,16 @@ services:
       # current password unless you intentionally reset the atria-pgdata volume.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: atria
-    # Postgres is NOT published to the host here so the DB is never exposed on the public
-    # server. Local development publishes 5432 via docker-compose.override.yml (auto-merged
-    # by `docker compose up`, but excluded from the server deploy which uses `-f docker-compose.yml`).
+    # Published on the server's LOOPBACK ONLY — 127.0.0.1 is part of the mapping on purpose.
+    # A bare "5432:5432" binds 0.0.0.0 and puts the production database on the public IP
+    # (that is what commit 3e83bd3 did); with the address pinned, the port is reachable only
+    # from the server itself, i.e. through an SSH tunnel. Connect with DBeaver/psql by
+    # tunnelling: ssh -L 5432:127.0.0.1:5432 <user>@<server>, then point the client at
+    # localhost:5432. Local development publishes 5432 on all interfaces via
+    # docker-compose.override.yml (auto-merged by `docker compose up`, but excluded from the
+    # server deploy which uses `-f docker-compose.yml`).
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - atria-pgdata:/var/lib/postgresql/data
     healthcheck:
