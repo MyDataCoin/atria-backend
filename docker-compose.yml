@@ -22,16 +22,22 @@ services:
       # current password unless you intentionally reset the atria-pgdata volume.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: atria
-    # Published on the server's LOOPBACK ONLY — 127.0.0.1 is part of the mapping on purpose.
-    # A bare "5432:5432" binds 0.0.0.0 and puts the production database on the public IP
-    # (that is what commit 3e83bd3 did); with the address pinned, the port is reachable only
-    # from the server itself, i.e. through an SSH tunnel. Connect with DBeaver/psql by
-    # tunnelling: ssh -L 5432:127.0.0.1:5432 <user>@<server>, then point the client at
-    # localhost:5432. Local development publishes 5432 on all interfaces via
-    # docker-compose.override.yml (auto-merged by `docker compose up`, but excluded from the
-    # server deploy which uses `-f docker-compose.yml`).
+    # Published on ALL interfaces (0.0.0.0), deliberately: DB clients connect to the server
+    # straight on <server>:5432 without an SSH tunnel. This is a conscious trade-off, not an
+    # oversight — the loopback-only mapping that used to be here (da10a49) made every external
+    # client fail with "connection refused", which is what this reverses.
+    #
+    # Consequence to keep in mind: on a public server the production database answers the whole
+    # internet and POSTGRES_PASSWORD is the ONLY thing in front of it. Keep that password long
+    # and unique, rotate it if it ever leaks, and prefer narrowing access when the direct
+    # connection is no longer needed — either a firewall rule allowing 5432 from known IPs, or
+    # back to "127.0.0.1:5432:5432" plus `ssh -L 5432:127.0.0.1:5432 <user>@<server>`.
+    #
+    # This lives in the BASE file on purpose: the deploy runs `-f docker-compose.yml`, which
+    # excludes docker-compose.override.yml, so a publish placed only in the override would
+    # never reach the server.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432:5432"
     volumes:
       - atria-pgdata:/var/lib/postgresql/data
     healthcheck:

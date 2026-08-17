@@ -6,9 +6,9 @@
 # behaviour) and (2) seed demo tokenization objects on first run. Both are safe locally
 # and intentionally excluded from the public-server deploy.
 #
-# Postgres is no longer republished here: the base file already maps 127.0.0.1:5432, which
+# Postgres is not republished here: the base file already maps 5432 on all interfaces, which
 # is exactly what a local pgAdmin/psql/DBeaver needs. Adding a second mapping would make
-# Compose bind the port twice (0.0.0.0 and 127.0.0.1) and fail with "address already in use".
+# Compose bind the port twice and fail with "address already in use".
 
 services:
   api:

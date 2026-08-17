@@ -157,9 +157,13 @@ dotnet test
 
 `.github/workflows/deploy.yml` runs on every push: it builds + tests, then (on the
 default branch) SSHes into the Ubuntu server and brings the stack up with
-`docker compose`. Docker is installed automatically on first run. PostgreSQL stays
-**internal** to the compose network (deploy uses `-f docker-compose.yml`, excluding the
-local override that publishes 5432); only the API port **8080** is reachable.
+`docker compose`. Docker is installed automatically on first run. Two ports are reachable on
+the server: the API on **8080** and PostgreSQL on **5432**. The DB publish lives in
+`docker-compose.yml` — the file the deploy runs with `-f` — and binds `0.0.0.0` so DB clients
+connect directly at `<server>:5432` with no SSH tunnel. That also means the production
+database is exposed to the internet with `POSTGRES_PASSWORD` as its only protection: keep it
+long and unique, and narrow access with a firewall rule on 5432 (or switch the mapping back to
+`127.0.0.1:5432:5432` and tunnel) once the direct connection is no longer needed.
 
 **One-time setup**
 
