@@ -39,8 +39,12 @@ public sealed class BuildingPublicationFlowTests : IClassFixture<AtriaApiFactory
             .GetProperty("status").GetString().Should().Be("open");
 
         // Nothing waits for a second pair of eyes: publication is not a critical action any more.
-        (await GetJsonAsync(admin, PendingRoute)).GetArrayLength()
-            .Should().Be(0, "publishing must not queue an approval");
+        // Scoped to THIS unit on purpose — the approval queue is global and other suites legitimately
+        // leave their own requests in it (investor blocks, payout runs), so asserting the queue is
+        // empty would make this test fail on whatever else happened to run first.
+        (await GetJsonAsync(admin, PendingRoute)).EnumerateArray()
+            .Should().NotContain(a => a.GetProperty("targetId").GetGuid().ToString() == unitId,
+                "publishing must not queue an approval");
     }
 
     [Fact]

@@ -20,6 +20,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Every test class in this project shares ONE in-memory database (AtriaApiFactory.InMemoryDbName),
+      so running classes in parallel makes them race over global state: an approval queue, a holder
+      register, a user's ban flag. Such a race passes on a developer machine and fails on a smaller CI
+      runner, which is exactly the kind of failure nobody can reproduce. Serial execution costs a few
+      seconds and removes the whole class of flake.
+    -->
+    <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Atria.Api\Atria.Api.csproj" />
     <ProjectReference Include="..\..\src\Atria.Infrastructure\Atria.Infrastructure.csproj" />
   </ItemGroup>
