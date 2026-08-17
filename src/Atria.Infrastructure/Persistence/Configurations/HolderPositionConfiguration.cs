@@ -13,7 +13,7 @@ internal sealed class HolderPositionConfiguration : IEntityTypeConfiguration<Hol
 
         b.Property(p => p.PropertyId).IsRequired();
         b.Property(p => p.WalletAddress).HasMaxLength(128).IsRequired();
-        b.Property(p => p.TokenCount).IsRequired();
+        b.Property(p => p.TokenCount).HasPrecision(28, 2).IsRequired();
         b.Property(p => p.InvestorId);
         b.Property(p => p.IsAllowlisted).IsRequired();
         b.Property(p => p.LastSyncedAtUtc).IsRequired();

@@ -18,7 +18,7 @@ public sealed class HolderPosition : AggregateRoot
     public string WalletAddress { get; private set; } = null!;
 
     /// <summary>Number of (indivisible) shares currently held on the address.</summary>
-    public long TokenCount { get; private set; }
+    public decimal TokenCount { get; private set; }
 
     /// <summary>
     /// The investor behind the address, resolved via <c>KycProfile.WalletAddress</c>. Null when no link
@@ -45,7 +45,7 @@ public sealed class HolderPosition : AggregateRoot
 
     /// <summary>Creates a position for a wallet in an issuance.</summary>
     public static HolderPosition Create(
-        Guid propertyId, string walletAddress, long tokenCount, Guid? investorId,
+        Guid propertyId, string walletAddress, decimal tokenCount, Guid? investorId,
         bool isAllowlisted, HolderSource source, DateTime syncedAtUtc)
     {
         if (propertyId == Guid.Empty)
@@ -73,7 +73,7 @@ public sealed class HolderPosition : AggregateRoot
     /// accordingly. Used to project the registry from our data before chain reading exists; the caller
     /// guards against double-applying the same event, so this is a plain additive adjustment.
     /// </summary>
-    public void Increase(long count, DateTime syncedAtUtc)
+    public void Increase(decimal count, DateTime syncedAtUtc)
     {
         if (count <= 0)
             throw new DomainException("Increase count must be positive.");
@@ -87,7 +87,7 @@ public sealed class HolderPosition : AggregateRoot
     /// Reconciles the position with an observed value: sets the token count, its origin, and the sync
     /// time. Idempotent — applying the same observation twice yields the same state.
     /// </summary>
-    public void Sync(long tokenCount, HolderSource source, DateTime syncedAtUtc)
+    public void Sync(decimal tokenCount, HolderSource source, DateTime syncedAtUtc)
     {
         if (tokenCount < 0)
             throw new DomainException("Token count cannot be negative.");

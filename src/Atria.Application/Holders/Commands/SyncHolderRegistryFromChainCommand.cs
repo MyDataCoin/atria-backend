@@ -132,7 +132,7 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
     }
 
     private async Task AdjustAsync(
-        Guid propertyId, string address, long delta, DateTime now, CancellationToken ct)
+        Guid propertyId, string address, decimal delta, DateTime now, CancellationToken ct)
     {
         var position = await _positions.GetByAddressAsync(propertyId, address, ct);
 

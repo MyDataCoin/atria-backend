@@ -6,6 +6,7 @@ using Nethereum.Contracts;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
 using Nethereum.Web3;
+using Atria.Domain.Investments;
 
 namespace Atria.Infrastructure.Compliance;
 
@@ -20,7 +21,7 @@ public sealed class EvmTokenReader : ITokenReader
 
     public EvmTokenReader(IChainNetworkResolver networks) => _networks = networks;
 
-    public async Task<long> GetBalanceAsync(
+    public async Task<decimal> GetBalanceAsync(
         string chainTag, string tokenContractAddress, string address, CancellationToken ct)
     {
         var handler = ClientFor(chainTag).Eth.GetContractQueryHandler<BalanceOfFunction>();
@@ -30,7 +31,7 @@ public sealed class EvmTokenReader : ITokenReader
         return ToShares(balance);
     }
 
-    public async Task<long> GetTotalSupplyAsync(
+    public async Task<decimal> GetTotalSupplyAsync(
         string chainTag, string tokenContractAddress, CancellationToken ct)
     {
         var handler = ClientFor(chainTag).Eth.GetContractQueryHandler<TotalSupplyFunction>();
@@ -72,14 +73,20 @@ public sealed class EvmTokenReader : ITokenReader
     }
 
     /// <summary>
-    /// The token has <c>decimals = 0</c>, so a raw amount is already a whole share count. A value too
-    /// large for a share count means the contract is not the one we think it is, and quietly
-    /// truncating it would put a fabricated number into the registry.
+    /// The contract holds shares as integer minor units with <c>decimals() == TokenAmount.Scale</c>,
+    /// so a raw amount is scaled back down to a share count here. A value too large to be a share
+    /// count means the contract is not the one we think it is, and quietly truncating it would put a
+    /// fabricated number into the registry.
     /// </summary>
-    private static long ToShares(BigInteger raw)
-        => raw > long.MaxValue || raw < 0
+    private static decimal ToShares(BigInteger raw)
+        => raw > MaxRawUnits || raw < 0
             ? throw new InvalidOperationException($"Share amount {raw} is out of range for this issue.")
-            : (long)raw;
+            : TokenAmount.FromMinor(raw);
+
+    // The largest raw amount that still converts to a decimal share count without overflowing.
+    // Derived from the share scale rather than a literal, so it cannot drift away from TokenAmount.
+    private static readonly BigInteger MaxRawUnits = TokenAmount.ToMinor(
+        decimal.Truncate(decimal.MaxValue / (decimal)Math.Pow(10, TokenAmount.Scale)));
 
     private Web3 ClientFor(string chainTag)
     {

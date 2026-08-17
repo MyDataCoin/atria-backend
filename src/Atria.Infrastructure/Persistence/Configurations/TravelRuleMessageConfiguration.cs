@@ -15,7 +15,7 @@ internal sealed class TravelRuleMessageConfiguration : IEntityTypeConfiguration<
         b.Property(m => m.InvestorId).IsRequired();
         b.Property(m => m.Direction).HasConversion<int>().IsRequired();
         b.Property(m => m.Status).HasConversion<int>().IsRequired();
-        b.Property(m => m.TokenCount).IsRequired();
+        b.Property(m => m.TokenCount).HasPrecision(28, 2).IsRequired();
         b.Property(m => m.Amount).HasPrecision(18, 2).IsRequired();
         b.Property(m => m.Currency).HasMaxLength(3).IsRequired();
         b.Property(m => m.OriginatorAddress).HasMaxLength(128).IsRequired();

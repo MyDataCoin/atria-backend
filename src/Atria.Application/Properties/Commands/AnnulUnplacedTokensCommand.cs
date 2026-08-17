@@ -14,7 +14,7 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="PropertyId">The issue.</param>
 /// <param name="TokenCount">How many unplaced shares to annul.</param>
 /// <param name="Reason">Why. Recorded in the journal and carried to the contract operation.</param>
-public sealed record AnnulUnplacedTokensCommand(Guid PropertyId, long TokenCount, string Reason)
+public sealed record AnnulUnplacedTokensCommand(Guid PropertyId, decimal TokenCount, string Reason)
     : IRequest<Result>;
 
 /// <summary>

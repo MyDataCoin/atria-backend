@@ -21,7 +21,7 @@ public sealed class PayoutItem : Entity
     public string WalletAddress { get; private set; } = null!;
 
     /// <summary>Shares held at the cut — the basis of this line.</summary>
-    public long TokenCount { get; private set; }
+    public decimal TokenCount { get; private set; }
 
     /// <summary>Amount owed on this line.</summary>
     public decimal Amount { get; private set; }
@@ -39,7 +39,7 @@ public sealed class PayoutItem : Entity
     private PayoutItem() { }
 
     internal static PayoutItem Create(
-        Guid payoutRunId, Guid investorId, string walletAddress, long tokenCount, decimal amount)
+        Guid payoutRunId, Guid investorId, string walletAddress, decimal tokenCount, decimal amount)
     {
         if (string.IsNullOrWhiteSpace(walletAddress))
             throw new DomainException("Wallet address is required.");

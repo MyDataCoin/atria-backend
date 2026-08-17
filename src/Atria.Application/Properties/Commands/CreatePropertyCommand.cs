@@ -21,7 +21,7 @@ public sealed record CreatePropertyCommand(
     string? Address,
     decimal TotalValue,
     decimal TokenPrice,
-    long TotalTokens,
+    decimal TotalTokens,
     string Currency,
     string? PropertyType = null,
     string? City = null,

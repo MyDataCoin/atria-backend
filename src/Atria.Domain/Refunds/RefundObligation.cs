@@ -43,7 +43,7 @@ public sealed class RefundObligation : AggregateRoot
     public string WalletAddress { get; private set; } = null!;
 
     /// <summary>Shares withdrawn from circulation against this refund.</summary>
-    public long TokenCount { get; private set; }
+    public decimal TokenCount { get; private set; }
 
     /// <summary>Amount owed, in <see cref="Currency"/>.</summary>
     public decimal Amount { get; private set; }
@@ -63,7 +63,7 @@ public sealed class RefundObligation : AggregateRoot
     private RefundObligation() { }
 
     public static RefundObligation Raise(
-        Guid propertyId, Guid investorId, string walletAddress, long tokenCount,
+        Guid propertyId, Guid investorId, string walletAddress, decimal tokenCount,
         decimal amount, string currency, RefundReason reason, string? note)
     {
         if (propertyId == Guid.Empty)

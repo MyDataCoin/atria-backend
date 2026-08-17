@@ -18,9 +18,9 @@ public sealed record RegistryDiscrepancy(string Code, string Detail);
 public sealed record RegistryReconciliationReport(
     Guid PropertyId,
     DateTime CheckedAtUtc,
-    long RegistryTotal,
-    long ChainTotalSupply,
-    long SoldTokens,
+    decimal RegistryTotal,
+    decimal ChainTotalSupply,
+    decimal SoldTokens,
     IReadOnlyList<RegistryDiscrepancy> Discrepancies)
 {
     /// <summary>True when nothing disagreed.</summary>
@@ -88,7 +88,7 @@ public sealed class ReconcileRegistryQueryHandler
         var registryTotal = holders.Sum(p => p.TokenCount);
         var soldTokens = property.TotalTokens - property.AvailableTokens;
 
-        long chainSupply;
+        decimal chainSupply;
         try
         {
             chainSupply = await _tokens.GetTotalSupplyAsync(

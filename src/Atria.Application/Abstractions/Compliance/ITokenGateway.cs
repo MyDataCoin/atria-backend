@@ -19,9 +19,14 @@ public sealed record TokenWriteResult(string TransactionRef, bool Confirmed);
 /// </remarks>
 public interface ITokenGateway
 {
-    /// <summary>Issues <paramref name="amount"/> whole shares to an investor's address.</summary>
+    /// <summary>
+    /// Issues <paramref name="amount"/> shares to an investor's address. Shares are divisible, so
+    /// this is a decimal; implementations convert it to the contract's integer minor units via
+    /// <see cref="Atria.Domain.Investments.TokenAmount.ToMinor"/> and reject anything finer than the
+    /// share granularity rather than rounding it away.
+    /// </summary>
     Task<TokenWriteResult> MintAsync(
-        string chainTag, string tokenContractAddress, string toAddress, long amount, CancellationToken ct);
+        string chainTag, string tokenContractAddress, string toAddress, decimal amount, CancellationToken ct);
 
     /// <summary>
     /// Delivers verified collateral data into the contract (draft Decree, §16): the hash of the

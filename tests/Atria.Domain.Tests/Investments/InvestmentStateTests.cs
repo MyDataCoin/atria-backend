@@ -40,7 +40,7 @@ public sealed class InvestmentStateTests
     [Theory]
     [InlineData(0)]
     [InlineData(-100)]
-    public void Factory_WhenTokenCountNotPositive_ThrowsDomainException(long tokenCount)
+    public void Factory_WhenTokenCountNotPositive_ThrowsDomainException(decimal tokenCount)
     {
         var act = () => InvestmentFactory.CreateForInvestor(
             Guid.NewGuid(), Guid.NewGuid(), tokenCount, 1000m, "USD", 100m, DateTime.UtcNow.AddDays(3));

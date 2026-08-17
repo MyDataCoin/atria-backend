@@ -47,7 +47,7 @@ public sealed class InvalidateIssueCommandHandlerTests
         return property;
     }
 
-    private void GivenHolders(Guid propertyId, params (string Wallet, long Tokens, Guid? Investor)[] holders)
+    private void GivenHolders(Guid propertyId, params (string Wallet, decimal Tokens, Guid? Investor)[] holders)
         => _positions.GetByPropertyAsync(propertyId, Arg.Any<CancellationToken>())
             .Returns(holders
                 .Select(h => HolderPosition.Create(

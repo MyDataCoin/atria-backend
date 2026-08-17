@@ -25,6 +25,16 @@ public sealed class PayoutRunTests
             Guid.NewGuid(), Cut, SnapshotPurpose.Payout, 1_000_000, Operator, entries);
     }
 
+    /// <summary>The same register, but with divisible holdings — the issue is sized in fractions.</summary>
+    private static HolderSnapshot FractionalRegister(params decimal[] holdings)
+    {
+        var entries = holdings.Select((tokens, i) => new HolderSnapshotEntry(
+            $"0x{i:D40}", tokens, Guid.NewGuid()));
+
+        return HolderSnapshot.Create(
+            Guid.NewGuid(), Cut, SnapshotPurpose.Payout, 1_000_000, Operator, entries);
+    }
+
     private static PayoutRun Run(HolderSnapshot snapshot, decimal declared = 100_000m)
         => PayoutRun.Create(
             snapshot, PayoutKind.Dividend, PayoutMethod.BankTransfer, declared, "KGS", Operator,
@@ -261,4 +271,32 @@ public sealed class PayoutRunTests
 
         act.Should().Throw<DomainException>();
     }
+    [Fact]
+    public void Fractional_holdings_still_split_the_declared_amount_exactly()
+    {
+        // Доли дробные, но выплата обязана сойтись до копейки: аллокация считается в целых
+        // минорных единицах с обеих сторон дроби, иначе остаток растворяется в округлении.
+        var snapshot = FractionalRegister(28.68m, 5.65m, 4.67m, 14.88m, 3.67m);
+
+        var run = PayoutRun.Create(
+            snapshot, PayoutKind.Dividend, PayoutMethod.BankTransfer, 100_000m, "KGS", Operator, null);
+
+        run.Items.Sum(i => i.Amount).Should().Be(100_000m);
+        run.Items.Should().OnlyContain(i => i.Amount > 0);
+    }
+
+    [Fact]
+    public void A_dust_holding_is_paid_from_the_remainder_not_dropped()
+    {
+        // Держатель с минимальной долей не должен исчезать из выплаты из-за округления вниз:
+        // остаток раздаётся по наибольшей потерянной части, и сумма всё равно сходится.
+        var snapshot = FractionalRegister(99.99m, 0.01m);
+
+        var run = PayoutRun.Create(
+            snapshot, PayoutKind.Dividend, PayoutMethod.BankTransfer, 1_000m, "KGS", Operator, null);
+
+        run.Items.Should().HaveCount(2);
+        run.Items.Sum(i => i.Amount).Should().Be(1_000m);
+    }
+
 }

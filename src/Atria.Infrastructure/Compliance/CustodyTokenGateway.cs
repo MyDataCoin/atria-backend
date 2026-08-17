@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Nethereum.ABI.FunctionEncoding;
 using Nethereum.ABI.Model;
 using Nethereum.Hex.HexTypes;
+using Atria.Domain.Investments;
 
 namespace Atria.Infrastructure.Compliance;
 
@@ -31,7 +32,7 @@ public sealed class CustodyTokenGateway : ITokenGateway
     }
 
     public async Task<TokenWriteResult> MintAsync(
-        string chainTag, string tokenContractAddress, string toAddress, long amount, CancellationToken ct)
+        string chainTag, string tokenContractAddress, string toAddress, decimal amount, CancellationToken ct)
     {
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount), "Mint amount must be positive.");
@@ -40,7 +41,9 @@ public sealed class CustodyTokenGateway : ITokenGateway
             ?? throw new InvalidOperationException(
                 $"Chain '{chainTag}' is not configured under Blockchain:Networks.");
 
-        // mint(address,uint256). decimals = 0, so the amount is the share count as written.
+        // mint(address,uint256). The contract holds shares as integer minor units with
+        // decimals() == TokenAmount.Scale, so the divisible share count is scaled up here.
+        var minorUnits = TokenAmount.ToMinor(amount);
         var callData = new FunctionCallEncoder().EncodeRequest(
             sha3Signature: "40c10f19",
             parameters:
@@ -48,7 +51,7 @@ public sealed class CustodyTokenGateway : ITokenGateway
                 new Parameter("address", "to", 1),
                 new Parameter("uint256", "amount", 2)
             ],
-            values: [toAddress, amount]);
+            values: [toAddress, minorUnits]);
 
         var payload = JsonSerializer.Serialize(new
         {

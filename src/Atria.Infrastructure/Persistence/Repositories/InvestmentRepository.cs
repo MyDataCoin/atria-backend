@@ -63,7 +63,7 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
         return (totalInvested, activeCount);
     }
 
-    public async Task<IReadOnlyList<(Guid InvestorId, long TokenCount, KycProfile? Kyc)>>
+    public async Task<IReadOnlyList<(Guid InvestorId, decimal TokenCount, KycProfile? Kyc)>>
         GetActiveByPropertyAsync(Guid propertyId, CancellationToken ct)
     {
         // Active investments in the property + the investor's KYC. The KycProfile entity is
@@ -79,7 +79,7 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
         return rows.Select(r => (r.InvestorId, r.TokenCount, (KycProfile?)r.k)).ToList();
     }
 
-    public async Task<IReadOnlyList<(Guid PropertyId, string PropertyName, long TokenCount, decimal Amount, string Currency, long TotalTokens)>>
+    public async Task<IReadOnlyList<(Guid PropertyId, string PropertyName, decimal TokenCount, decimal Amount, string Currency, decimal TotalTokens)>>
         GetActiveHoldingsByInvestorAsync(Guid investorId, CancellationToken ct)
     {
         // The investor's Active investments joined to their property. TotalTokens is carried out so the

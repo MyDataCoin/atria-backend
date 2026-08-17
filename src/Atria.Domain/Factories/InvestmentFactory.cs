@@ -12,11 +12,15 @@ namespace Atria.Domain.Factories;
 public static class InvestmentFactory
 {
     public static Investment CreateForInvestor(
-        Guid investorId, Guid propertyId, long tokenCount, decimal amount, string currency,
+        Guid investorId, Guid propertyId, decimal tokenCount, decimal amount, string currency,
         decimal pricePerToken, DateTime reservedUntilUtc, string? referralToken = null)
     {
         if (tokenCount <= 0)
             throw new DomainException("Token count must be positive.");
+        if (!TokenAmount.IsWellFormed(tokenCount))
+            throw new DomainException(
+                $"A holding must be a multiple of {TokenAmount.Smallest} — the register and the token "
+                + "contract cannot represent anything finer.");
         if (amount <= 0)
             throw new DomainException("Investment amount must be positive.");
         if (string.IsNullOrWhiteSpace(currency))

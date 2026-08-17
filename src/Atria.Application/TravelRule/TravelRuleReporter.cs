@@ -34,7 +34,7 @@ public interface ITravelRuleReporter
     /// none is owed. Returns the message when one was created.
     /// </summary>
     Task<TravelRuleMessage?> ReportTransferAsync(
-        Property property, string fromAddress, string toAddress, long tokenCount,
+        Property property, string fromAddress, string toAddress, decimal tokenCount,
         string? transactionHash, CancellationToken ct);
 }
 
@@ -78,7 +78,7 @@ public sealed class TravelRuleReporter : ITravelRuleReporter
     }
 
     public async Task<TravelRuleMessage?> ReportTransferAsync(
-        Property property, string fromAddress, string toAddress, long tokenCount,
+        Property property, string fromAddress, string toAddress, decimal tokenCount,
         string? transactionHash, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(property);

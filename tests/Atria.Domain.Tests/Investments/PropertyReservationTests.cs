@@ -11,7 +11,7 @@ namespace Atria.Domain.Tests.Investments;
 /// </summary>
 public sealed class PropertyReservationTests
 {
-    private static Property NewProperty(long totalTokens = 100)
+    private static Property NewProperty(decimal totalTokens = 100)
         => Property.Create("Tower One", null, null, 1_000_000m, 100m, totalTokens, "USD");
 
     [Fact]
@@ -76,5 +76,56 @@ public sealed class PropertyReservationTests
         property.ReleaseTokens(25);
 
         property.AvailableTokens.Should().Be(75);
+    }
+
+    [Fact]
+    public void An_issue_can_be_sized_to_a_fraction()
+    {
+        // 57,55 доли под квартиру в 57,55 м² — ровно то, ради чего доля стала делимой.
+        var property = NewProperty(57.55m);
+
+        property.TotalTokens.Should().Be(57.55m);
+        property.AvailableTokens.Should().Be(57.55m);
+    }
+
+    [Fact]
+    public void Fractional_reservations_add_up_exactly()
+    {
+        var property = NewProperty(57.55m);
+
+        property.ReserveTokens(0.01m);
+        property.ReserveTokens(7.54m);
+        property.ReserveTokens(50m);
+
+        property.AvailableTokens.Should().Be(0m, "the fractions must close the issue exactly, not nearly");
+    }
+
+    [Fact]
+    public void A_fractional_reservation_still_cannot_oversubscribe()
+    {
+        var property = NewProperty(1m);
+        property.ReserveTokens(0.99m);
+
+        var act = () => property.ReserveTokens(0.02m);
+
+        act.Should().Throw<DomainException>().WithMessage("*more tokens than are available*");
+    }
+
+    [Fact]
+    public void An_issue_finer_than_the_share_granularity_is_rejected()
+    {
+        var act = () => NewProperty(57.555m);
+
+        act.Should().Throw<DomainException>().WithMessage("*multiple of*");
+    }
+
+    [Fact]
+    public void A_reservation_finer_than_the_share_granularity_is_rejected()
+    {
+        var property = NewProperty(100);
+
+        var act = () => property.ReserveTokens(0.001m);
+
+        act.Should().Throw<DomainException>().WithMessage("*multiple of*");
     }
 }

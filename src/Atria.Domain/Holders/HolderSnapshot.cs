@@ -29,7 +29,7 @@ public sealed class HolderSnapshot : AggregateRoot
     public long? BlockNumber { get; private set; }
 
     /// <summary>Total shares across all rows — the denominator every row's share is taken over.</summary>
-    public long TotalTokens { get; private set; }
+    public decimal TotalTokens { get; private set; }
 
     /// <summary>Number of holding addresses in the snapshot.</summary>
     public int AddressCount { get; private set; }

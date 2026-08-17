@@ -36,7 +36,7 @@ public sealed class ReconcileRegistryQueryHandlerTests
     private ReconcileRegistryQueryHandler NewHandler() =>
         new(_properties, _positions, _tokens, _clock);
 
-    private void GivenHolders(params (string Wallet, long Tokens, bool Allowlisted)[] holders)
+    private void GivenHolders(params (string Wallet, decimal Tokens, bool Allowlisted)[] holders)
         => _positions.GetByPropertyAsync(_property.Id, Arg.Any<CancellationToken>())
             .Returns(holders
                 .Select(h => HolderPosition.Create(
@@ -126,7 +126,7 @@ public sealed class ReconcileRegistryQueryHandlerTests
         GivenHolders((WalletA, 1_000, true));
         GivenPlaced(1_000);
         _tokens.GetTotalSupplyAsync("bsc-testnet", "0xcontract", Arg.Any<CancellationToken>())
-            .Returns<long>(_ => throw new HttpRequestException("node down"));
+            .Returns<decimal>(_ => throw new HttpRequestException("node down"));
 
         var result = await NewHandler().Handle(new ReconcileRegistryQuery(_property.Id), CancellationToken.None);
 

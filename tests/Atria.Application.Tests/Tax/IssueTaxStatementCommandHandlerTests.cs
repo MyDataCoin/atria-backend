@@ -46,7 +46,7 @@ public sealed class IssueTaxStatementCommandHandlerTests
     }
 
     private void GivenHoldings(
-        params (Guid PropertyId, string Name, long Tokens, decimal Amount, long TotalTokens)[] holdings)
+        params (Guid PropertyId, string Name, decimal Tokens, decimal Amount, decimal TotalTokens)[] holdings)
         => _investments.GetActiveHoldingsByInvestorAsync(InvestorId, Arg.Any<CancellationToken>())
             .Returns(holdings
                 .Select(h => (h.PropertyId, h.Name, h.Tokens, h.Amount, "KGS", h.TotalTokens))

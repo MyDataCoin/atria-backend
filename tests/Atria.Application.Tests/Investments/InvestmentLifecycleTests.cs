@@ -34,7 +34,7 @@ public sealed class InvestmentLifecycleTests
         return kyc;
     }
 
-    private static Property OpenProperty(long totalTokens = 100)
+    private static Property OpenProperty(decimal totalTokens = 100)
     {
         var p = Property.Create("Tower One", null, null, 1_000_000m, 100m, totalTokens, "USD");
         p.Publish();

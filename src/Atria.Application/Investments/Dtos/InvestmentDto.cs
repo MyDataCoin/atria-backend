@@ -27,7 +27,7 @@ public sealed record InvestmentDto(
     Guid Id,
     Guid PropertyId,
     Guid InvestorId,
-    long TokenCount,
+    decimal TokenCount,
     decimal Amount,
     string Currency,
     decimal PricePerToken,

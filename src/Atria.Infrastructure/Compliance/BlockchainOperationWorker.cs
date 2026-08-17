@@ -100,9 +100,11 @@ public sealed class BlockchainOperationWorker : BackgroundService
         var root = payload.RootElement;
 
         var wallet = root.TryGetProperty("wallet", out var w) ? w.GetString() : null;
-        var tokenCount = root.TryGetProperty("tokenCount", out var c) && c.TryGetInt64(out var parsed)
+        // Shares are divisible, so the payload carries a decimal — TryGetInt64 would reject 57.55
+        // outright and a whole-number reading would quietly drop the fraction.
+        var tokenCount = root.TryGetProperty("tokenCount", out var c) && c.TryGetDecimal(out var parsed)
             ? parsed
-            : 0;
+            : 0m;
         var chain = root.TryGetProperty("chain", out var ch) ? ch.GetString() : null;
 
         if (string.IsNullOrWhiteSpace(wallet) || tokenCount <= 0)

@@ -10,4 +10,4 @@ public sealed record InvestmentExpiredEvent(
     Guid InvestmentId,
     Guid InvestorId,
     Guid PropertyId,
-    long TokenCount) : DomainEventBase;
+    decimal TokenCount) : DomainEventBase;

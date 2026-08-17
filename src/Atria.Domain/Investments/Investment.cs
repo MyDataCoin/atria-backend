@@ -18,7 +18,7 @@ public sealed class Investment : AggregateRoot
     public Guid PropertyId { get; private set; }
 
     /// <summary>How many tokens the investor applied for (reserved, then allocated on approval).</summary>
-    public long TokenCount { get; private set; }
+    public decimal TokenCount { get; private set; }
 
     /// <summary>
     /// The amount snapshot for the application, in <see cref="Currency"/>. A point-in-time record of
@@ -93,7 +93,7 @@ public sealed class Investment : AggregateRoot
 
     // Used by InvestmentFactory (same assembly) to build a Reserved application.
     internal static Investment CreateReserved(
-        Guid investorId, Guid propertyId, long tokenCount, decimal amount, string currency,
+        Guid investorId, Guid propertyId, decimal tokenCount, decimal amount, string currency,
         decimal pricePerToken, DateTime reservedUntilUtc, string? referralToken)
         => new()
         {

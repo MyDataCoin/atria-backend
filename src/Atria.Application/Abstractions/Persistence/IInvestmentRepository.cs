@@ -34,13 +34,13 @@ public interface IInvestmentRepository : IRepository<Investment>
     /// profile. The KYC entity is materialized so its encrypted FullName is decrypted by the value
     /// converter. Admin/Compliance reporting read.
     /// </summary>
-    Task<IReadOnlyList<(Guid InvestorId, long TokenCount, KycProfile? Kyc)>>
+    Task<IReadOnlyList<(Guid InvestorId, decimal TokenCount, KycProfile? Kyc)>>
         GetActiveByPropertyAsync(Guid propertyId, CancellationToken ct);
 
     /// <summary>
     /// An investor's Active holdings, one row per property, joined to the property's name, currency and
     /// total token supply (for the share computation). Admin/Compliance reporting read.
     /// </summary>
-    Task<IReadOnlyList<(Guid PropertyId, string PropertyName, long TokenCount, decimal Amount, string Currency, long TotalTokens)>>
+    Task<IReadOnlyList<(Guid PropertyId, string PropertyName, decimal TokenCount, decimal Amount, string Currency, decimal TotalTokens)>>
         GetActiveHoldingsByInvestorAsync(Guid investorId, CancellationToken ct);
 }

@@ -36,7 +36,7 @@ namespace Atria.Application.Investments.Dtos;
 public sealed record InvestmentChainRecordDto(
     Guid InvestmentId,
     Guid PropertyId,
-    long TokenCount,
+    decimal TokenCount,
     OnChainStatus Status,
     string? WalletAddress,
     string? TokenContractAddress,

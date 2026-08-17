@@ -18,7 +18,7 @@ namespace Atria.Application.Investments.Dtos;
 public sealed record UserInvestmentDto(
     Guid PropertyId,
     string PropertyName,
-    long TokenCount,
+    decimal TokenCount,
     decimal Amount,
     string Currency,
     decimal SharePercent,

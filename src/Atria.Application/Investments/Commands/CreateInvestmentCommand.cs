@@ -78,11 +78,15 @@ public sealed class CreateInvestmentCommandHandler
             return Result.Failure<Guid>(Error.Conflict(
                 "investment.insufficient_tokens", "Requested amount exceeds the property's remaining token capacity."));
 
-        // Whole tokens the amount buys at the property's unit price.
-        var tokenCount = (long)Math.Floor(request.Amount / property.TokenPrice);
+        // Shares the amount buys at the property's unit price. Rounded DOWN to the share
+        // granularity, never up: the investor gets what their money covers, so a rounding sliver can
+        // never place more of the issue than was paid for. Anything below the smallest share is not
+        // a purchase at all.
+        var tokenCount = TokenAmount.Floor(request.Amount / property.TokenPrice);
         if (tokenCount <= 0)
             return Result.Failure<Guid>(Error.Conflict(
-                "investment.amount_too_low", "The amount must cover at least one token."));
+                "investment.amount_too_low",
+                $"The amount must cover at least {TokenAmount.Smallest} of a token."));
 
         // If the investor arrived via a realtor's referral link, keep the token only when it still
         // resolves to a redeemable deal for THIS property. A missing/expired/mismatched token is
