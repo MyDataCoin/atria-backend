@@ -1,3 +1,4 @@
+using Atria.Application.Properties.Dtos;
 using Atria.Domain.Consents;
 using Atria.Domain.Documents;
 using Atria.Domain.Governance;
@@ -82,6 +83,13 @@ public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercen
 /// <param name="YearBuilt">New build year; <c>null</c> to leave unchanged.</param>
 /// <param name="Developer">New developer; <c>null</c> to leave unchanged.</param>
 /// <param name="Floors">New floor count; <c>null</c> to leave unchanged.</param>
+/// <param name="BuildingId">Move the unit into this building; <c>null</c> to leave unchanged, all-zero Guid to detach it.</param>
+/// <param name="UnitType">New unit kind (<c>apartment</c>, <c>garage</c>, …); <c>null</c> to leave unchanged.</param>
+/// <param name="UnitNumber">New flat / garage box number; <c>null</c> to leave unchanged.</param>
+/// <param name="FloorNumber">New floor the unit is on; <c>null</c> to leave unchanged.</param>
+/// <param name="RoomCount">New room count; <c>null</c> to leave unchanged.</param>
+/// <param name="TotalAreaSqM">New total area in m²; <c>null</c> to leave unchanged.</param>
+/// <param name="Rooms">Replaces the whole room breakdown; <c>null</c> leaves it unchanged, <c>[]</c> clears it.</param>
 public sealed record UpdatePropertyRequest(
     string? Name,
     string? Description,
@@ -90,7 +98,14 @@ public sealed record UpdatePropertyRequest(
     string? City,
     int? YearBuilt,
     string? Developer,
-    int? Floors);
+    int? Floors,
+    Guid? BuildingId = null,
+    string? UnitType = null,
+    string? UnitNumber = null,
+    int? FloorNumber = null,
+    int? RoomCount = null,
+    decimal? TotalAreaSqM = null,
+    IReadOnlyList<PropertyRoomInput>? Rooms = null);
 
 /// <summary>POST /publications body. Creates and publishes a news-feed item.</summary>
 /// <param name="Type">Kind: <c>financial_report</c> | <c>news_release</c> | <c>valuation_audit</c> | <c>general_news</c>.</param>
@@ -119,6 +134,18 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="TokenPrice">Price of a single token; must be greater than 0.</param>
 /// <param name="TotalTokens">Total number of tokens to issue; must be greater than 0.</param>
 /// <param name="Currency">3-letter ISO currency code (e.g. USD, KGS).</param>
+/// <param name="PropertyType">Kind of property (e.g. residential, commercial); optional.</param>
+/// <param name="City">City the property is in; optional.</param>
+/// <param name="YearBuilt">Year the property was built; optional.</param>
+/// <param name="Developer">Developer / builder name; optional.</param>
+/// <param name="Floors">Number of storeys; optional.</param>
+/// <param name="BuildingId">Building to register this unit in; omit for a standalone issue.</param>
+/// <param name="UnitType">What the unit is: <c>apartment</c> | <c>garage</c> | <c>parking_space</c> | <c>commercial</c> | <c>storage</c> | <c>other</c>.</param>
+/// <param name="UnitNumber">Flat / garage box number inside the building; max 32 characters.</param>
+/// <param name="FloorNumber">Floor the unit is on.</param>
+/// <param name="RoomCount">How many rooms the unit is sold as (2-, 3-, 4-комнатная).</param>
+/// <param name="TotalAreaSqM">Total floor area of the unit in m²; must be greater than 0 when sent.</param>
+/// <param name="Rooms">Room breakdown, e.g. <c>[{ "name": "Кухня+Столовая", "areaSqM": 28.68 }]</c>.</param>
 public sealed record CreatePropertyRequest(
     string Name,
     string? Description,
@@ -131,7 +158,52 @@ public sealed record CreatePropertyRequest(
     string? City = null,
     int? YearBuilt = null,
     string? Developer = null,
-    int? Floors = null);
+    int? Floors = null,
+    Guid? BuildingId = null,
+    string? UnitType = null,
+    string? UnitNumber = null,
+    int? FloorNumber = null,
+    int? RoomCount = null,
+    decimal? TotalAreaSqM = null,
+    IReadOnlyList<PropertyRoomInput>? Rooms = null);
+
+/// <summary>POST /buildings body. Registers the building an admin then fills with units.</summary>
+/// <param name="Name">Display name (e.g. "ЖК Ала-Тоо, блок B").</param>
+/// <param name="Description">Optional longer description.</param>
+/// <param name="Address">Physical address.</param>
+/// <param name="City">City the building is in.</param>
+/// <param name="Developer">Developer / builder name.</param>
+/// <param name="YearBuilt">Year the building was built.</param>
+/// <param name="Floors">Number of storeys.</param>
+/// <param name="BuildingType">Kind of building (residential, commercial, mixed).</param>
+public sealed record CreateBuildingRequest(
+    string Name,
+    string? Description = null,
+    string? Address = null,
+    string? City = null,
+    string? Developer = null,
+    int? YearBuilt = null,
+    int? Floors = null,
+    string? BuildingType = null);
+
+/// <summary>PATCH /buildings/{id} body. Only the supplied fields are changed.</summary>
+/// <param name="Name">New display name; <c>null</c> to leave unchanged.</param>
+/// <param name="Description">New description; <c>null</c> to leave unchanged.</param>
+/// <param name="Address">New address; <c>null</c> to leave unchanged.</param>
+/// <param name="City">New city; <c>null</c> to leave unchanged.</param>
+/// <param name="Developer">New developer; <c>null</c> to leave unchanged.</param>
+/// <param name="YearBuilt">New build year; <c>null</c> to leave unchanged.</param>
+/// <param name="Floors">New storey count; <c>null</c> to leave unchanged.</param>
+/// <param name="BuildingType">New building kind; <c>null</c> to leave unchanged.</param>
+public sealed record UpdateBuildingRequest(
+    string? Name = null,
+    string? Description = null,
+    string? Address = null,
+    string? City = null,
+    string? Developer = null,
+    int? YearBuilt = null,
+    int? Floors = null,
+    string? BuildingType = null);
 
 /// <summary>POST /investments/{id}/reject body. Rejects a reserved offering application.</summary>
 /// <param name="Reason">Required human-readable rejection reason shown to the investor and journalled.</param>

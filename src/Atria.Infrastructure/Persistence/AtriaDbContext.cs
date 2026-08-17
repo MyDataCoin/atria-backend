@@ -45,6 +45,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<Consent> Consents => Set<Consent>();
     public DbSet<Investment> Investments => Set<Investment>();
     public DbSet<Property> Properties => Set<Property>();
+    public DbSet<Building> Buildings => Set<Building>();
     public DbSet<Deal> Deals => Set<Deal>();
     public DbSet<RealtorProfile> RealtorProfiles => Set<RealtorProfile>();
     public DbSet<Publication> Publications => Set<Publication>();

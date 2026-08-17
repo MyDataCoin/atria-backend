@@ -80,6 +80,14 @@ public sealed class PropertiesController : ApiControllerBase
     /// Registers a new property in the catalogue and returns its id. Requires the <b>Admin</b> role.
     /// <c>TotalValue</c>, <c>TokenPrice</c>, and <c>TotalTokens</c> must all be positive and <c>Currency</c>
     /// must be a 3-letter ISO code (e.g. <c>USD</c>, <c>KGS</c>).
+    /// <para>
+    /// To add a unit to a building, send <c>buildingId</c> plus the unit fields: <c>unitType</c>
+    /// (<c>apartment</c> | <c>garage</c> | <c>parking_space</c> | <c>commercial</c> | <c>storage</c> |
+    /// <c>other</c>), <c>unitNumber</c>, <c>floorNumber</c>, <c>roomCount</c>, <c>totalAreaSqM</c> and the
+    /// <c>rooms</c> breakdown (<c>[{ "name": "Кухня+Столовая", "areaSqM": 28.68 }, …]</c>). Each unit is
+    /// its own token issue — <c>tokenPrice</c> and <c>totalTokens</c> are per unit, not per building.
+    /// Omit <c>buildingId</c> for a standalone issue. 404 when the building does not exist.
+    /// </para>
     /// </remarks>
     /// <param name="request">The property details to register.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -94,7 +102,9 @@ public sealed class PropertiesController : ApiControllerBase
         var result = await Sender.Send(new CreatePropertyCommand(
             request.Name, request.Description, request.Address, request.TotalValue,
             request.TokenPrice, request.TotalTokens, request.Currency,
-            request.PropertyType, request.City, request.YearBuilt, request.Developer, request.Floors), ct);
+            request.PropertyType, request.City, request.YearBuilt, request.Developer, request.Floors,
+            request.BuildingId, request.UnitType, request.UnitNumber, request.FloorNumber,
+            request.RoomCount, request.TotalAreaSqM, request.Rooms), ct);
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
@@ -103,7 +113,10 @@ public sealed class PropertiesController : ApiControllerBase
     /// Requires the <b>Admin</b> role. Only the supplied fields are changed, so a client can PATCH a
     /// single field. Economics (total value, token price, supply, currency) and the lifecycle status
     /// are <b>not</b> editable here — changing them after investors have bought in would rewrite the
-    /// terms of a live offering. Responds with 404 when the property does not exist. The edit is
+    /// terms of a live offering. The unit fields (building, type, number, floor, area) and the
+    /// <c>rooms</c> breakdown are editable; sending <c>rooms</c> replaces the whole list, <c>[]</c> clears
+    /// it and omitting it leaves it alone. <c>buildingId</c> moves the unit into another building; send
+    /// the all-zero Guid to pull it out into a standalone issue. Responds with 404 when the property does not exist. The edit is
     /// recorded in the audit journal as <c>PropertyUpdated</c>.
     /// </remarks>
     /// <param name="id">The property's unique identifier.</param>
@@ -119,7 +132,9 @@ public sealed class PropertiesController : ApiControllerBase
     public async Task<IActionResult> Update(Guid id, UpdatePropertyRequest request, CancellationToken ct)
         => ToActionResult(await Sender.Send(new UpdatePropertyCommand(
             id, request.Name, request.Description, request.Address, request.PropertyType,
-            request.City, request.YearBuilt, request.Developer, request.Floors), ct));
+            request.City, request.YearBuilt, request.Developer, request.Floors,
+            request.BuildingId, request.UnitType, request.UnitNumber, request.FloorNumber,
+            request.RoomCount, request.TotalAreaSqM, request.Rooms), ct));
 
     /// <summary>Annuls part of an issue that was never placed. Admin only.</summary>
     /// <remarks>
@@ -339,7 +354,7 @@ public sealed class PropertiesController : ApiControllerBase
     /// <remarks>
     /// <c>multipart/form-data</c> with a single <c>file</c> part (JPEG/PNG/WebP, ≤ 10 MB). The file is
     /// stored on the backend under a UUID name and served statically; only its URL is persisted. A property
-    /// may hold at most 3 photos (<c>409</c> beyond that).
+    /// may hold at most 10 photos (<c>409</c> beyond that).
     /// </remarks>
     /// <param name="id">The property's id.</param>
     /// <param name="file">The image file part.</param>

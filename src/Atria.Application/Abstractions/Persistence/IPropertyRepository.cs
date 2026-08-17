@@ -6,4 +6,7 @@ namespace Atria.Application.Abstractions;
 public interface IPropertyRepository : IRepository<Property>
 {
     Task<IReadOnlyList<Property>> GetAllAsync(CancellationToken ct);
+
+    /// <summary>The units registered inside a building (apartments, garages), each its own issue.</summary>
+    Task<IReadOnlyList<Property>> GetByBuildingAsync(Guid buildingId, CancellationToken ct);
 }

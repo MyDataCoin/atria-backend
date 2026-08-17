@@ -4,6 +4,7 @@ namespace Atria.Application.Audit;
 public static class AuditEntities
 {
     public const string Property = "Property";
+    public const string Building = "Building";
     public const string Publication = "Publication";
     public const string SupportTicket = "SupportTicket";
     public const string User = "User";
@@ -18,6 +19,9 @@ public static class AuditEntities
 /// </summary>
 public static class AuditEvents
 {
+    public const string BuildingCreated = "BuildingCreated";
+    public const string BuildingUpdated = "BuildingUpdated";
+    public const string BuildingDeleted = "BuildingDeleted";
     public const string PropertyCreated = "PropertyCreated";
     public const string PropertyUpdated = "PropertyUpdated";
     public const string PropertyPublished = "PropertyPublished";

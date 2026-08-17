@@ -31,13 +31,6 @@ public sealed class GetPropertyByIdQueryHandler
             return Result.Failure<PropertyDto>(
                 Error.NotFound("property.notFound", "Property not found."));
 
-        var dto = new PropertyDto(
-            property.Id, property.Name, property.Description, property.TokenPrice,
-            property.AvailableTokens, property.TotalTokens, property.Currency, PropertyDto.ToWireStatus(property.Status), property.SalesPaused,
-            property.Address, property.PropertyType, property.City, property.YearBuilt, property.Developer, property.Floors,
-            property.Images.Select(i => new PropertyImageDto(i.Id, i.Url)).ToList(),
-            property.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList());
-
-        return Result.Success(dto);
+        return Result.Success(PropertyDto.From(property));
     }
 }

@@ -12,11 +12,21 @@ public sealed class PropertyRepository : Repository<Property>, IPropertyReposito
     public override Task<Property?> GetByIdAsync(Guid id, CancellationToken ct)
         => Set.Include(p => p.Images)
               .Include(p => p.Documents)
+              .Include(p => p.Rooms)
               .FirstOrDefaultAsync(p => p.Id == id, ct);
 
     public async Task<IReadOnlyList<Property>> GetAllAsync(CancellationToken ct)
         => await Set.AsNoTracking()
             .Include(p => p.Images)
             .Include(p => p.Documents)
+            .Include(p => p.Rooms)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Property>> GetByBuildingAsync(Guid buildingId, CancellationToken ct)
+        => await Set.AsNoTracking()
+            .Where(p => p.BuildingId == buildingId)
+            .Include(p => p.Images)
+            .Include(p => p.Documents)
+            .Include(p => p.Rooms)
             .ToListAsync(ct);
 }

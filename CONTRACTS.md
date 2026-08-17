@@ -82,11 +82,22 @@ Events (`Atria.Domain.Kyc.Events`, records : DomainEventBase):
 
 ### Investments (`Atria.Domain.Investments`)
 ```
-sealed class Property : AggregateRoot
+sealed class Building : AggregateRoot   // groups the units sold inside it; issues NOTHING itself
+  string Name; string? Description; string? Address; string? City; string? Developer;
+  int? YearBuilt; int? Floors; string? BuildingType; IReadOnlyCollection<BuildingImage> Images;
+  static Building Create(string name, ...descriptive optionals);
+  void UpdateDetails(...optionals);  // only non-null args applied (PATCH semantics)
+  BuildingImage AddImage(string url); BuildingImage? RemoveImage(Guid imageId);  // max Building.MaxImages
+sealed class Property : AggregateRoot   // THE unit of issuance: standalone, or one unit of a Building
   string Name; string? Description; string? Address; decimal TotalValue; decimal TokenPrice;
   long TotalTokens; long AvailableTokens; string Currency; PropertyStatus Status; bool SalesPaused;
+  Guid? BuildingId; UnitType UnitType; string? UnitNumber; int? FloorNumber;
+  int? RoomCount; decimal? TotalAreaSqM; IReadOnlyCollection<PropertyRoom> Rooms;
   static Property Create(string name, string? description, string? address, decimal totalValue,
                          decimal tokenPrice, long totalTokens, string currency, ...descriptive optionals);
+  void AssignToBuilding(Guid? buildingId);            // Guid.Empty == null == standalone
+  void SetUnitDetails(UnitType?, string? unitNumber, int? floorNumber, int? roomCount, decimal? totalAreaSqM);
+  void ReplaceRooms(IEnumerable<(string Name, decimal AreaSqM)> rooms);  // whole-list swap; [] clears
   void ReserveTokens(long count);   // holds tokens for a new application; throws if count > AvailableTokens
   void ReleaseTokens(long count);   // returns tokens to the pool on reject/cancel/expiry
 sealed class Investment : AggregateRoot
@@ -183,7 +194,8 @@ sealed class OutboxMessage : Entity
 IUserRepository : IRepository<User> { Task<User?> GetByEmailAsync(string email, ct); Task<User?> GetByPhoneAsync(string phone, ct); }
 IKycRepository : IRepository<KycProfile> { Task<KycProfile?> GetByUserIdAsync(Guid userId, ct); Task<KycProfile?> GetBySessionIdAsync(string sessionId, ct); }
 IInvestmentRepository : IRepository<Investment> { Task<IReadOnlyList<Investment>> GetByInvestorAsync(Guid investorId, ct); Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, ct); }
-IPropertyRepository : IRepository<Property> { Task<IReadOnlyList<Property>> GetAllAsync(ct); }
+IPropertyRepository : IRepository<Property> { Task<IReadOnlyList<Property>> GetAllAsync(ct); Task<IReadOnlyList<Property>> GetByBuildingAsync(Guid buildingId, ct); }
+IBuildingRepository : IRepository<Building> { Task<IReadOnlyList<Building>> GetAllAsync(ct); Task<bool> HasUnitsAsync(Guid buildingId, ct); }
 IDocumentRepository : IRepository<DocumentRecord> { Task<IReadOnlyList<DocumentRecord>> GetByOwnerAsync(Guid ownerId, ct); }
 INotificationRepository : IRepository<Notification> { Task<IReadOnlyList<Notification>> GetByUserAsync(Guid userId, ct); }
 IComplianceRepository : IRepository<ComplianceProfile> { Task<ComplianceProfile?> GetByInvestorAsync(Guid investorId, ct); }
@@ -203,7 +215,14 @@ the implementer's choice (keep minimal, in `<Module>/Dtos`). Resource ownership 
   GetKycStatusQuery→Result<KycStatusDto> (current user);
   HandleKycCallbackCommand(string provider, WebhookPayload payload)→Result (webhook).
 - **Properties**: CreatePropertyCommand(...)→Result<Guid> [Admin]; GetPropertiesQuery→Result<IReadOnlyList<PropertyDto>>;
-  GetPropertyByIdQuery(Guid id)→Result<PropertyDto>.
+  GetPropertyByIdQuery(Guid id)→Result<PropertyDto>. Creating/updating takes the unit fields
+  (buildingId, unitType, unitNumber, floorNumber, roomCount, totalAreaSqM, rooms[]); tokens are
+  always issued per property, i.e. per apartment/garage, never on the building.
+- **Buildings**: CreateBuildingCommand(...)→Result<Guid> [Admin]; UpdateBuildingCommand(...)→Result [Admin];
+  DeleteBuildingCommand(Guid id)→Result [Admin, 409 while units remain];
+  AddBuildingImageCommand/RemoveBuildingImageCommand [Admin];
+  GetBuildingsQuery→Result<IReadOnlyList<BuildingDto>>; GetBuildingByIdQuery(Guid id)→Result<BuildingDto>
+  (both carry the building's units; draft units are staff-only).
 - **Investments**: CreateInvestmentCommand(Guid propertyId, decimal amount)→Result<Guid> [Investor, KYC-gated];
   CreatePaymentSessionCommand(Guid investmentId, PaymentProviderType provider)→Result<PaymentSessionDto>;
   HandlePaymentCallbackCommand(string provider, WebhookPayload payload)→Result (webhook, idempotent);

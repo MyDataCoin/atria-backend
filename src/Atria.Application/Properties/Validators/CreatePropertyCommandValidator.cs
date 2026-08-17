@@ -22,5 +22,17 @@ public sealed class CreatePropertyCommandValidator : AbstractValidator<CreatePro
         RuleFor(x => x.Developer).MaximumLength(256);
         RuleFor(x => x.YearBuilt).InclusiveBetween(1800, 2100).When(x => x.YearBuilt is not null);
         RuleFor(x => x.Floors).InclusiveBetween(1, 500).When(x => x.Floors is not null);
+
+        // Unit-in-a-building fields. All optional: a standalone issue sends none of them.
+        RuleFor(x => x.UnitNumber).MaximumLength(32);
+        RuleFor(x => x.FloorNumber).InclusiveBetween(-10, 500).When(x => x.FloorNumber is not null);
+        RuleFor(x => x.RoomCount).InclusiveBetween(0, 100).When(x => x.RoomCount is not null);
+        RuleFor(x => x.TotalAreaSqM).GreaterThan(0).When(x => x.TotalAreaSqM is not null);
+
+        RuleForEach(x => x.Rooms).ChildRules(room =>
+        {
+            room.RuleFor(r => r.Name).NotEmpty().MaximumLength(128);
+            room.RuleFor(r => r.AreaSqM).GreaterThan(0);
+        });
     }
 }

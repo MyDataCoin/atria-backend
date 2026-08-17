@@ -117,6 +117,7 @@ public static class DependencyInjection
         services.AddScoped<IConsentRepository, ConsentRepository>();
         services.AddScoped<IInvestmentRepository, InvestmentRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
+        services.AddScoped<IBuildingRepository, BuildingRepository>();
         services.AddScoped<IDealRepository, DealRepository>();
         services.AddScoped<IRealtorProfileRepository, RealtorProfileRepository>();
         services.AddScoped<IPublicationRepository, PublicationRepository>();

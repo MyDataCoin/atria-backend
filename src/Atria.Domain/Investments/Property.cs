@@ -6,11 +6,17 @@ namespace Atria.Domain.Investments;
 /// <summary>
 /// A real estate property that issues a fixed pool of tokens. Investors buy tokens
 /// against the available supply.
+/// <para>
+/// This is the unit of issuance: one property, one token issue, one holder register. A property is
+/// either standalone, or one unit inside a <see cref="Building"/> — an apartment or a garage that
+/// the admin put up for sale on its own. The building groups such units and holds their shared
+/// address/developer data; the tokens are always issued here, per unit.
+/// </para>
 /// </summary>
 public sealed class Property : AggregateRoot
 {
     /// <summary>Maximum photos a property may have.</summary>
-    public const int MaxImages = 3;
+    public const int MaxImages = 10;
 
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
@@ -22,6 +28,26 @@ public sealed class Property : AggregateRoot
     public int? YearBuilt { get; private set; }
     public string? Developer { get; private set; }
     public int? Floors { get; private set; }
+
+    // --- Unit inside a building (all null / Unspecified for a standalone issue) ---
+
+    /// <summary>The building this unit belongs to, or null when the issue is standalone.</summary>
+    public Guid? BuildingId { get; private set; }
+
+    /// <summary>What the unit is: apartment, garage, parking space… <see cref="UnitType.Unspecified"/> when standalone.</summary>
+    public UnitType UnitType { get; private set; } = UnitType.Unspecified;
+
+    /// <summary>Unit designation within the building (flat number, garage box number).</summary>
+    public string? UnitNumber { get; private set; }
+
+    /// <summary>Floor the unit is on. Distinct from <see cref="Floors"/>, which counts storeys.</summary>
+    public int? FloorNumber { get; private set; }
+
+    /// <summary>Number of rooms the unit is sold as (2-, 3-, 4-комнатная). Null for a garage.</summary>
+    public int? RoomCount { get; private set; }
+
+    /// <summary>Total floor area of the unit in square metres.</summary>
+    public decimal? TotalAreaSqM { get; private set; }
 
     public decimal TotalValue { get; private set; }
     public decimal TokenPrice { get; private set; }
@@ -90,6 +116,11 @@ public sealed class Property : AggregateRoot
     private readonly List<PropertyDocument> _documents = new();
     public IReadOnlyCollection<PropertyDocument> Documents => _documents.AsReadOnly();
 
+    private readonly List<PropertyRoom> _rooms = new();
+
+    /// <summary>The unit's room breakdown, in the order the admin entered it.</summary>
+    public IReadOnlyCollection<PropertyRoom> Rooms => _rooms.AsReadOnly();
+
     // private ctor: creation only through the factory method
     private Property() { }
 
@@ -155,6 +186,55 @@ public sealed class Property : AggregateRoot
         YearBuilt = yearBuilt ?? YearBuilt;
         Developer = developer ?? Developer;
         Floors = floors ?? Floors;
+    }
+
+    /// <summary>
+    /// Makes this property a unit of <paramref name="buildingId"/>, or detaches it (null) back to a
+    /// standalone issue. Only the grouping changes — the issue, its supply and its holders stay put.
+    /// </summary>
+    public void AssignToBuilding(Guid? buildingId)
+        => BuildingId = buildingId == Guid.Empty ? null : buildingId;
+
+    /// <summary>
+    /// Records what the unit physically is: kind, number, floor, room count and total area. Only
+    /// non-null arguments are applied, so a caller can PATCH a single field. <paramref name="unitType"/>
+    /// of <see cref="UnitType.Unspecified"/> is treated as "leave as is".
+    /// </summary>
+    public void SetUnitDetails(
+        UnitType? unitType = null, string? unitNumber = null, int? floorNumber = null,
+        int? roomCount = null, decimal? totalAreaSqM = null)
+    {
+        if (roomCount is < 0)
+            throw new DomainException("Room count cannot be negative.");
+        if (totalAreaSqM is <= 0)
+            throw new DomainException("Unit area must be positive.");
+
+        if (unitType is not null and not UnitType.Unspecified)
+            UnitType = unitType.Value;
+
+        UnitNumber = unitNumber ?? UnitNumber;
+        FloorNumber = floorNumber ?? FloorNumber;
+        RoomCount = roomCount ?? RoomCount;
+        TotalAreaSqM = totalAreaSqM ?? TotalAreaSqM;
+    }
+
+    /// <summary>
+    /// Replaces the whole room breakdown with <paramref name="rooms"/> (name + area, in order). The
+    /// list is replaced wholesale rather than patched row by row: the admin edits it as one table,
+    /// and an empty list clears it. The sum of the rooms is NOT forced to equal
+    /// <see cref="TotalAreaSqM"/> — plans legitimately disagree with the sellable area — so callers
+    /// that want to flag a discrepancy compare the two themselves.
+    /// </summary>
+    public void ReplaceRooms(IEnumerable<(string Name, decimal AreaSqM)> rooms)
+    {
+        ArgumentNullException.ThrowIfNull(rooms);
+
+        var replacement = rooms
+            .Select((r, i) => PropertyRoom.Create(Id, r.Name, r.AreaSqM, i))
+            .ToList();
+
+        _rooms.Clear();
+        _rooms.AddRange(replacement);
     }
 
     /// <summary>

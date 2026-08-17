@@ -11,3 +11,9 @@ public sealed record PropertyImageDto(Guid Id, string Url);
 /// <param name="FileName">Original uploaded file name.</param>
 /// <param name="ContentType">MIME content type of the document.</param>
 public sealed record PropertyDocumentDto(Guid Id, string Url, string FileName, string ContentType);
+
+/// <summary>One line of a unit's room breakdown — "Кухня+Столовая — 28,68 м²".</summary>
+/// <param name="Id">The room row's unique identifier.</param>
+/// <param name="Name">Room label as the admin typed it.</param>
+/// <param name="AreaSqM">Floor area of the room in square metres.</param>
+public sealed record PropertyRoomDto(Guid Id, string Name, decimal AreaSqM);

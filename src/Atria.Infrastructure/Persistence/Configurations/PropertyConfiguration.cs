@@ -19,6 +19,20 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.YearBuilt);
         b.Property(p => p.Developer).HasMaxLength(256);
         b.Property(p => p.Floors);
+
+        // Unit inside a building. Restrict, not Cascade: deleting a building must never silently
+        // delete live token issues — the units have to be moved or removed first.
+        b.Property(p => p.UnitType).HasConversion<int>().IsRequired();
+        b.Property(p => p.UnitNumber).HasMaxLength(32);
+        b.Property(p => p.FloorNumber);
+        b.Property(p => p.RoomCount);
+        b.Property(p => p.TotalAreaSqM).HasPrecision(10, 2);
+        b.HasOne<Building>()
+            .WithMany()
+            .HasForeignKey(p => p.BuildingId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(p => p.BuildingId);
+
         b.Property(p => p.TotalValue).HasPrecision(18, 2).IsRequired();
         b.Property(p => p.TokenPrice).HasPrecision(18, 2).IsRequired();
 
@@ -58,6 +72,16 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
             .OnDelete(DeleteBehavior.Cascade);
         b.Navigation(p => p.Documents)
             .HasField("_documents")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Room breakdown of the unit. ReplaceRooms() clears and refills the collection, so the
+        // required FK makes EF delete the dropped rows as orphans instead of orphaning them.
+        b.HasMany(p => p.Rooms)
+            .WithOne()
+            .HasForeignKey(r => r.PropertyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.Navigation(p => p.Rooms)
+            .HasField("_rooms")
             .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
