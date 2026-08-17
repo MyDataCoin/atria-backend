@@ -11,9 +11,15 @@ namespace Atria.Application.Buildings.Queries;
 public sealed record GetBuildingsQuery : IRequest<Result<IReadOnlyList<BuildingDto>>>;
 
 /// <summary>
-/// Returns every building together with its units. Unit visibility follows the same rule as the
-/// property catalogue: drafts are staff-only, so a public caller sees the building with only its
+/// Returns the buildings together with their units. Unit visibility follows the same rule as the
+/// property catalogue: drafts are staff-only, so a public caller sees a building with only its
 /// announced / open / completed units.
+/// <para>
+/// A building with nothing publicly visible inside it is withheld entirely, not returned empty. A
+/// draft is work in progress — leaking the name, address, developer and photos of an object that
+/// has not been put on sale yet is the same disclosure a draft property is deliberately protected
+/// from, and an empty card on the public site is not a listing anyone wants either.
+/// </para>
 /// </summary>
 public sealed class GetBuildingsQueryHandler
     : IRequestHandler<GetBuildingsQuery, Result<IReadOnlyList<BuildingDto>>>
@@ -44,6 +50,9 @@ public sealed class GetBuildingsQueryHandler
         IReadOnlyList<BuildingDto> dtos = buildings
             .Select(b => BuildingDto.From(
                 b, unitsByBuilding.TryGetValue(b.Id, out var units) ? units : Array.Empty<PropertyDto>()))
+            // Staff keep every building, including the ones still being filled in; everyone else
+            // only sees a building that actually has something on sale.
+            .Where(dto => seesDrafts || dto.Units.Count > 0)
             .ToList();
 
         return Result.Success(dtos);

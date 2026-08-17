@@ -18,7 +18,9 @@ public sealed class AuthFlowTests : IClassFixture<AtriaApiFactory>
     private const string RequestOtpRoute = "/api/v1/auth/register/phone/request-otp";
     private const string VerifyOtpRoute = "/api/v1/auth/register/phone/verify-otp";
 
-    // The test host configures Otp:DevFixedCode = 333333 (no SMS sent).
+    // TEMPORARY: OtpService runs in stub mode — no code is issued and no SMS is sent, and the fixed
+    // code below is accepted for any number. Delete this together with OtpService.StubEnabled.
+    private const string StubCode = "111111";
 
     private readonly AtriaApiFactory _factory;
 
@@ -134,4 +136,32 @@ public sealed class AuthFlowTests : IClassFixture<AtriaApiFactory>
             ? token.GetString()
             : null;
     }
+    [Fact]
+    public async Task The_stub_code_signs_a_new_number_in_without_requesting_a_code_first()
+    {
+        // Ровно то, что делает сайт: /request-otp не вызывается вообще (SMS-шлюз трогать нельзя),
+        // человек сразу вводит фиксированный код. Если это перестанет работать, вход на сайте
+        // умрёт целиком, а модалка покажет «неверный код» и не скажет почему.
+        var client = _factory.CreateClient();
+        var phone = UniqueKgPhone();
+
+        var verify = await client.PostAsJsonAsync(VerifyOtpRoute, new { phone, code = StubCode });
+
+        verify.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var doc = JsonDocument.Parse(await verify.Content.ReadAsStringAsync());
+        doc.RootElement.GetProperty("accessToken").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task A_wrong_code_is_refused_while_the_stub_is_on()
+    {
+        var client = _factory.CreateClient();
+
+        var verify = await client.PostAsJsonAsync(
+            VerifyOtpRoute, new { phone = UniqueKgPhone(), code = "222222" });
+
+        verify.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            "the stub accepts one value, not any value");
+    }
+
 }

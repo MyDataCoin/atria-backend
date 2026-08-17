@@ -99,6 +99,70 @@ public sealed class BuildingUnitsFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
+    public async Task A_building_whose_units_are_all_drafts_is_invisible_to_the_public()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var anon = _factory.CreateClient();
+
+        // Здание заведено, помещения ещё черновики — на сайте его быть не должно вообще.
+        var buildingId = await CreateBuildingAsync(admin);
+        await CreateUnitAsync(admin, MinimalUnit(buildingId, "Апартамент 1"));
+
+        var anonList = await GetJsonAsync(anon, BuildingsRoute);
+        anonList.EnumerateArray().Select(b => b.GetProperty("id").GetString())
+            .Should().NotContain(buildingId, "черновик не выкладывается на публику даже пустой карточкой");
+
+        // И по прямой ссылке тоже: существование объекта не подтверждается.
+        (await anon.GetAsync($"{BuildingsRoute}/{buildingId}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Админ видит его всегда — ему с ним работать.
+        (await GetJsonAsync(admin, BuildingsRoute)).EnumerateArray()
+            .Select(b => b.GetProperty("id").GetString()).Should().Contain(buildingId);
+        (await admin.GetAsync($"{BuildingsRoute}/{buildingId}"))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task A_building_with_no_units_at_all_is_invisible_to_the_public()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var anon = _factory.CreateClient();
+
+        var buildingId = await CreateBuildingAsync(admin);
+
+        (await GetJsonAsync(anon, BuildingsRoute)).EnumerateArray()
+            .Select(b => b.GetProperty("id").GetString())
+            .Should().NotContain(buildingId, "пустая карточка — не листинг");
+        (await anon.GetAsync($"{BuildingsRoute}/{buildingId}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task A_building_appears_publicly_as_soon_as_one_unit_goes_on_sale()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+        var anon = _factory.CreateClient();
+
+        var buildingId = await CreateBuildingAsync(admin);
+        var draftId = await CreateUnitAsync(admin, MinimalUnit(buildingId, "Апартамент 1"));
+        var openId = await CreateUnitAsync(admin, MinimalUnit(buildingId, "Апартамент 2"));
+
+        (await anon.GetAsync($"{BuildingsRoute}/{buildingId}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound, "пока всё в черновиках — здания нет");
+
+        await GovernanceTestHelpers.PublishAsync(_factory, admin, openId);
+
+        var building = await GetJsonAsync(anon, $"{BuildingsRoute}/{buildingId}");
+        building.GetProperty("unitCount").GetInt32().Should().Be(1);
+        building.GetProperty("units").EnumerateArray().Select(u => u.GetProperty("id").GetString())
+            .Should().Contain(openId).And.NotContain(draftId, "опубликовано одно помещение, а не всё здание");
+    }
+
+    [Fact]
     public async Task Units_AreDraftsUntilPublished_AndHiddenFromThePublicBuilding()
     {
         var admin = _factory.CreateClient();

@@ -7,7 +7,11 @@ using Atria.Domain.Users;
 
 namespace Atria.Application.Buildings.Queries;
 
-/// <summary>Fetches one building with the units registered inside it.</summary>
+/// <summary>
+/// Fetches one building with the units registered inside it. A building with nothing publicly
+/// visible inside is reported as not found to non-staff — exactly as a draft property is, so its
+/// existence is not leaked by a direct link either.
+/// </summary>
 public sealed record GetBuildingByIdQuery(Guid Id) : IRequest<Result<BuildingDto>>;
 
 public sealed class GetBuildingByIdQueryHandler
@@ -37,6 +41,9 @@ public sealed class GetBuildingByIdQueryHandler
             .Where(p => seesDrafts || p.Status != PropertyStatus.Draft)
             .Select(PropertyDto.From)
             .ToList();
+
+        if (units.Count == 0 && !seesDrafts)
+            return Result.Failure<BuildingDto>(Error.NotFound("building.notFound", "Building not found."));
 
         return Result.Success(BuildingDto.From(building, units));
     }
