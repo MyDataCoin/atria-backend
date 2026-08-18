@@ -208,6 +208,15 @@ public sealed class DiditKycProvider : IKycProviderStrategy
                     return new KycVerifiedIdentity(first, last, full);
             }
 
+            // A decision that carries no name we recognise leaves the KYC record without one, and an
+            // investor nobody can name is not something to discover months later in a report. Log the
+            // SHAPE of what came back — key names only, never their values: this document is the
+            // person's identity data, and a diagnostic must not become the place it leaks.
+            _logger.LogWarning(
+                "Didit decision carried no recognisable name. Root keys: [{RootKeys}]. Probed objects: [{Sources}].",
+                string.Join(", ", DescribeKeys(root)),
+                string.Join(" | ", EnumerateIdentitySources(root).Select(src => string.Join(", ", DescribeKeys(src)))));
+
             return null;
         }
         catch (JsonException ex)
@@ -236,6 +245,12 @@ public sealed class DiditKycProvider : IKycProviderStrategy
     }
 
     private static readonly string[] IdentityObjectKeys = { "id_verification", "kyc", "decision" };
+
+    // Property names of a JSON object, for diagnostics. Names only — the values are personal data.
+    private static IEnumerable<string> DescribeKeys(JsonElement element)
+        => element.ValueKind == JsonValueKind.Object
+            ? element.EnumerateObject().Select(p => p.Name)
+            : Enumerable.Empty<string>();
 
     public bool VerifySignature(WebhookPayload payload)
     {
