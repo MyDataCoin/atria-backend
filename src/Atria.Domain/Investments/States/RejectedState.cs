@@ -23,6 +23,9 @@ public sealed class RejectedState : IInvestmentState
         => throw new InvalidStateTransitionException(
             "Only an active investment inside its 14-day window can be withdrawn.");
 
+    public IInvestmentState Annul(Investment investment, string reason)
+        => throw new InvalidStateTransitionException("Cannot annul a rejected application.");
+
     public static RejectedState Instance { get; } = new();
     private RejectedState() { }
 }

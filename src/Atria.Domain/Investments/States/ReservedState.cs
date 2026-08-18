@@ -38,6 +38,15 @@ public sealed class ReservedState : IInvestmentState
         => throw new InvalidStateTransitionException(
             "Only an active investment inside its 14-day window can be withdrawn.");
 
+    public IInvestmentState Annul(Investment investment, string reason)
+    {
+        investment.RaiseDomainEvent(new Events.InvestmentAnnulledEvent(
+            investment.Id, investment.InvestorId, investment.PropertyId,
+            investment.TokenCount, reason, WasActive: false));
+
+        return AnnulledState.Instance;
+    }
+
     public static ReservedState Instance { get; } = new();
     private ReservedState() { }
 }

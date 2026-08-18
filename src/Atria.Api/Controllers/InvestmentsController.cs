@@ -107,6 +107,34 @@ public sealed class InvestmentsController : ApiControllerBase
     /// </remarks>
     /// <param name="id">The caller's active investment.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <summary>Voids an application that should not stand, returning its shares to the issue. Admin only.</summary>
+    /// <remarks>
+    /// For a mistaken entry, a duplicate, or data left over from testing — the supported way to remove
+    /// such an application, so that nobody has to delete a row by hand. A hand-deleted row keeps the
+    /// shares out of the pool for good: the reservation already decremented the issue's supply and
+    /// nothing puts it back.
+    ///
+    /// Works on a reserved or an active application, the latter also outside the 14-day window. An
+    /// application that had been activated is unwound like a withdrawal: the register stops counting it,
+    /// anything minted is burned, and — unless <c>recordRefund</c> is false — the money owed back is
+    /// recorded. Pass <c>recordRefund: false</c> only when nothing was ever received for it. 409 when
+    /// the application is already closed.
+    /// </remarks>
+    /// <param name="id">Id of the application to annul.</param>
+    /// <param name="request">The reason, and whether money is owed back.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/annul")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Annul(Guid id, AnnulInvestmentRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(
+            new AnnulInvestmentCommand(id, request.Reason, request.RecordRefund), ct));
+
     [HttpPost("{id:guid}/withdraw")]
     [Authorize(Roles = "Investor")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

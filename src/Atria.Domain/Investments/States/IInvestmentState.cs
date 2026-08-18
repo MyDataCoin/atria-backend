@@ -32,4 +32,16 @@ public interface IInvestmentState
     /// the refund.
     /// </summary>
     IInvestmentState Withdraw(Investment investment);
+
+    /// <summary>
+    /// Reserved|Active -&gt; Annulled: an operator voids an application that should not stand. The
+    /// caller returns the tokens and, for one that had activated, unwinds the placement.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately allowed out of <see cref="InvestmentStatus.Active"/>, which every other transition
+    /// treats as terminal. Without it a mistaken or leftover application can only be removed by hand in
+    /// the database — and a row deleted there does not return its shares to the pool, so the issue
+    /// silently shrinks by the amount nobody remembered to add back.
+    /// </remarks>
+    IInvestmentState Annul(Investment investment, string reason);
 }

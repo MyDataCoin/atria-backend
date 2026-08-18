@@ -101,6 +101,20 @@ public sealed class ExcludeWhitelistEntryOnInvestmentExpiredHandler
         => ExcludeAsync(domainEvent.EventId, domainEvent.InvestmentId, "Срок брони истёк без одобрения", ct);
 }
 
+/// <summary>Drops a request out of the queue when an operator voids the application.</summary>
+public sealed class ExcludeWhitelistEntryOnInvestmentAnnulledHandler
+    : ExcludeWhitelistEntryHandlerBase, IDomainEventHandler<InvestmentAnnulledEvent>
+{
+    public ExcludeWhitelistEntryOnInvestmentAnnulledHandler(
+        IWhitelistEntryRepository entries, IProcessedEventStore processed, IUnitOfWork uow,
+        ILogger<ExcludeWhitelistEntryOnInvestmentAnnulledHandler> logger)
+        : base(entries, processed, uow, logger) { }
+
+    public Task HandleAsync(InvestmentAnnulledEvent domainEvent, CancellationToken ct)
+        => ExcludeAsync(domainEvent.EventId, domainEvent.InvestmentId,
+            $"Заявка аннулирована оператором: {domainEvent.Reason}", ct);
+}
+
 /// <summary>
 /// Drops a request out of the queue when the holder exercises the 14-day right of withdrawal, provided
 /// it had not been minted yet.

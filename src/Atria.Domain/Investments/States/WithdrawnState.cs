@@ -25,6 +25,9 @@ public sealed class WithdrawnState : IInvestmentState
     public IInvestmentState Withdraw(Investment investment)
         => throw new InvalidStateTransitionException("This investment has already been withdrawn.");
 
+    public IInvestmentState Annul(Investment investment, string reason)
+        => throw new InvalidStateTransitionException("Cannot annul a withdrawn application.");
+
     public static WithdrawnState Instance { get; } = new();
     private WithdrawnState() { }
 }

@@ -31,5 +31,17 @@ public enum InvestmentStatus
     /// withdrawn from them and the money is owed back. Distinct from <see cref="Cancelled"/>, which
     /// happens before approval and involves no shares and no refund.
     /// </summary>
-    Withdrawn = 5
+    Withdrawn = 5,
+
+    /// <summary>
+    /// An operator voided the application because it should not stand — a mistaken entry, a duplicate,
+    /// or data left over from testing. The shares go back to the pool.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from every other closing status on purpose: the platform's own correction is not the
+    /// investor changing their mind (<see cref="Cancelled"/>), not a failed application
+    /// (<see cref="Rejected"/>), and not the statutory right of withdrawal (<see cref="Withdrawn"/>).
+    /// Placement figures and the audit trail have to be able to tell them apart.
+    /// </remarks>
+    Annulled = 6
 }

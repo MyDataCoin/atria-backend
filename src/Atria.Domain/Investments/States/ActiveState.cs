@@ -28,6 +28,15 @@ public sealed class ActiveState : IInvestmentState
         return WithdrawnState.Instance;
     }
 
+    public IInvestmentState Annul(Investment investment, string reason)
+    {
+        investment.RaiseDomainEvent(new Events.InvestmentAnnulledEvent(
+            investment.Id, investment.InvestorId, investment.PropertyId,
+            investment.TokenCount, reason, WasActive: true));
+
+        return AnnulledState.Instance;
+    }
+
     public static ActiveState Instance { get; } = new();
     private ActiveState() { }
 }

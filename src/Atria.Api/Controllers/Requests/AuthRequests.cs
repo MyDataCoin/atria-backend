@@ -313,3 +313,11 @@ public sealed record CreateMintListRequest(
 /// <summary>POST /whitelist/mint-lists/{id}/cancel body.</summary>
 /// <param name="Reason">Why the batch is being called off; required and journalled.</param>
 public sealed record CancelMintListRequest(string Reason);
+
+/// <summary>POST /investments/{id}/annul body. Voids an application that should not stand.</summary>
+/// <param name="Reason">Why it is being voided; required and journalled.</param>
+/// <param name="RecordRefund">
+/// Whether money was received for it and is owed back. Defaults to true: a recorded debt that turns
+/// out not to exist is a line someone deletes, a missing one is money an investor never sees again.
+/// </param>
+public sealed record AnnulInvestmentRequest(string Reason, bool RecordRefund = true);

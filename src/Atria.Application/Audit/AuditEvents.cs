@@ -42,6 +42,7 @@ public static class AuditEvents
     public const string IssueTokensAnnulled = "IssueTokensAnnulled";
     public const string IssueInvalidated = "IssueInvalidated";
     public const string InvestmentWithdrawn = "InvestmentWithdrawn";
+    public const string InvestmentAnnulled = "InvestmentAnnulled";
     public const string PayoutRunCreated = "PayoutRunCreated";
     public const string PayoutRunApproved = "PayoutRunApproved";
     public const string PayoutRunCancelled = "PayoutRunCancelled";

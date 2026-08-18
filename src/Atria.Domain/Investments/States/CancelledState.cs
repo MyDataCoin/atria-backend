@@ -23,6 +23,9 @@ public sealed class CancelledState : IInvestmentState
         => throw new InvalidStateTransitionException(
             "Only an active investment inside its 14-day window can be withdrawn.");
 
+    public IInvestmentState Annul(Investment investment, string reason)
+        => throw new InvalidStateTransitionException("Cannot annul a cancelled application.");
+
     public static CancelledState Instance { get; } = new();
     private CancelledState() { }
 }

@@ -63,8 +63,9 @@ public sealed class Investment : AggregateRoot
            && nowUtc <= WithdrawalDeadlineUtc;
 
     /// <summary>
-    /// Why an operator declined the application. Set on rejection and kept afterwards so the investor
-    /// can be told the reason and the decision stays auditable; null in every other state.
+    /// Why an operator refused the application — declined it, or later annulled it. Set on that
+    /// decision and kept afterwards so the investor can be told the reason and it stays auditable;
+    /// null in every other state. Which of the two it was is told by <see cref="Status"/>.
     /// </summary>
     public string? RejectionReason { get; private set; }
 
@@ -153,6 +154,25 @@ public sealed class Investment : AggregateRoot
     /// <summary>Reserved -> Expired: the reservation window lapsed without approval. Raises the expired event.</summary>
     public void Expire()
         => Status = InvestmentStateFactory.Create(Status).Expire(this).Status;
+
+    /// <summary>
+    /// Reserved|Active -> Annulled: an operator voids an application that should not stand — a mistake,
+    /// a duplicate, or leftover test data. The caller returns the shares to the pool.
+    /// </summary>
+    /// <remarks>
+    /// The one transition that leaves <see cref="InvestmentStatus.Active"/> outside the statutory
+    /// withdrawal window, and it exists because the alternative is worse: without it such a row can
+    /// only be deleted straight from the database, which does not give the shares back and leaves the
+    /// issue quietly short of them.
+    /// </remarks>
+    public void Annul(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new DomainException("An annulment reason is required.");
+
+        Status = InvestmentStateFactory.Create(Status).Annul(this, reason).Status;
+        RejectionReason = reason;
+    }
 
     /// <summary>
     /// Records the wallet the tokens are (to be) allocated to and the contract they are minted on.
