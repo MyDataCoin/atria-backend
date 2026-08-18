@@ -22,6 +22,11 @@ namespace Atria.Api.Security;
 /// <para>
 /// <c>Path</c> confines the cookie to the auth routes, so it is not attached to ordinary API calls.
 /// </para>
+/// <para>
+/// <c>Domain</c> is configurable and empty by default, which leaves the cookie host-only. Setting it
+/// to the shared parent domain is what lets one sign-in carry across the public site and the
+/// dashboards: they are separate hosts, and a host-only cookie makes each of them a separate session.
+/// </para>
 /// </remarks>
 public static class RefreshTokenCookie
 {
@@ -30,13 +35,19 @@ public static class RefreshTokenCookie
     private const string Path = "/api/v1/auth";
 
     /// <summary>Writes the refresh token as a cookie scoped to the auth routes.</summary>
-    public static void Write(HttpResponse response, string refreshToken, DateTime expiresAtUtc)
+    /// <param name="domain">
+    /// Shared parent domain (e.g. <c>.atria.kg</c>) so one session spans the site and the dashboards;
+    /// null or empty leaves the cookie host-only.
+    /// </param>
+    public static void Write(
+        HttpResponse response, string refreshToken, DateTime expiresAtUtc, string? domain = null)
         => response.Cookies.Append(Name, refreshToken, new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
             SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None,
             Path = Path,
+            Domain = ScopeFor(response, domain),
             Expires = new DateTimeOffset(DateTime.SpecifyKind(expiresAtUtc, DateTimeKind.Utc)),
             IsEssential = true
         });
@@ -48,14 +59,44 @@ public static class RefreshTokenCookie
             : null;
 
     /// <summary>Expires the cookie. Attributes must match the ones it was written with.</summary>
-    public static void Clear(HttpResponse response)
+    /// <remarks>
+    /// The domain is part of that match: deleting without the domain the cookie was issued for leaves
+    /// the real one in place and only expires a host-only cookie that was never there.
+    /// </remarks>
+    public static void Clear(HttpResponse response, string? domain = null)
         => response.Cookies.Delete(Name, new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
             SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None,
-            Path = Path
+            Path = Path,
+            Domain = ScopeFor(response, domain)
         });
+
+    /// <summary>
+    /// The configured domain, but only when the host being served actually sits under it; otherwise
+    /// null, leaving the cookie host-only.
+    /// </summary>
+    /// <remarks>
+    /// A browser silently discards a cookie whose <c>Domain</c> does not cover the host that sent it,
+    /// and a discarded refresh cookie is not a small problem: sign-in appears to succeed and the
+    /// session dies at the first refresh. That is what one shared setting would do to every host that
+    /// is not the production domain — localhost, a preview deploy, an IP. Matching here means the
+    /// setting can be configured once and stay correct everywhere.
+    /// </remarks>
+    private static string? ScopeFor(HttpResponse response, string? domain)
+    {
+        if (string.IsNullOrWhiteSpace(domain))
+            return null;
+
+        var host = response.HttpContext.Request.Host.Host;
+        var bare = domain.TrimStart('.');
+
+        return host.Equals(bare, StringComparison.OrdinalIgnoreCase)
+               || host.EndsWith($".{bare}", StringComparison.OrdinalIgnoreCase)
+            ? domain
+            : null;
+    }
 
     /// <summary>
     /// Marks a response as varying by cookie so a shared cache cannot serve one caller's token pair

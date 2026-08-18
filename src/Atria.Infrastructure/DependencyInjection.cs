@@ -67,6 +67,7 @@ public static class DependencyInjection
         // Referral link base URL (used to build shareable deal links). Optional; a relative link is
         // returned when unset.
         services.Configure<ReferralOptions>(configuration.GetSection(ReferralOptions.SectionName));
+        services.Configure<AuthCookieOptions>(configuration.GetSection(AuthCookieOptions.SectionName));
 
         // Reservation window + background sweep pacing for offering applications. Optional; the
         // built-in defaults (3-day window, 15-minute sweep) apply when the section is absent.

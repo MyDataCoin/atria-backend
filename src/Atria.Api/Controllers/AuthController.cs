@@ -6,8 +6,10 @@ using Atria.Application.Abstractions;
 using Atria.Application.Auth.Commands;
 using Atria.Application.Auth.Dtos;
 using Atria.Application.Common;
+using Atria.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Atria.Api.Controllers;
 
@@ -22,7 +24,10 @@ namespace Atria.Api.Controllers;
 [AllowAnonymous]
 public sealed class AuthController : ApiControllerBase
 {
-    public AuthController(ISender sender) : base(sender) { }
+    private readonly string? _cookieDomain;
+
+    public AuthController(ISender sender, IOptions<AuthCookieOptions> cookieOptions) : base(sender)
+        => _cookieDomain = cookieOptions.Value.Domain;
 
     /// <summary>
     /// Returns the token pair and, on success, ALSO plants the refresh token in an HttpOnly cookie.
@@ -38,7 +43,8 @@ public sealed class AuthController : ApiControllerBase
         if (result.IsSuccess)
         {
             RefreshTokenCookie.MarkUncacheable(Response);
-            RefreshTokenCookie.Write(Response, result.Value.RefreshToken, result.Value.RefreshExpiresAtUtc);
+            RefreshTokenCookie.Write(
+                Response, result.Value.RefreshToken, result.Value.RefreshExpiresAtUtc, _cookieDomain);
         }
 
         return ToActionResult(result);
@@ -116,7 +122,7 @@ public sealed class AuthController : ApiControllerBase
         // A refused refresh means the cookie cannot authenticate anything any more; leaving it in
         // place only guarantees the next attempt fails the same way.
         if (result.IsFailure)
-            RefreshTokenCookie.Clear(Response);
+            RefreshTokenCookie.Clear(Response, _cookieDomain);
 
         return TokensWithRefreshCookie(result);
     }
@@ -191,7 +197,7 @@ public sealed class AuthController : ApiControllerBase
         var result = await Sender.Send(new LogoutCommand(presented ?? string.Empty), ct);
 
         RefreshTokenCookie.MarkUncacheable(Response);
-        RefreshTokenCookie.Clear(Response);
+        RefreshTokenCookie.Clear(Response, _cookieDomain);
 
         return ToActionResult(result);
     }
