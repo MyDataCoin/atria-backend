@@ -54,6 +54,11 @@ public sealed class ManualKycProvider : IKycProviderStrategy
     public Task<KycVerifiedIdentity?> RetrieveVerifiedIdentityAsync(string sessionId, CancellationToken ct)
         => Task.FromResult<KycVerifiedIdentity?>(null);
 
+    // Manual review has no provider to ask: the decision is made by a person, here, through
+    // ReviewKycCommand. Null says "no such API", which is not the same as "no decision".
+    public Task<KycProviderDecision?> RetrieveDecisionAsync(string sessionId, CancellationToken ct)
+        => Task.FromResult<KycProviderDecision?>(null);
+
     private static string? GetString(JsonElement element, params string[] names)
     {
         foreach (var name in names)

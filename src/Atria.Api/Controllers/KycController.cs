@@ -23,6 +23,12 @@ namespace Atria.Api.Controllers;
 /// 4. The client polls <c>GET /kyc/me</c> for the latest status. On <c>Approved</c>, downstream
 ///    effects (DID/attestations, allowlist) run asynchronously via the outbox.
 ///
+/// **When the webhook never arrives.** Step 3 is a delivery, and deliveries are lost: Didit retries a
+/// failing endpoint five times and then drops the event for good, leaving a verification the user
+/// really did pass stuck in <c>UnderReview</c>. <c>POST /kyc/{id}/sync</c> asks the provider directly
+/// what it decided and applies it — the way out of a stuck profile, without waiting on a redelivery
+/// that is never coming.
+///
 /// Statuses: <c>Pending → UnderReview → Approved | Rejected</c>.
 /// </remarks>
 [ApiVersion("1.0")]
@@ -140,4 +146,35 @@ public sealed class KycController : ApiControllerBase
         var result = await Sender.Send(new ReviewKycCommand(id, request.Approve, request.Reason), ct);
         return ToActionResult(result);
     }
+
+    /// <summary>Reads the provider's decision for a stuck profile and applies it. Operator only.</summary>
+    /// <remarks>
+    /// For the case the webhook did not survive: the verification passed on the provider's side but
+    /// our record never heard about it. Asks the provider what it decided and applies that —
+    /// approving (with the verified name from the ID document) or rejecting, exactly as the webhook
+    /// would have. Idempotent: a profile that is already decided is returned unchanged, and a session
+    /// the provider has not decided yet leaves the profile as it is and reports the current status.
+    ///
+    /// <c>409</c> when the profile has no provider session; <c>502</c> when the provider could not be
+    /// asked — an unanswered question is not the same as "still under review", so it is never
+    /// reported as one.
+    /// </remarks>
+    /// <param name="id">The KYC profile to reconcile with its provider.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="200">The provider was asked; the profile's resulting status is returned.</response>
+    /// <response code="401">The caller is not authenticated.</response>
+    /// <response code="403">The caller is authenticated but not an operator.</response>
+    /// <response code="404">No KYC profile exists with the given id.</response>
+    /// <response code="409">The profile has no provider session to reconcile against.</response>
+    /// <response code="502">The provider could not be reached or is misconfigured.</response>
+    [HttpPost("{id:guid}/sync")]
+    [Authorize(Roles = "Admin,Compliance")]
+    [ProducesResponseType<KycStatusDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> Sync(Guid id, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new SyncKycFromProviderCommand(id), ct));
 }

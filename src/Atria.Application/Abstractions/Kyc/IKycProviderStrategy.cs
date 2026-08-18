@@ -29,6 +29,24 @@ public sealed record KycCallbackResult(
 public sealed record KycVerifiedIdentity(string? FirstName, string? LastName, string? FullName);
 
 /// <summary>
+/// The provider's CURRENT verdict on a session, read directly from its API rather than waited for
+/// on a webhook.
+/// </summary>
+/// <remarks>
+/// The webhook is the normal path, but it is a delivery — and deliveries are lost. Didit retries a
+/// failing endpoint five times and then drops the event for good, which leaves a verification that
+/// really did pass sitting in <c>UnderReview</c> with nothing in our data to say why. Being able to
+/// ask the provider what it decided is the difference between a stuck profile someone can fix and a
+/// stuck profile nobody can.
+/// </remarks>
+/// <param name="Decision">Terminal outcome, or <see cref="KycDecision.Pending"/> while there is none yet.</param>
+/// <param name="RawStatus">The provider's own status string, for logs and for telling an operator what it said.</param>
+/// <param name="Reason">Why it was declined, when it was.</param>
+/// <param name="Identity">Verified name from the ID document, when the provider exposes one.</param>
+public sealed record KycProviderDecision(
+    KycDecision Decision, string? RawStatus, string? Reason, KycVerifiedIdentity? Identity);
+
+/// <summary>
 /// KYC provider Strategy. Async by design: create a session, the user verifies on
 /// the provider side, the provider calls our webhook. Selected by ProviderType
 /// through DI (never if/else on a string).
@@ -52,4 +70,11 @@ public interface IKycProviderStrategy
     /// best-effort enrichment and never let a null/failure block the approval flow.
     /// </summary>
     Task<KycVerifiedIdentity?> RetrieveVerifiedIdentityAsync(string sessionId, CancellationToken ct);
+
+    /// <summary>
+    /// Asks the provider what it decided about a session. Returns null when the provider has no such
+    /// API (e.g. manual review) or it could not be reached — the caller must tell those apart from a
+    /// genuine "no decision yet" and never treat an unanswered question as an answer.
+    /// </summary>
+    Task<KycProviderDecision?> RetrieveDecisionAsync(string sessionId, CancellationToken ct);
 }

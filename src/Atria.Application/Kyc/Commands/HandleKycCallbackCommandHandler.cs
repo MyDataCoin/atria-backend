@@ -107,21 +107,8 @@ public sealed class HandleKycCallbackCommandHandler : IRequestHandler<HandleKycC
             return;
         }
 
-        var fullName = identity is null ? null : ComposeFullName(identity);
+        var fullName = KycVerifiedName.Compose(identity);
         if (!string.IsNullOrWhiteSpace(fullName))
             profile.SetVerifiedFullName(fullName);
-    }
-
-    /// <summary>Prefers a single verified full name; otherwise joins the split first/last parts.</summary>
-    private static string? ComposeFullName(KycVerifiedIdentity identity)
-    {
-        if (!string.IsNullOrWhiteSpace(identity.FullName))
-            return identity.FullName.Trim();
-
-        var joined = string.Join(' ', new[] { identity.FirstName, identity.LastName }
-            .Where(part => !string.IsNullOrWhiteSpace(part))
-            .Select(part => part!.Trim()));
-
-        return string.IsNullOrWhiteSpace(joined) ? null : joined;
     }
 }

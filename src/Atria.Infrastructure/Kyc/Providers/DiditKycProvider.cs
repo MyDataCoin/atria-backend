@@ -118,14 +118,17 @@ public sealed class DiditKycProvider : IKycProviderStrategy
         => value.Length <= max ? value : value[..max] + "…";
 
     public async Task<KycVerifiedIdentity?> RetrieveVerifiedIdentityAsync(string sessionId, CancellationToken ct)
+        => (await RetrieveDecisionAsync(sessionId, ct))?.Identity;
+
+    public async Task<KycProviderDecision?> RetrieveDecisionAsync(string sessionId, CancellationToken ct)
     {
-        // Best-effort enrichment: any missing config / transport / status failure returns null so
-        // the caller falls back to the self-reported name — never blocks the approval side effects.
+        // Any missing config / transport / status failure returns null: an unanswered question is
+        // not the same as "no decision", and the caller has to be able to tell them apart.
         if (string.IsNullOrWhiteSpace(sessionId))
             return null;
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
-            _logger.LogWarning("Didit ApiKey not configured; cannot retrieve verified identity.");
+            _logger.LogWarning("Didit ApiKey not configured; cannot retrieve the session decision.");
             return null;
         }
 
@@ -156,8 +159,30 @@ public sealed class DiditKycProvider : IKycProviderStrategy
                 return null;
             }
 
-            return ParseVerifiedIdentity(json);
+            return ParseDecision(json);
         }
+    }
+
+    // Reads the session's verdict out of a Didit decision payload: the status string at the root,
+    // plus the verified name and any decline reason.
+    private KycProviderDecision? ParseDecision(string json)
+    {
+        string? status;
+        string? reason;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            status = GetString(doc.RootElement, "status", "session_status");
+            reason = GetString(doc.RootElement, "reason", "comment");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse Didit decision payload.");
+            return null;
+        }
+
+        return new KycProviderDecision(
+            MapDecision(status ?? string.Empty), status, reason, ParseVerifiedIdentity(json));
     }
 
     // Extracts the verified name from a Didit decision payload. In v3 user-KYC the verified ID
