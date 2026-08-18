@@ -157,6 +157,48 @@ public sealed class AuthHardeningTests : IClassFixture<AuthHardeningTests.Lockou
         return (username, id!);
     }
 
+    /// <summary>
+    /// 2026-08-18. The refresh cookie is SameSite=None (site and apps sit on different subdomains),
+    /// so a browser attaches it to a cross-site POST as well. /auth/logout is anonymous and acted on
+    /// that cookie alone, which let any page on the internet end a visitor's session — an
+    /// administrator's included — with an auto-submitting form. A request carrying an Origin we do
+    /// not serve must be refused before the refresh token is revoked.
+    /// </summary>
+    [Fact]
+    public async Task Logout_refuses_a_request_from_a_foreign_origin()
+    {
+        using var client = _factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/logout");
+        request.Headers.Add("Origin", "https://evil.example");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(
+            HttpStatusCode.Forbidden,
+            "a page we do not serve must not be able to end a visitor's session");
+    }
+
+    /// <summary>
+    /// The same guard must not break the callers it was never aimed at: scripts, the integration
+    /// suite and mobile clients send no Origin, and a browser on one of our own origins is fine.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("https://atria.kg")]
+    public async Task Logout_still_answers_callers_that_are_not_forging_anything(string? origin)
+    {
+        using var client = _factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/logout");
+        if (origin is not null)
+            request.Headers.Add("Origin", origin);
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
     private static async Task AuthenticateAsync(HttpClient client, string username, string password)
     {
         var login = await client.PostAsJsonAsync("/api/v1/auth/admin/login", new { username, password });

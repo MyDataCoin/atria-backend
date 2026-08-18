@@ -44,5 +44,12 @@ public sealed class CurrentUserService : ICurrentUserService
 
     public bool IsAuthenticated => Principal?.Identity?.IsAuthenticated ?? false;
 
-    public bool IsInRole(Role role) => Role == role;
+    /// <summary>
+    /// True when the principal carries <paramref name="role"/> among ITS role claims — not just as
+    /// the first one. <see cref="Role"/> reads a single claim, while <c>[Authorize(Roles = "...")]</c>
+    /// matches any of them; deriving this check from <see cref="Role"/> made the two disagree the
+    /// moment a token carried more than one role, letting an endpoint admit a caller that the
+    /// resource check inside the handler then treated as someone else.
+    /// </summary>
+    public bool IsInRole(Role role) => Principal?.IsInRole(role.ToString()) ?? false;
 }

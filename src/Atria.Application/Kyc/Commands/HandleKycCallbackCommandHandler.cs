@@ -11,6 +11,13 @@ namespace Atria.Application.Kyc.Commands;
 /// </summary>
 public sealed class HandleKycCallbackCommandHandler : IRequestHandler<HandleKycCallbackCommand, Result>
 {
+    /// <summary>
+    /// Providers whose decisions legitimately arrive over the public webhook. Anything outside
+    /// this set is rejected before its strategy is resolved — see the note in <see cref="Handle"/>.
+    /// </summary>
+    private static readonly KycProviderType[] ExternalWebhookProviders =
+        [KycProviderType.Didit, KycProviderType.SumSub];
+
     private readonly IEnumerable<IKycProviderStrategy> _providers;
     private readonly IKycRepository _kyc;
     private readonly IProcessedEventStore _processed;
@@ -35,6 +42,14 @@ public sealed class HandleKycCallbackCommandHandler : IRequestHandler<HandleKycC
     {
         // Strategy selection by provider name -> ProviderType (never if/else on a string).
         if (!Enum.TryParse<KycProviderType>(request.Provider, ignoreCase: true, out var providerType))
+            return Result.Failure(
+                Error.Validation("Kyc.UnknownProvider", "The webhook provider is not recognized."));
+
+        // Only providers that are actually EXTERNAL may be driven from the anonymous webhook
+        // endpoint. Manual/back-office decisions have an authenticated route of their own
+        // (POST /kyc/{id}/review, Compliance role) and carry no signature to verify, so
+        // accepting them here would let a caller approve their own KYC profile.
+        if (!ExternalWebhookProviders.Contains(providerType))
             return Result.Failure(
                 Error.Validation("Kyc.UnknownProvider", "The webhook provider is not recognized."));
 

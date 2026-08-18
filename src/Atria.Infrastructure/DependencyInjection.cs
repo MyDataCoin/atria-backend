@@ -73,6 +73,10 @@ public static class DependencyInjection
         // built-in defaults (3-day window, 15-minute sweep) apply when the section is absent.
         BindValidated<InvestmentReservationOptions>(services, configuration, InvestmentReservationOptions.SectionName);
 
+        // Ceiling on the realtor-supplied deal commission. Optional; defaults to 10%.
+        BindValidated<Application.Deals.DealCommissionOptions>(
+            services, configuration, Application.Deals.DealCommissionOptions.SectionName);
+
         // Public media storage location (property photos/documents).
         services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
         BindValidated<DiditOptions>(services, configuration, DiditOptions.SectionName);

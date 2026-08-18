@@ -24,10 +24,13 @@ public sealed class ManualKycProvider : IKycProviderStrategy
         return Task.FromResult(new KycSessionResult(sessionId, url));
     }
 
-    // Manual decisions originate inside our own trust boundary, so there is no
-    // external signature to verify. The caller still funnels through the strategy
-    // so the flow is uniform with external providers.
-    public bool VerifySignature(WebhookPayload payload) => true;
+    // NEVER trusted over the wire. A manual decision has an authenticated path of its own —
+    // POST /kyc/{id}/review under [Authorize(Roles = "Compliance")] — so nothing legitimate
+    // reaches this provider through the anonymous webhook endpoint. Returning true here let
+    // anyone POST /webhooks/kyc/manual with their own (non-secret) session id and approve
+    // their own KYC. The webhook dispatcher also refuses this provider outright; this is the
+    // second lock on the same door.
+    public bool VerifySignature(WebhookPayload payload) => false;
 
     public KycCallbackResult ParseCallback(WebhookPayload payload)
     {

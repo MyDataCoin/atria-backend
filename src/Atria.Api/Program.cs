@@ -100,6 +100,9 @@ const string CorsPolicy = "AtriaCors";
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() is { Length: > 0 } configured
     ? configured
     : new[] { "https://atria.kg", "https://www.atria.kg", "https://app.atria.kg", "https://admin.atria.kg" };
+// The same list, reachable from endpoints that must check Origin themselves (see BrowserOrigins).
+builder.Services.AddSingleton(new Atria.Api.Security.BrowserOrigins(corsOrigins));
+
 builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy => policy
         .WithOrigins(corsOrigins)

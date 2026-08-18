@@ -25,9 +25,15 @@ namespace Atria.Api.Controllers;
 public sealed class AuthController : ApiControllerBase
 {
     private readonly string? _cookieDomain;
+    private readonly BrowserOrigins _browserOrigins;
 
-    public AuthController(ISender sender, IOptions<AuthCookieOptions> cookieOptions) : base(sender)
-        => _cookieDomain = cookieOptions.Value.Domain;
+    public AuthController(
+        ISender sender, IOptions<AuthCookieOptions> cookieOptions, BrowserOrigins browserOrigins)
+        : base(sender)
+    {
+        _cookieDomain = cookieOptions.Value.Domain;
+        _browserOrigins = browserOrigins;
+    }
 
     /// <summary>
     /// Returns the token pair and, on success, ALSO plants the refresh token in an HttpOnly cookie.
@@ -184,14 +190,26 @@ public sealed class AuthController : ApiControllerBase
     /// Anonymous, because a session that has already lost its access token still has to be endable.
     /// The refresh token is taken from the cookie when present, else from the body. Always answers
     /// <c>204</c>: whether the token existed is not something an unauthenticated caller needs told.
+    /// <para>
+    /// The cookie is <c>SameSite=None</c> (the site and the apps live on different subdomains), so
+    /// the browser attaches it to a cross-site POST as well — an attacker's page could otherwise
+    /// force any visitor, administrators included, out of their session by submitting a form here.
+    /// A request that carries an <c>Origin</c> we do not serve is therefore refused before the
+    /// token is revoked; non-browser callers send no <c>Origin</c> and are unaffected.
+    /// </para>
     /// </remarks>
     /// <param name="request">Optional body carrying the refresh token (non-browser clients).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <response code="204">The session was ended.</response>
+    /// <response code="403">The request came from an origin this API does not serve.</response>
     [HttpPost("logout")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Logout(RefreshTokenRequest? request, CancellationToken ct)
     {
+        if (!_browserOrigins.IsAllowed(Request))
+            return Forbid();
+
         var presented = RefreshTokenCookie.Read(Request) ?? request?.RefreshToken;
 
         var result = await Sender.Send(new LogoutCommand(presented ?? string.Empty), ct);
