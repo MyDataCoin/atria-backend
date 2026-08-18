@@ -110,7 +110,7 @@ public sealed class SyncKycFromProviderCommandHandler
     // stuck profile can be chased up with the provider by id.
     private static KycStatusDto ToDto(KycProfile profile)
         => new(profile.Id, profile.Status, profile.RejectionReason,
-            profile.ProviderSessionId, profile.VerificationUrl, profile.FullName);
+            profile.ProviderSessionId, profile.VerificationUrl, profile.FullName, profile.WalletAddress);
 
     /// <summary>
     /// Writes the verified name from the ID document. Best-effort: a provider that returned a

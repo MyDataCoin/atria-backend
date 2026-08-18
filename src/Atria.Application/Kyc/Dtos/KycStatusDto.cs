@@ -11,10 +11,16 @@ namespace Atria.Application.Kyc.Dtos;
 /// <param name="FullName">The owner's KYC full name, decrypted server-side at read time (same
 /// AES-GCM key/service used to encrypt at submit); <c>null</c> until captured. Returned only to
 /// the profile owner.</param>
+/// <param name="WalletAddress">
+/// The wallet already linked to the profile, or <c>null</c> when there is none. Without it a client
+/// cannot tell an investor who has attached a wallet from one who has not, and the only safe thing
+/// it can do is ask again — which is exactly what it did. Returned only to the profile owner.
+/// </param>
 public sealed record KycStatusDto(
     Guid Id,
     KycStatus Status,
     string? RejectionReason,
     string? SessionId,
     string? VerificationUrl,
-    string? FullName);
+    string? FullName,
+    string? WalletAddress);

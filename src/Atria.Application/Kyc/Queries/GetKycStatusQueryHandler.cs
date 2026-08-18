@@ -44,6 +44,7 @@ public sealed class GetKycStatusQueryHandler
             profile.RejectionReason,
             resumable ? profile.ProviderSessionId : null,
             resumable ? profile.VerificationUrl : null,
-            profile.FullName);
+            profile.FullName,
+            profile.WalletAddress);
     }
 }
