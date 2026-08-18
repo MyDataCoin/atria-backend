@@ -7,4 +7,5 @@ public sealed record InvestmentCreatedEvent(
     Guid InvestmentId,
     Guid InvestorId,
     Guid PropertyId,
+    decimal TokenCount,
     decimal Amount) : DomainEventBase;

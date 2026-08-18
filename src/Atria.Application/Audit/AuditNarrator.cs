@@ -5,6 +5,7 @@ using Atria.Domain.Compliance.Events;
 using Atria.Domain.Deals.Events;
 using Atria.Domain.Investments.Events;
 using Atria.Domain.Support.Events;
+using Atria.Domain.Whitelist.Events;
 
 namespace Atria.Application.Audit;
 
@@ -31,6 +32,7 @@ public static class AuditNarrator
             or InvestmentExpiredEvent => "Investment",
         TicketRepliedBySupportEvent => AuditEntities.SupportTicket,
         AllowlistUpdatedEvent or AttestationsRevokedEvent or DidIssuedEvent => "Compliance",
+        MintListSentToExchangeEvent or MintListExecutedEvent or MintListCancelledEvent => "MintList",
         _ => ActionName(e)
     };
 
@@ -61,6 +63,16 @@ public static class AuditNarrator
             ($"Создана заявка на инвестицию на сумму {Money(i.Amount)}", AuditSeverity.Success),
         InvestmentActivatedEvent i =>
             ($"Заявка одобрена, инвестиция активирована: {Money(i.Amount)}, токенов — {i.TokenCount}", AuditSeverity.Success),
+        // --- Mint lists (batches handed to the exchange) ---
+        MintListSentToExchangeEvent m =>
+            ($"Список на минт {m.Number} передан бирже: адресов — {m.ItemCount}, токенов — {m.TotalTokens}",
+                AuditSeverity.Success),
+        MintListExecutedEvent m =>
+            ($"Список на минт {m.Number} исполнен биржей: адресов — {m.ItemCount}, токенов — {m.TotalTokens}",
+                AuditSeverity.Success),
+        MintListCancelledEvent m =>
+            ($"Список на минт {m.Number} отменён: {m.Reason}", AuditSeverity.Warning),
+
         InvestmentRejectedEvent r =>
             ($"Заявка на инвестицию отклонена: {r.Reason}", AuditSeverity.Warning),
         InvestmentCancelledEvent =>

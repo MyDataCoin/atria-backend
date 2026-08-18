@@ -9,6 +9,7 @@ using Atria.Domain.Deals;
 using Atria.Domain.Documents;
 using Atria.Domain.Governance;
 using Atria.Domain.Holders;
+using Atria.Domain.Whitelist;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
 using Atria.Domain.Notifications;
@@ -58,6 +59,8 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<HolderPosition> HolderPositions => Set<HolderPosition>();
     public DbSet<HolderSnapshot> HolderSnapshots => Set<HolderSnapshot>();
     public DbSet<ChainSyncCursor> ChainSyncCursors => Set<ChainSyncCursor>();
+    public DbSet<WhitelistEntry> WhitelistEntries => Set<WhitelistEntry>();
+    public DbSet<MintList> MintLists => Set<MintList>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<CriticalAction> CriticalActions => Set<CriticalAction>();
     public DbSet<RegulatoryReport> RegulatoryReports => Set<RegulatoryReport>();

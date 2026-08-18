@@ -300,3 +300,16 @@ public sealed record AnnulTokensRequest(decimal TokenCount, string Reason);
 /// <summary>POST /properties/{id}/invalidate body. Declares an issue invalid (§73).</summary>
 /// <param name="Reason">The ground on which the issue is declared invalid; required and journalled.</param>
 public sealed record InvalidateIssueRequest(string Reason);
+
+/// <summary>POST /whitelist/mint-lists body. Assembles a batch of whitelisted requests for the exchange.</summary>
+/// <param name="PropertyId">The issuance to build the batch for.</param>
+/// <param name="EntryIds">
+/// Whitelist requests to include. Omit or leave empty to take every mintable request the issuance has.
+/// </param>
+/// <param name="Note">What this batch is, in the operator's words; journalled.</param>
+public sealed record CreateMintListRequest(
+    Guid PropertyId, IReadOnlyList<Guid>? EntryIds = null, string? Note = null);
+
+/// <summary>POST /whitelist/mint-lists/{id}/cancel body.</summary>
+/// <param name="Reason">Why the batch is being called off; required and journalled.</param>
+public sealed record CancelMintListRequest(string Reason);

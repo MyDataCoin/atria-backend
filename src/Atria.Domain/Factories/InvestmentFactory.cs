@@ -32,7 +32,7 @@ public static class InvestmentFactory
             investorId, propertyId, tokenCount, amount, currency, pricePerToken, reservedUntilUtc, referralToken);
 
         investment.RaiseDomainEvent(new InvestmentCreatedEvent(
-            investment.Id, investorId, propertyId, amount));
+            investment.Id, investorId, propertyId, tokenCount, amount));
 
         return investment;
     }

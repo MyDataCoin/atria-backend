@@ -126,6 +126,8 @@ public static class DependencyInjection
         services.AddScoped<IComplianceRepository, ComplianceRepository>();
         services.AddScoped<IHolderPositionRepository, HolderPositionRepository>();
         services.AddScoped<IHolderSnapshotRepository, HolderSnapshotRepository>();
+        services.AddScoped<IWhitelistEntryRepository, WhitelistEntryRepository>();
+        services.AddScoped<IMintListRepository, MintListRepository>();
         services.AddScoped<IChainSyncCursorRepository, ChainSyncCursorRepository>();
         services.AddScoped<ICriticalActionRepository, CriticalActionRepository>();
         services.AddScoped<IRegulatoryReportRepository, RegulatoryReportRepository>();

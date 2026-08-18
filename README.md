@@ -41,7 +41,13 @@ tests/
 
 ### Modules
 Users · Kyc · Applications · Investments (+ Properties, Payments) · Documents ·
-Notifications · Audit · **Compliance (Web3)** · Outbox.
+Notifications · Audit · **Compliance (Web3)** · **Whitelist (mint lists)** · Outbox.
+
+**Whitelist** is the operator's queue between a purchase and the shares existing on chain: a request
+enters it the moment the investor presses buy, becomes mintable when an operator approves the
+application, and is assembled into a `MintList` — a numbered batch exported as CSV (or read as JSON)
+and handed to the exchange to mint. Not to be confused with the on-chain allowlist that Compliance
+keeps on `Allowlist.sol`.
 
 ### Patterns
 | Pattern | Where |
