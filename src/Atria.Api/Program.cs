@@ -244,7 +244,9 @@ string[] throttledPaths =
     "/api/v1/auth/realtor/login",
     "/api/v1/auth/refresh",
     "/api/v1/auth/register",
-    "/api/v1/appeals"
+    "/api/v1/appeals",
+    // Анонимная форма на публичном сайте: без лимита это готовый канал для спама в чужую базу.
+    "/api/v1/feedback"
 };
 // Configurable so an operator can tighten them without a deploy, and so the integration suite —
 // which drives every test through one loopback address — can raise them out of its own way.
@@ -272,6 +274,15 @@ builder.Services.AddRateLimiter(options =>
         var path = httpContext.Request.Path.Value ?? string.Empty;
         var isThrottled = throttledPaths.Any(p =>
             path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
+        // Ограничение на /feedback стоит против спама через анонимную форму, то есть против POST.
+        // Панель читает тот же путь под токеном, и делить с посетителями окно в пять запросов ей незачем.
+        if (isThrottled
+            && path.StartsWith("/api/v1/feedback", StringComparison.OrdinalIgnoreCase)
+            && !HttpMethods.IsPost(httpContext.Request.Method))
+        {
+            return RateLimitPartition.GetNoLimiter("__unlimited");
+        }
 
         if (!isThrottled)
         {

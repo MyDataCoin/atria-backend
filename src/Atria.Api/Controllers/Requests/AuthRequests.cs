@@ -252,6 +252,12 @@ public sealed record ChangePasswordRequest(string CurrentPassword, string NewPas
 public sealed record RegisterRealtorRequest(
     string Username, string Password, string FullName, string? CompanyName = null, string? PhoneNumber = null);
 
+/// <summary>POST /feedback body. Anonymous question from the public site's feedback form.</summary>
+/// <param name="FullName">The sender's name.</param>
+/// <param name="Contact">Email or phone to answer on.</param>
+/// <param name="Message">The question itself.</param>
+public sealed record SubmitFeedbackRequest(string FullName, string Contact, string Message);
+
 /// <summary>POST /appeals body. Anonymous ban appeal from the blocked screen.</summary>
 /// <param name="Username">The login the sender tried to use (optional; helps match an account).</param>
 /// <param name="Message">The appeal text; required.</param>

@@ -45,7 +45,7 @@ public static class DependencyInjection
         AddMessaging(services);
         AddIdentity(services);
         AddStrategies(services);
-        AddAdapters(services);
+        AddAdapters(services, configuration);
         AddCompliance(services);
         AddHostedServices(services);
         AddApplication(services);
@@ -149,6 +149,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
         services.AddScoped<IAppealRepository, AppealRepository>();
+        services.AddScoped<IFeedbackRequestRepository, FeedbackRequestRepository>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -207,7 +208,7 @@ public static class DependencyInjection
     }
 
     // --- Notification + storage adapters ---
-    private static void AddAdapters(IServiceCollection services)
+    private static void AddAdapters(IServiceCollection services, IConfiguration configuration)
     {
         // TEMPORARY: the Nikita Pro SMS gateway must not be contacted at all. The real adapter is
         // left in the tree but is NOT registered, so nothing — OTP or notification — can reach
@@ -221,8 +222,18 @@ public static class DependencyInjection
         //         client.BaseAddress = new Uri(opts.BaseUrl);
         //     client.Timeout = TimeSpan.FromSeconds(15);
         // });
-        services.AddScoped<IEmailSender, EmailNotificationAdapter>();
+        // Настоящая отправка включается наличием Smtp:Host. Без него остаётся лог-заглушка:
+        // деплой без почтового сервера должен работать и честно писать, что письмо не ушло,
+        // а не падать на каждой форме обратной связи.
+        services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
+        services.Configure<FeedbackOptions>(configuration.GetSection(FeedbackOptions.SectionName));
+        var smtpHost = configuration.GetValue<string>($"{SmtpOptions.SectionName}:Host");
+        if (string.IsNullOrWhiteSpace(smtpHost))
+            services.AddScoped<IEmailSender, EmailNotificationAdapter>();
+        else
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<INotificationSender, NotificationSender>();
+        services.AddScoped<IFeedbackMailer, FeedbackMailer>();
 
         // S3 client from S3Options (region + optional custom endpoint for S3-compatible stores).
         services.AddSingleton<IAmazonS3>(sp =>
@@ -307,6 +318,7 @@ public static class DependencyInjection
         services.AddHostedService<Investments.ReservationExpiryBackgroundService>();
         services.AddHostedService<Regulatory.RegulatoryReportSweepBackgroundService>();
         services.AddHostedService<Identity.ExpiredRefreshTokenSweepBackgroundService>();
+        services.AddHostedService<Feedback.FeedbackRetentionSweepBackgroundService>();
     }
 
     // --- Application assembly scan: request handlers, event handlers, validators ---
