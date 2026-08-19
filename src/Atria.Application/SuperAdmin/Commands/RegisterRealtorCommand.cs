@@ -79,6 +79,7 @@ public sealed class RegisterRealtorCommandHandler
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success(new RealtorStatsDto(
-            user.Id, profile.FullName, profile.CompanyName, ClosedDeals: 0, TotalDeals: 0, Blocked: false));
+            user.Id, profile.FullName, user.Username, profile.CompanyName,
+            ClosedDeals: 0, TotalDeals: 0, Blocked: false));
     }
 }

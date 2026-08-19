@@ -12,7 +12,7 @@ public sealed class RealtorProfileRepository : Repository<RealtorProfile>, IReal
     public Task<RealtorProfile?> GetByUserIdAsync(Guid userId, CancellationToken ct)
         => Set.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId, ct);
 
-    public async Task<IReadOnlyList<(Guid UserId, string FullName, string? CompanyName, int ClosedDeals, int TotalDeals, bool Blocked)>>
+    public async Task<IReadOnlyList<(Guid UserId, string FullName, string? Username, string? CompanyName, int ClosedDeals, int TotalDeals, bool Blocked)>>
         GetStatsAsync(CancellationToken ct)
     {
         // Profiles drive the row set so realtors with zero deals still appear (left join). Deals link to
@@ -26,6 +26,8 @@ public sealed class RealtorProfileRepository : Repository<RealtorProfile>, IReal
             {
                 p.UserId,
                 p.FullName,
+                // Логин нужен супер-админу: сбрасывая пароль, он называет человеку именно его.
+                Username = u != null ? u.Username : null,
                 p.CompanyName,
                 ClosedDeals = Db.Deals.Count(d => d.RealtorId == p.UserId && d.Status == DealStatus.Successful),
                 TotalDeals = Db.Deals.Count(d => d.RealtorId == p.UserId),
@@ -36,7 +38,7 @@ public sealed class RealtorProfileRepository : Repository<RealtorProfile>, IReal
             .ToListAsync(ct);
 
         return rows
-            .Select(r => (r.UserId, r.FullName, r.CompanyName, r.ClosedDeals, r.TotalDeals, r.Blocked))
+            .Select(r => (r.UserId, r.FullName, r.Username, r.CompanyName, r.ClosedDeals, r.TotalDeals, r.Blocked))
             .ToList();
     }
 }

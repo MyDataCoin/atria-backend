@@ -7,6 +7,7 @@ namespace Atria.Application.Realtors.Dtos;
 /// </summary>
 /// <param name="Id">The realtor's user id.</param>
 /// <param name="FullName">Realtor full name, from <c>realtor_profiles</c>.</param>
+/// <param name="Username">Login name from the <c>users</c> row; null for a profile without an account.</param>
 /// <param name="CompanyName">Registered company name (optional), from <c>realtor_profiles</c>.</param>
 /// <param name="ClosedDeals">Number of deals settled <c>Successful</c> — the referral went through and activated. Ranking key.</param>
 /// <param name="TotalDeals">All of the realtor's deals (pending + successful + rejected).</param>
@@ -14,6 +15,7 @@ namespace Atria.Application.Realtors.Dtos;
 public sealed record RealtorStatsDto(
     Guid Id,
     string FullName,
+    string? Username,
     string? CompanyName,
     int ClosedDeals,
     int TotalDeals,
