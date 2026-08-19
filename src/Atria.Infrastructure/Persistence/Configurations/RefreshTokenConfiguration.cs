@@ -14,6 +14,7 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         b.Property(r => r.TokenHash).HasMaxLength(128).IsRequired();
         b.Property(r => r.ExpiresAtUtc).IsRequired();
         b.Property(r => r.IsRevoked).IsRequired();
+        b.Property(r => r.RevokedAtUtc);
         b.Property(r => r.CreatedAtUtc).IsRequired();
 
         b.HasIndex(r => r.TokenHash).IsUnique();

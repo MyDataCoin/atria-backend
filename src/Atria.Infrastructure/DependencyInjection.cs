@@ -60,6 +60,7 @@ public static class DependencyInjection
         BindValidated<EncryptionOptions>(services, configuration, EncryptionOptions.SectionName);
         BindValidated<OtpOptions>(services, configuration, OtpOptions.SectionName);
         BindValidated<AuthLockoutOptions>(services, configuration, AuthLockoutOptions.SectionName);
+        BindValidated<RefreshRotationOptions>(services, configuration, RefreshRotationOptions.SectionName);
 
         // Admin/Realtor/SuperAdmin have no configuration: they are ordinary rows in the users table
         // (username + password hash) and log in purely against the database.
@@ -116,6 +117,9 @@ public static class DependencyInjection
         // Specialized repositories.
         services.AddSingleton<IAuthLockoutPolicy>(
             sp => sp.GetRequiredService<IOptions<AuthLockoutOptions>>().Value);
+
+        services.AddSingleton<IRefreshRotationPolicy>(
+            sp => sp.GetRequiredService<IOptions<RefreshRotationOptions>>().Value);
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IKycRepository, KycRepository>();

@@ -1,6 +1,7 @@
 namespace Atria.Application.Abstractions;
 
-public sealed record RefreshTokenInfo(Guid UserId, string Token, DateTime ExpiresAtUtc, bool IsRevoked);
+public sealed record RefreshTokenInfo(
+    Guid UserId, string Token, DateTime ExpiresAtUtc, bool IsRevoked, DateTime? RevokedAtUtc = null);
 
 /// <summary>
 /// Stores hashed refresh tokens for rotation + reuse detection. Reuse of a

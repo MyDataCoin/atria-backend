@@ -35,12 +35,14 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
 
         return entity is null
             ? null
-            : new RefreshTokenInfo(entity.UserId, refreshToken, entity.ExpiresAtUtc, entity.IsRevoked);
+            : new RefreshTokenInfo(
+                entity.UserId, refreshToken, entity.ExpiresAtUtc, entity.IsRevoked, entity.RevokedAtUtc);
     }
 
     public async Task<bool> TryRevokeAsync(string refreshToken, CancellationToken ct)
     {
         var hash = Hash(refreshToken);
+        var now = DateTime.UtcNow;
 
         // Conditional update executed BY THE DATABASE: of two concurrent refreshes presenting the
         // same token, exactly one flips the flag and the other is told it lost. Reading the row and
@@ -50,7 +52,11 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
         {
             var affected = await _db.RefreshTokens
                 .Where(r => r.TokenHash == hash && !r.IsRevoked)
-                .ExecuteUpdateAsync(set => set.SetProperty(r => r.IsRevoked, true), ct);
+                .ExecuteUpdateAsync(
+                    set => set
+                        .SetProperty(r => r.IsRevoked, true)
+                        .SetProperty(r => r.RevokedAtUtc, now),
+                    ct);
 
             return affected == 1;
         }
@@ -63,6 +69,7 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
             return false;
 
         entity.IsRevoked = true;
+        entity.RevokedAtUtc = now;
         return true;
     }
 
@@ -92,11 +99,15 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
 
     public async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct)
     {
+        var now = DateTime.UtcNow;
         var tokens = await _db.RefreshTokens
             .Where(r => r.UserId == userId && !r.IsRevoked)
             .ToListAsync(ct);
         foreach (var token in tokens)
+        {
             token.IsRevoked = true;
+            token.RevokedAtUtc = now;
+        }
     }
 
     // SHA-256 hex of the raw token; deterministic so lookups match what was stored.

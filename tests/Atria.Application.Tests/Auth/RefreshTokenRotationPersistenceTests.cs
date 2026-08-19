@@ -51,12 +51,12 @@ public sealed class RefreshTokenRotationPersistenceTests
 
         var store = new RefreshTokenStore(_db);
         var uow = new UnitOfWork(_db);
-        const string oldToken = "old-refresh-token-value";
+        const string oldToken = OldToken;
         await store.StoreAsync(user.Id, oldToken, now.AddDays(Jwt.RefreshTokenDays), CancellationToken.None);
         await uow.SaveChangesAsync(CancellationToken.None);
 
         var jwt = new JwtTokenGenerator(Microsoft.Extensions.Options.Options.Create(Jwt), _clock);
-        var sut = new RefreshTokenCommandHandler(_users, store, jwt, _clock, uow);
+        var sut = new RefreshTokenCommandHandler(_users, store, jwt, _clock, Grace(60), uow);
 
         // Act — rotate the old token into a fresh pair.
         var result = await sut.Handle(new RefreshTokenCommand(oldToken), CancellationToken.None);
@@ -82,6 +82,74 @@ public sealed class RefreshTokenRotationPersistenceTests
         // The old token was revoked as part of rotation.
         var oldInfo = await store.FindAsync(oldToken, CancellationToken.None);
         oldInfo!.IsRevoked.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A refresh token presented again moments after it was rotated is a RACE — two tabs, or several
+    /// calls that 401-ed together — not a leak. It must be answered with a working pair; the previous
+    /// behaviour revoked every token the account had, which logged the person out everywhere.
+    /// </summary>
+    [Fact]
+    public async Task Replaying_a_just_rotated_token_is_served_a_fresh_pair_and_keeps_the_session()
+    {
+        var (store, uow, jwt, user) = await ArrangeRotatedSessionAsync();
+        var sut = new RefreshTokenCommandHandler(_users, store, jwt, _clock, Grace(60), uow);
+
+        var first = await sut.Handle(new RefreshTokenCommand(OldToken), CancellationToken.None);
+        var replay = await sut.Handle(new RefreshTokenCommand(OldToken), CancellationToken.None);
+
+        replay.IsSuccess.Should().BeTrue("a rotation race is not a stolen token");
+        replay.Value.RefreshToken.Should().NotBe(first.Value.RefreshToken);
+
+        // The pair handed out by the first (winning) rotation still works: nothing was revoked.
+        var winner = await store.FindAsync(first.Value.RefreshToken, CancellationToken.None);
+        winner!.IsRevoked.Should().BeFalse();
+        _ = user;
+    }
+
+    /// <summary>Outside the grace the same replay is reuse of a leaked token: the session dies.</summary>
+    [Fact]
+    public async Task Replaying_a_token_after_the_grace_revokes_the_whole_session()
+    {
+        var (store, uow, jwt, user) = await ArrangeRotatedSessionAsync();
+        var sut = new RefreshTokenCommandHandler(_users, store, jwt, _clock, Grace(60), uow);
+
+        var first = await sut.Handle(new RefreshTokenCommand(OldToken), CancellationToken.None);
+
+        // Time moves past the grace window; the replay now looks exactly like a leak.
+        var later = DateTime.UtcNow.AddMinutes(5);
+        _clock.UtcNow.Returns(_ => later);
+
+        var replay = await sut.Handle(new RefreshTokenCommand(OldToken), CancellationToken.None);
+
+        replay.IsFailure.Should().BeTrue();
+        var winner = await store.FindAsync(first.Value.RefreshToken, CancellationToken.None);
+        winner!.IsRevoked.Should().BeTrue("reuse detection must revoke the whole session");
+        _ = user;
+    }
+
+    private const string OldToken = "old-refresh-token-value";
+
+    /// <summary>A user with one live refresh token, wired to real store/uow/jwt.</summary>
+    private async Task<(RefreshTokenStore Store, UnitOfWork Uow, JwtTokenGenerator Jwt, User User)> ArrangeRotatedSessionAsync()
+    {
+        var user = User.CreateFromPhone("+15551234567", Role.Investor);
+        _users.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+
+        var store = new RefreshTokenStore(_db);
+        var uow = new UnitOfWork(_db);
+        await store.StoreAsync(
+            user.Id, OldToken, DateTime.UtcNow.AddDays(Jwt.RefreshTokenDays), CancellationToken.None);
+        await uow.SaveChangesAsync(CancellationToken.None);
+
+        return (store, uow, new JwtTokenGenerator(Microsoft.Extensions.Options.Options.Create(Jwt), _clock), user);
+    }
+
+    private static IRefreshRotationPolicy Grace(int seconds)
+    {
+        var policy = Substitute.For<IRefreshRotationPolicy>();
+        policy.ReuseGrace.Returns(TimeSpan.FromSeconds(seconds));
+        return policy;
     }
 
     private static AtriaDbContext CreateDbContext()

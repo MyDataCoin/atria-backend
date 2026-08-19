@@ -89,13 +89,47 @@ public static class RefreshTokenCookie
         if (string.IsNullOrWhiteSpace(domain))
             return null;
 
-        var host = response.HttpContext.Request.Host.Host;
+        var request = response.HttpContext.Request;
+
+        // BOTH hosts have to sit under the domain. The serving host is what the browser validates the
+        // cookie against, and the origin is the page the cookie has to be useful to; a deployment
+        // where those differ — a front proxy that rewrites Host to the API's own name — would
+        // otherwise be handed a cookie for a domain the page it came from is not under, and the
+        // browser drops it without a word.
+        return Covers(domain, request.Host.Host) && Covers(domain, BrowserHost(request))
+            ? domain
+            : null;
+    }
+
+    /// <summary>Does <paramref name="domain"/> (e.g. <c>.atria.kg</c>) cover <paramref name="host"/>?</summary>
+    private static bool Covers(string domain, string host)
+    {
         var bare = domain.TrimStart('.');
 
         return host.Equals(bare, StringComparison.OrdinalIgnoreCase)
-               || host.EndsWith($".{bare}", StringComparison.OrdinalIgnoreCase)
-            ? domain
-            : null;
+               || host.EndsWith($".{bare}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The host the BROWSER believes it is talking to, which is the only host a Set-Cookie domain is
+    /// checked against.
+    /// </summary>
+    /// <remarks>
+    /// <c>Request.Host</c> is not that host whenever a front nginx proxies <c>/api/</c> and rewrites
+    /// the <c>Host</c> header to the API's own name — the arrangement the public site already uses.
+    /// The API then sees its own hostname, decides the configured domain covers it, and issues a
+    /// cookie the browser silently drops because the page it came from lives somewhere else. The
+    /// <c>Origin</c> header carries the host the browser actually used, so it decides here, with
+    /// <c>Host</c> as the fallback for callers that send no <c>Origin</c> (curl, the test suite).
+    /// </remarks>
+    private static string BrowserHost(HttpRequest request)
+    {
+        var origin = request.Headers.Origin.ToString();
+
+        return !string.IsNullOrWhiteSpace(origin)
+               && Uri.TryCreate(origin, UriKind.Absolute, out var parsed)
+            ? parsed.Host
+            : request.Host.Host;
     }
 
     /// <summary>
