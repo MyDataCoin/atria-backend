@@ -1,5 +1,6 @@
 using Atria.Application.Feedback.Commands;
 using Atria.Domain.Feedback;
+using Atria.Domain.Users;
 using FluentValidation;
 
 namespace Atria.Application.Feedback.Validators;
@@ -23,11 +24,13 @@ public sealed class SubmitFeedbackCommandValidator : AbstractValidator<SubmitFee
         RuleFor(x => x.Phone)
             .NotEmpty()
             .MaximumLength(FeedbackRequest.MaxPhoneLength)
-            .Must(LooksLikePhone)
-            .WithMessage("Укажите номер телефона, например +996 700 000 000.");
+            // Тот же разбор номера, что и при регистрации: платформа кыргызстанская, и телефон,
+            // по которому нельзя перезвонить, ничем не лучше пустого поля.
+            .Must(KyrgyzPhone.IsValid)
+            .WithMessage($"Укажите номер в формате {KyrgyzPhone.Example}.");
     }
 
-    // Намеренно грубые проверки: строгая маска отсечёт живых людей с непривычным форматом записи,
+    // Проверка почты намеренно грубая: строгая маска отсекает живых людей с непривычным адресом,
     // а точность здесь не нужна — отвечает всё равно человек, глядя на оба контакта сразу.
     private static bool LooksLikeEmail(string email)
     {
@@ -37,13 +40,5 @@ public sealed class SubmitFeedbackCommandValidator : AbstractValidator<SubmitFee
             && at < value.Length - 1
             && value.IndexOf('.', at) > at + 1
             && !value.Contains(' ');
-    }
-
-    private static bool LooksLikePhone(string phone)
-    {
-        var value = (phone ?? string.Empty).Trim();
-        if (value.Length == 0) return false;
-        var digits = value.Count(char.IsDigit);
-        return digits >= 9 && value.All(c => char.IsDigit(c) || "+()- ".Contains(c));
     }
 }

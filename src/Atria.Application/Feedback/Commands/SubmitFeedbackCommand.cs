@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Domain.Feedback;
+using Atria.Domain.Users;
 
 namespace Atria.Application.Feedback.Commands;
 
@@ -36,8 +37,10 @@ public sealed class SubmitFeedbackCommandHandler : IRequestHandler<SubmitFeedbac
 
     public async Task<Result<Guid>> Handle(SubmitFeedbackCommand request, CancellationToken ct)
     {
+        // Номер приводим к +996XXXXXXXXX: в панели он превращается в ссылку «позвонить», и разнобой
+        // в записи ломает ровно её — оператору пришлось бы вычищать пробелы и скобки руками.
         var feedback = FeedbackRequest.Create(
-            request.FullName, request.Email, request.Phone, request.Message);
+            request.FullName, request.Email, KyrgyzPhone.Normalize(request.Phone), request.Message);
 
         await _feedback.AddAsync(feedback, ct);
         await _unitOfWork.SaveChangesAsync(ct);
