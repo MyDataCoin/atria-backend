@@ -34,6 +34,8 @@ public static class AuditEvents
     public const string PasswordReset = "PasswordReset";
     public const string PasswordRestored = "PasswordRestored";
     public const string RealtorRegistered = "RealtorRegistered";
+    public const string AdminRegistered = "AdminRegistered";
+    public const string PasswordChanged = "PasswordChanged";
     public const string BanAppealSubmitted = "BanAppealSubmitted";
     public const string CriticalActionRequested = "CriticalActionRequested";
     public const string CriticalActionApproved = "CriticalActionApproved";

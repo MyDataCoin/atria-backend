@@ -23,7 +23,7 @@ public sealed class GetAdminsQueryHandler
         var staff = await _users.GetStaffAsync(ct);
 
         IReadOnlyList<AdminDto> dtos = staff
-            .Select(u => new AdminDto(u.Id, FullName: null, u.Username, Email: null, u.IsBanned))
+            .Select(u => new AdminDto(u.Id, u.FullName, u.Username, Email: null, u.IsBanned))
             .ToList();
 
         return Result.Success(dtos);

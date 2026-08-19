@@ -58,7 +58,14 @@ public sealed class RegisterRealtorCommandHandler
             return Result.Failure<RealtorStatsDto>(
                 Error.Conflict("realtor.username_taken", "This username is already taken."));
 
-        var user = User.CreateServiceAccount(username, Role.Realtor, _passwordHasher.Hash(request.Password));
+        // mustResetPassword: the super admin picks this password and therefore knows it — it is a
+        // hand-over credential, not the realtor's own, and only survives the first sign-in.
+        var user = User.CreateServiceAccount(
+            username,
+            Role.Realtor,
+            _passwordHasher.Hash(request.Password),
+            fullName: request.FullName,
+            mustResetPassword: true);
         await _users.AddAsync(user, ct);
 
         var profile = RealtorProfile.Create(user.Id, request.FullName.Trim(), companyName: request.CompanyName);

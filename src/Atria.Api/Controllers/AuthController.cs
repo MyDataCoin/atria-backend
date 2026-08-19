@@ -6,6 +6,8 @@ using Atria.Application.Abstractions;
 using Atria.Application.Auth.Commands;
 using Atria.Application.Auth.Dtos;
 using Atria.Application.Common;
+using Atria.Application.Users.Dtos;
+using Atria.Application.Users.Queries;
 using Atria.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -54,6 +56,55 @@ public sealed class AuthController : ApiControllerBase
         }
 
         return ToActionResult(result);
+    }
+
+    /// <summary>Returns the authenticated caller's own account: role, login, name, password state.</summary>
+    /// <remarks>
+    /// Any authenticated role. The panels call this right after a sign-in: the access token carries
+    /// no name (it is held client-side, so every claim in it is published), and the
+    /// <c>mustChangePassword</c> flag here is what tells the client to put up the forced
+    /// password-change dialog before letting the account work.
+    /// </remarks>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="200">The caller's account row.</response>
+    /// <response code="401">The request is not authenticated.</response>
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType<CurrentUserDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Me(CancellationToken ct)
+        => ToActionResult(await Sender.Send(new GetCurrentUserQuery(), ct));
+
+    /// <summary>Changes the signed-in account's own password and returns a fresh token pair.</summary>
+    /// <remarks>
+    /// Credential accounts (admin/realtor/super admin) only. This is how an account clears the
+    /// forced change it is under after a super admin creates it or resets its password. The new
+    /// password must be at least six characters with an upper-case letter, a lower-case letter, a
+    /// digit and a special character, and must differ from the current one (<c>409</c>).
+    /// <para>
+    /// A fresh pair comes back because setting a password rotates the account's security stamp:
+    /// every token issued under the old password — the caller's included — stops validating, and
+    /// refresh tokens from before the change are revoked, so a session opened with the temporary
+    /// password cannot outlive it.
+    /// </para>
+    /// </remarks>
+    /// <param name="request">The current password and its replacement.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="200">The password was changed; new tokens returned.</response>
+    /// <response code="400">The new password failed the strength policy.</response>
+    /// <response code="401">Not authenticated, or the current password is wrong.</response>
+    /// <response code="409">The account has no password, or the new password repeats the current one.</response>
+    [HttpPost("password/change")]
+    [Authorize]
+    [ProducesResponseType<AuthTokensDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
+    {
+        var result = await Sender.Send(
+            new ChangeOwnPasswordCommand(request.CurrentPassword, request.NewPassword), ct);
+        return TokensWithRefreshCookie(result);
     }
 
     /// <summary>Logs an admin (or super admin) in with a username/password and returns a token pair.</summary>

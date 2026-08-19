@@ -17,6 +17,13 @@ public sealed class User : AggregateRoot
     /// </summary>
     public string? Username { get; private set; }
 
+    /// <summary>
+    /// Full name of a staff account (Admin/Realtor/SuperAdmin), as entered by the super admin who
+    /// created it. Shown in the panel header instead of the login. Null for phone-OTP investors —
+    /// their legal name lives in the (encrypted) KYC profile, not here.
+    /// </summary>
+    public string? FullName { get; private set; }
+
     public Role Role { get; private set; }
     public bool IsActive { get; private set; }
     public bool IsPhoneVerified { get; private set; }
@@ -87,7 +94,13 @@ public sealed class User : AggregateRoot
     /// The account is looked up at login by <paramref name="username"/>. Pass <paramref name="id"/> to
     /// pin a specific id (e.g. to match a hand-seeded row); when null a fresh id is generated.
     /// </summary>
-    public static User CreateServiceAccount(string username, Role role, string passwordHash, Guid? id = null)
+    public static User CreateServiceAccount(
+        string username,
+        Role role,
+        string passwordHash,
+        Guid? id = null,
+        string? fullName = null,
+        bool mustResetPassword = false)
     {
         if (role is not (Role.Admin or Role.Realtor or Role.SuperAdmin))
             throw new DomainException("Service accounts must be Admin, Realtor or SuperAdmin.");
@@ -102,9 +115,15 @@ public sealed class User : AggregateRoot
             Username = username,
             Role = role,
             IsActive = true,
-            PasswordHash = passwordHash
+            PasswordHash = passwordHash,
+            FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim(),
+            MustResetPassword = mustResetPassword
         };
     }
+
+    /// <summary>Sets (or clears) the staff display name. Blank is normalised to null.</summary>
+    public void SetFullName(string? fullName)
+        => FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim();
 
     public void MarkPhoneVerified() => IsPhoneVerified = true;
 

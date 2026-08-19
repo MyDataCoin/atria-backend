@@ -13,6 +13,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         b.Property(u => u.PhoneNumber).HasMaxLength(32);
         b.Property(u => u.Username).HasMaxLength(64);
+        b.Property(u => u.FullName).HasMaxLength(256);
         b.Property(u => u.Role).HasConversion<int>().IsRequired();
         b.Property(u => u.IsActive).IsRequired();
         b.Property(u => u.IsPhoneVerified).IsRequired();

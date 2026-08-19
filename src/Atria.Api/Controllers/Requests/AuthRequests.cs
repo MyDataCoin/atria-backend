@@ -232,6 +232,17 @@ public sealed record BanUserRequest(string? Reason = null);
 /// <param name="NewPassword">An explicit new password to set; when null/empty a temporary one is generated.</param>
 public sealed record ResetPasswordRequest(string? NewPassword = null);
 
+/// <summary>POST /admins body. Creates a staff (admin) account (super admin only).</summary>
+/// <param name="Username">Login name; must be unique.</param>
+/// <param name="FullName">Full name shown in the panel header.</param>
+/// <param name="Password">The one-time password handed to the admin; must be changed on first sign-in.</param>
+public sealed record RegisterAdminRequest(string Username, string FullName, string Password);
+
+/// <summary>POST /auth/password/change body. Changes the signed-in account's own password.</summary>
+/// <param name="CurrentPassword">The password just used to sign in.</param>
+/// <param name="NewPassword">The replacement; six or more characters with upper/lower case, a digit and a symbol.</param>
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
 /// <summary>POST /realtors body. Registers a realtor account (super admin only).</summary>
 /// <param name="Username">Login name; must be unique.</param>
 /// <param name="Password">Cleartext password set by the super admin; stored hashed.</param>
