@@ -5,8 +5,7 @@ using FluentValidation;
 namespace Atria.Application.Feedback.Validators;
 
 /// <summary>
-/// Validates the public feedback form. The contact must look like an email or a phone number —
-/// a question we cannot answer is worse than no question, and this is the only reason the field exists.
+/// Validates the public feedback form: имя, почта, телефон и текст вопроса — все обязательны.
 /// </summary>
 public sealed class SubmitFeedbackCommandValidator : AbstractValidator<SubmitFeedbackCommand>
 {
@@ -14,29 +13,37 @@ public sealed class SubmitFeedbackCommandValidator : AbstractValidator<SubmitFee
     {
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(FeedbackRequest.MaxFullNameLength);
         RuleFor(x => x.Message).NotEmpty().MaximumLength(FeedbackRequest.MaxMessageLength);
-        RuleFor(x => x.Contact)
+
+        RuleFor(x => x.Email)
             .NotEmpty()
-            .MaximumLength(FeedbackRequest.MaxContactLength)
-            .Must(LooksLikeEmailOrPhone)
-            .WithMessage("Укажите e-mail или номер телефона, чтобы мы могли ответить.");
+            .MaximumLength(FeedbackRequest.MaxEmailLength)
+            .Must(LooksLikeEmail)
+            .WithMessage("Укажите корректный e-mail.");
+
+        RuleFor(x => x.Phone)
+            .NotEmpty()
+            .MaximumLength(FeedbackRequest.MaxPhoneLength)
+            .Must(LooksLikePhone)
+            .WithMessage("Укажите номер телефона, например +996 700 000 000.");
     }
 
-    // Намеренно грубая проверка: строгая маска телефона отсечёт живых людей с непривычным
-    // форматом, а точность здесь не нужна — отвечает всё равно человек.
-    private static bool LooksLikeEmailOrPhone(string contact)
+    // Намеренно грубые проверки: строгая маска отсечёт живых людей с непривычным форматом записи,
+    // а точность здесь не нужна — отвечает всё равно человек, глядя на оба контакта сразу.
+    private static bool LooksLikeEmail(string email)
     {
-        if (string.IsNullOrWhiteSpace(contact)) return false;
-        var value = contact.Trim();
-
-        var atIndex = value.IndexOf('@');
-        var looksLikeEmail = atIndex > 0
-            && atIndex < value.Length - 1
-            && value.IndexOf('.', atIndex) > atIndex + 1
+        var value = (email ?? string.Empty).Trim();
+        var at = value.IndexOf('@');
+        return at > 0
+            && at < value.Length - 1
+            && value.IndexOf('.', at) > at + 1
             && !value.Contains(' ');
+    }
 
+    private static bool LooksLikePhone(string phone)
+    {
+        var value = (phone ?? string.Empty).Trim();
+        if (value.Length == 0) return false;
         var digits = value.Count(char.IsDigit);
-        var looksLikePhone = digits >= 9 && value.All(c => char.IsDigit(c) || "+()- ".Contains(c));
-
-        return looksLikeEmail || looksLikePhone;
+        return digits >= 9 && value.All(c => char.IsDigit(c) || "+()- ".Contains(c));
     }
 }

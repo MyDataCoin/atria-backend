@@ -23,16 +23,15 @@ public sealed class FeedbackController : ApiControllerBase
 
     /// <summary>Submits a question from the public site. Anonymous.</summary>
     /// <remarks>
-    /// No authentication — the sender is a site visitor, not an account. Name, contact and question
-    /// are all required, and the contact has to look like an email or a phone number, otherwise the
-    /// question cannot be answered. Nothing is linked to a user, and the row is deleted automatically
-    /// after <c>90</c> days, which is what the consent text on the form promises.
-    /// The endpoint is rate-limited per IP.
+    /// No authentication — the sender is a site visitor, not an account. Name, email, phone and the
+    /// question are all required. Nothing is emailed anywhere: the question lands in the super-admin
+    /// help desk, and the row is deleted automatically after <c>90</c> days, which is what the consent
+    /// text on the form promises. The endpoint is rate-limited per IP.
     /// </remarks>
-    /// <param name="request">Name, contact (email or phone) and the question.</param>
+    /// <param name="request">Name, email, phone and the question.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <response code="201">The question was recorded.</response>
-    /// <response code="400">A field is missing, too long, or the contact is neither an email nor a phone.</response>
+    /// <response code="400">A field is missing or too long, or the email/phone is malformed.</response>
     /// <response code="429">Too many submissions from this address; try again later.</response>
     [HttpPost]
     [AllowAnonymous]
@@ -42,14 +41,14 @@ public sealed class FeedbackController : ApiControllerBase
     public async Task<IActionResult> Submit(SubmitFeedbackRequest request, CancellationToken ct)
     {
         var result = await Sender.Send(
-            new SubmitFeedbackCommand(request.FullName, request.Contact, request.Message), ct);
+            new SubmitFeedbackCommand(request.FullName, request.Email, request.Phone, request.Message), ct);
         return ToCreatedResult(result, nameof(GetAll), null);
     }
 
     /// <summary>Lists feedback requests, newest first. Admin and super admin.</summary>
     /// <remarks>
-    /// Requires the <c>Admin</c> or <c>SuperAdmin</c> role. Each row carries the sender's name and
-    /// contact, the question, when it arrived and when it was marked answered (null while open).
+    /// Requires the <c>Admin</c> or <c>SuperAdmin</c> role. Each row carries the sender's name, email
+    /// and phone, the question, when it arrived and when it was marked answered (null while open).
     /// Rows older than 90 days are gone — they are swept, not archived.
     /// </remarks>
     /// <param name="ct">Cancellation token.</param>

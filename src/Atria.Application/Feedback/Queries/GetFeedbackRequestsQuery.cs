@@ -22,7 +22,7 @@ public sealed class GetFeedbackRequestsQueryHandler
 
         IReadOnlyList<FeedbackRequestDto> dtos = rows
             .Select(f => new FeedbackRequestDto(
-                f.Id, f.FullName, f.Contact, f.Message, f.CreatedAtUtc, f.HandledAtUtc))
+                f.Id, f.FullName, f.Email, f.Phone, f.Message, f.CreatedAtUtc, f.HandledAtUtc))
             .ToList();
 
         return Result.Success(dtos);

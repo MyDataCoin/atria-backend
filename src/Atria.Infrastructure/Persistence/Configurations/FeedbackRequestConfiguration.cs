@@ -12,7 +12,8 @@ internal sealed class FeedbackRequestConfiguration : IEntityTypeConfiguration<Fe
         b.HasKey(f => f.Id);
 
         b.Property(f => f.FullName).HasMaxLength(FeedbackRequest.MaxFullNameLength).IsRequired();
-        b.Property(f => f.Contact).HasMaxLength(FeedbackRequest.MaxContactLength).IsRequired();
+        b.Property(f => f.Email).HasMaxLength(FeedbackRequest.MaxEmailLength).IsRequired();
+        b.Property(f => f.Phone).HasMaxLength(FeedbackRequest.MaxPhoneLength).IsRequired();
         b.Property(f => f.Message).HasMaxLength(FeedbackRequest.MaxMessageLength).IsRequired();
         b.Property(f => f.HandledAtUtc);
 

@@ -254,9 +254,10 @@ public sealed record RegisterRealtorRequest(
 
 /// <summary>POST /feedback body. Anonymous question from the public site's feedback form.</summary>
 /// <param name="FullName">The sender's name.</param>
-/// <param name="Contact">Email or phone to answer on.</param>
+/// <param name="Email">Email to answer on.</param>
+/// <param name="Phone">Phone to answer on.</param>
 /// <param name="Message">The question itself.</param>
-public sealed record SubmitFeedbackRequest(string FullName, string Contact, string Message);
+public sealed record SubmitFeedbackRequest(string FullName, string Email, string Phone, string Message);
 
 /// <summary>POST /appeals body. Anonymous ban appeal from the blocked screen.</summary>
 /// <param name="Username">The login the sender tried to use (optional; helps match an account).</param>
