@@ -5,6 +5,7 @@ using Atria.Api.Security;
 using Atria.Application.Abstractions;
 using Atria.Application.Auth.Commands;
 using Atria.Application.Auth.Dtos;
+using Atria.Application.Auth.Queries;
 using Atria.Application.Common;
 using Atria.Application.Users.Dtos;
 using Atria.Application.Users.Queries;
@@ -210,6 +211,33 @@ public sealed class AuthController : ApiControllerBase
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
         var result = await Sender.Send(new RequestPhoneOtpCommand(request.Phone, ip), ct);
         return ToActionResult(result);
+    }
+
+    /// <summary>Says whether a phone number already has an account, before any code is sent.</summary>
+    /// <remarks>
+    /// Anonymous endpoint. The public site asks this the moment a number is typed, so «Войти» with a
+    /// number nobody registered says so at once instead of after the code, and «Регистрация» with a
+    /// number that already exists sends the person to sign in.
+    /// <para>
+    /// This DOES answer "do you have an account for this number?" to anyone, which is a trade made
+    /// deliberately for that flow. It is rate-limited per address like the other auth routes, answers
+    /// with a single boolean and nothing else, and the same check is repeated at
+    /// <c>verify-otp</c> (where it is gated by the code) so the guarantee does not rest on this call.
+    /// </para>
+    /// </remarks>
+    /// <param name="request">The phone number in <c>+996XXXXXXXXX</c> form.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="200">Whether the number is registered.</response>
+    /// <response code="400">The phone number failed validation.</response>
+    /// <response code="429">Too many checks from this address.</response>
+    [HttpPost("phone/status")]
+    [ProducesResponseType<PhoneRegistrationDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> PhoneStatus(RequestOtpRequest request, CancellationToken ct)
+    {
+        RefreshTokenCookie.MarkUncacheable(Response);
+        return ToActionResult(await Sender.Send(new GetPhoneRegistrationQuery(request.Phone), ct));
     }
 
     /// <summary>Verifies the SMS code, creating the account on first use, and returns a token pair.</summary>
