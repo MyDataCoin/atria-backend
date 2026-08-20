@@ -39,7 +39,12 @@ public sealed record RequestOtpRequest(string Phone);
 /// <summary>POST /auth/register/phone/verify-otp body.</summary>
 /// <param name="Phone">The same Kyrgyz phone number used to request the code, e.g. <c>+996700123456</c>.</param>
 /// <param name="Code">The one-time code received via SMS (a fixed dev code in development).</param>
-public sealed record VerifyOtpRequest(string Phone, string Code);
+/// <param name="Intent">
+/// Which button the person pressed: <c>login</c> refuses a number that has no account (and creates
+/// nothing), <c>register</c> refuses a number that already has one. Omitted or unrecognised means the
+/// original behaviour — sign in, creating the account on first use.
+/// </param>
+public sealed record VerifyOtpRequest(string Phone, string Code, string? Intent = null);
 
 /// <summary>POST /kyc/submit body.</summary>
 /// <param name="Provider">The KYC verification provider to open a session with.</param>

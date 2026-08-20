@@ -225,16 +225,37 @@ public sealed class AuthController : ApiControllerBase
     /// <param name="ct">Cancellation token.</param>
     /// <response code="200">Code verified; access and refresh tokens returned.</response>
     /// <response code="400">The request failed validation, or the code is invalid/expired.</response>
-    /// <response code="409">The code is locked after too many incorrect attempts; request a new one.</response>
+    /// <response code="404"><c>intent=login</c> and this number has no account (<c>auth.phone_not_registered</c>).</response>
+    /// <response code="409">
+    /// The code is locked after too many incorrect attempts; or <c>intent=register</c> and the number
+    /// already has an account (<c>auth.phone_already_registered</c>).
+    /// </response>
     [HttpPost("register/phone/verify-otp")]
     [ProducesResponseType<AuthTokensDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> VerifyPhoneOtp(VerifyOtpRequest request, CancellationToken ct)
     {
-        var result = await Sender.Send(new VerifyPhoneOtpCommand(request.Phone, request.Code), ct);
+        var result = await Sender.Send(
+            new VerifyPhoneOtpCommand(request.Phone, request.Code, IntentFrom(request.Intent)), ct);
         return TokensWithRefreshCookie(result);
     }
+
+    /// <summary>
+    /// Reads the caller's intent, defaulting to the create-or-sign-in behaviour.
+    /// </summary>
+    /// <remarks>
+    /// A value we do not recognise is treated as "no preference" rather than a 400: the field is an
+    /// addition, and an older or third-party client that sends something else should keep working
+    /// exactly as it did.
+    /// </remarks>
+    private static PhoneAuthIntent IntentFrom(string? intent) => intent?.Trim().ToLowerInvariant() switch
+    {
+        "login" => PhoneAuthIntent.Login,
+        "register" => PhoneAuthIntent.Register,
+        _ => PhoneAuthIntent.Any
+    };
 
     /// <summary>Ends the session: revokes the refresh token and clears its cookie.</summary>
     /// <remarks>

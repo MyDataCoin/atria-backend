@@ -41,6 +41,25 @@ public sealed class VerifyPhoneOtpCommandHandler : IRequestHandler<VerifyPhoneOt
             return Result.Failure<AuthTokensDto>(verification.Error);
 
         var user = await _users.GetByPhoneAsync(phone, ct);
+
+        // The account exists (or not) — but what the person asked for decides whether that is an
+        // answer or a problem. Checked here, AFTER the code was verified, and never before: an
+        // endpoint that says "this number is unknown" without a valid code is a list of everyone
+        // who banks with us, free for the asking.
+        if (user is null && request.Intent == PhoneAuthIntent.Login)
+        {
+            return Result.Failure<AuthTokensDto>(Error.NotFound(
+                "auth.phone_not_registered",
+                "Этот номер ещё не зарегистрирован. Пройдите регистрацию."));
+        }
+
+        if (user is not null && request.Intent == PhoneAuthIntent.Register)
+        {
+            return Result.Failure<AuthTokensDto>(Error.Conflict(
+                "auth.phone_already_registered",
+                "Этот номер уже зарегистрирован. Войдите в аккаунт."));
+        }
+
         if (user is null)
         {
             // First login from this number: create the Investor and mark it verified.
