@@ -22,6 +22,13 @@ public interface IWhitelistEntryRepository : IRepository<WhitelistEntry>
     /// <summary>The requests behind these ids, tracked, for placing into a mint list.</summary>
     Task<IReadOnlyList<WhitelistEntry>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 
+    /// <summary>
+    /// The investor's requests that are still waiting for an address, tracked. Only ones not yet handed
+    /// to the exchange (Pending/Ready) qualify — a batched or minted request keeps the address it was
+    /// sent with, whatever the profile says now.
+    /// </summary>
+    Task<IReadOnlyList<WhitelistEntry>> ListAwaitingWalletAsync(Guid investorId, CancellationToken ct);
+
     /// <summary>The requests a mint list is holding, tracked, so the batch can move them together.</summary>
     Task<IReadOnlyList<WhitelistEntry>> ListByMintListAsync(Guid mintListId, CancellationToken ct);
 }

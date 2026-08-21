@@ -42,6 +42,15 @@ public sealed class WhitelistEntryRepository : Repository<WhitelistEntry>, IWhit
         IReadOnlyCollection<Guid> ids, CancellationToken ct)
         => await Set.Where(e => ids.Contains(e.Id)).ToListAsync(ct);
 
+    // Tracked: the caller writes the address onto these.
+    public async Task<IReadOnlyList<WhitelistEntry>> ListAwaitingWalletAsync(
+        Guid investorId, CancellationToken ct)
+        => await Set
+            .Where(e => e.InvestorId == investorId
+                        && e.WalletAddress == null
+                        && (e.Status == WhitelistStatus.Pending || e.Status == WhitelistStatus.Ready))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<WhitelistEntry>> ListByMintListAsync(Guid mintListId, CancellationToken ct)
         => await Set.Where(e => e.MintListId == mintListId).ToListAsync(ct);
 }

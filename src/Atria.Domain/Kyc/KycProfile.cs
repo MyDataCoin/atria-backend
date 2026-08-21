@@ -77,6 +77,12 @@ public sealed class KycProfile : AggregateRoot
             throw new DomainException("Wallet address is required.");
 
         WalletAddress = walletAddress;
+
+        // Announce it. The address is the mint destination, and the modules that need it copied theirs
+        // at approval time — when, by our own UX, there usually was no address yet. Without this event
+        // linking a wallet changes nothing outside this aggregate: the compliance profile stays empty
+        // and every whitelist request the investor has stays unmintable.
+        RaiseEvent(new Events.KycWalletLinkedEvent(Id, UserId, walletAddress));
     }
 
     /// <summary>

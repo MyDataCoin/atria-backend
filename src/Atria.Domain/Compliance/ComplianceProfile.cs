@@ -35,6 +35,27 @@ public sealed class ComplianceProfile : AggregateRoot
         };
     }
 
+    /// <summary>
+    /// Records the wallet the investor linked after their profile already existed. Returns true when
+    /// the profile actually gained an address, false when it already had one.
+    /// </summary>
+    /// <remarks>
+    /// An existing address is never overwritten here. The KYC endpoint refuses to relink a profile
+    /// that already has a wallet, so a second address arriving at this point is not a correction —
+    /// it is a redelivery, and the on-chain allowlist already names the first one.
+    /// </remarks>
+    public bool SetWalletIfMissing(string walletAddress)
+    {
+        if (!Compliance.WalletAddress.IsValid(walletAddress))
+            throw new DomainException("Invalid EVM wallet address.");
+
+        if (!string.IsNullOrWhiteSpace(WalletAddress))
+            return false;
+
+        WalletAddress = walletAddress;
+        return true;
+    }
+
     /// <summary>Stores the issued decentralized identifier.</summary>
     public void SetDid(string did)
     {
