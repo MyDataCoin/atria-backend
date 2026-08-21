@@ -1,5 +1,6 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
+using Atria.Domain.Investments;
 
 namespace Atria.Application.Properties.Queries;
 
@@ -9,6 +10,11 @@ namespace Atria.Application.Properties.Queries;
 /// this is operational detail, readable only once the deployment is something an admin should see.
 /// </summary>
 /// <param name="PropertyId">The issue.</param>
+/// <param name="PropertyIdBytes32">
+/// The issue id as the token contract must carry it — the value to deploy with as <c>PROPERTY_ID</c>.
+/// Read it from here rather than converting the guid by hand: the contract stores it immutably, so a
+/// deployment that gets it wrong can only be corrected by deploying again.
+/// </param>
 /// <param name="TokenContractAddress">Address of the token contract, or null while the issue is not deployed.</param>
 /// <param name="TokenChain">Tag of the network it lives on, or null.</param>
 /// <param name="ChainId">EIP-155 chain id of that network, or null when the tag is no longer configured.</param>
@@ -16,6 +22,7 @@ namespace Atria.Application.Properties.Queries;
 /// <param name="ExplorerUrl">Public explorer link to the contract, when the network has one configured.</param>
 public sealed record PropertyTokenContractDto(
     Guid PropertyId,
+    string PropertyIdBytes32,
     string? TokenContractAddress,
     string? TokenChain,
     long? ChainId,
@@ -54,7 +61,8 @@ public sealed class GetPropertyTokenContractQueryHandler
                 : $"{network.ExplorerBaseUrl.TrimEnd('/')}/address/{property.TokenContractAddress}";
 
         return Result.Success(new PropertyTokenContractDto(
-            property.Id, property.TokenContractAddress, property.TokenChain,
+            property.Id, PropertyChainId.From(property.Id),
+            property.TokenContractAddress, property.TokenChain,
             network?.ChainId, property.IssuerWalletAddress, explorer));
     }
 }

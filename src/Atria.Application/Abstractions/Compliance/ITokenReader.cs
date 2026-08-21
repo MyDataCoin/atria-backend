@@ -27,6 +27,17 @@ public interface ITokenReader
     /// <summary>Total shares in existence on the contract.</summary>
     Task<decimal> GetTotalSupplyAsync(string chainTag, string tokenContractAddress, CancellationToken ct);
 
+    /// <summary>
+    /// The issue id the contract was deployed with, as a <c>bytes32</c> hex word, or null when the
+    /// contract does not answer at all — it has no such function, or the node cannot be reached.
+    /// </summary>
+    /// <remarks>
+    /// Null means "not established", never "does not match": a caller that treats an unreachable node
+    /// as a mismatch would refuse correct addresses, and one that treats it as a match would defeat
+    /// the check it is making.
+    /// </remarks>
+    Task<string?> GetPropertyIdAsync(string chainTag, string tokenContractAddress, CancellationToken ct);
+
     /// <summary>The block the chain is currently at.</summary>
     Task<long> GetHeadBlockAsync(string chainTag, CancellationToken ct);
 

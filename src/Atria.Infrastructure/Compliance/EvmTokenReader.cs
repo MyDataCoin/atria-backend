@@ -40,6 +40,25 @@ public sealed class EvmTokenReader : ITokenReader
         return ToShares(supply);
     }
 
+    public async Task<string?> GetPropertyIdAsync(
+        string chainTag, string tokenContractAddress, CancellationToken ct)
+    {
+        try
+        {
+            var handler = ClientFor(chainTag).Eth.GetContractQueryHandler<PropertyIdFunction>();
+            var word = await handler.QueryAsync<byte[]>(tokenContractAddress, new PropertyIdFunction());
+
+            return word is null ? null : "0x" + Convert.ToHexString(word).ToLowerInvariant();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A contract without the function, a node that is down, an address that holds no code:
+            // all of them mean the same thing here — the id could not be established. Reporting that
+            // as an answer would turn "unknown" into "different".
+            return null;
+        }
+    }
+
     public async Task<long> GetHeadBlockAsync(string chainTag, CancellationToken ct)
     {
         var head = await ClientFor(chainTag).Eth.Blocks.GetBlockNumber.SendRequestAsync();
@@ -106,6 +125,9 @@ public sealed class EvmTokenReader : ITokenReader
 
     [Function("totalSupply", "uint256")]
     private sealed class TotalSupplyFunction : FunctionMessage;
+
+    [Function("propertyId", "bytes32")]
+    private sealed class PropertyIdFunction : FunctionMessage;
 
     [Event("Transfer")]
     private sealed class TransferEventDto : IEventDTO

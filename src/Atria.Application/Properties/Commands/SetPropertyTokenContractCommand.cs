@@ -4,6 +4,7 @@ using Atria.Application.Common;
 using Atria.Domain.Audit;
 using Atria.Domain.Common;
 using Atria.Domain.Compliance;
+using Atria.Domain.Investments;
 
 namespace Atria.Application.Properties.Commands;
 
@@ -34,6 +35,7 @@ public sealed class SetPropertyTokenContractCommandHandler
     private readonly IChainNetworkResolver _networks;
     private readonly IHolderPositionRepository _holders;
     private readonly IMintListRepository _mintLists;
+    private readonly ITokenReader _tokens;
     private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _uow;
 
@@ -42,6 +44,7 @@ public sealed class SetPropertyTokenContractCommandHandler
         IChainNetworkResolver networks,
         IHolderPositionRepository holders,
         IMintListRepository mintLists,
+        ITokenReader tokens,
         IAuditWriter audit,
         IUnitOfWork uow)
     {
@@ -49,6 +52,7 @@ public sealed class SetPropertyTokenContractCommandHandler
         _networks = networks;
         _holders = holders;
         _mintLists = mintLists;
+        _tokens = tokens;
         _audit = audit;
         _uow = uow;
     }
@@ -99,6 +103,23 @@ public sealed class SetPropertyTokenContractCommandHandler
                 "This issue is already bound to a token contract that has been issued against. "
                 + "The binding cannot be moved."));
 
+        // The contract names the issue it was deployed for. Asking it, rather than trusting the
+        // address typed into this request, is the difference between a register that can be checked
+        // and one that is merely asserted: a right address and a wrong one look identical here, and
+        // the mistake only surfaces once the register has been reconciling against someone else's
+        // shares for a while.
+        var expected = PropertyChainId.From(property.Id);
+        var onChain = await _tokens.GetPropertyIdAsync(network.Tag, contract, ct);
+
+        if (onChain is not null && !PropertyChainId.Matches(property.Id, onChain))
+            return Result.Failure(Error.Conflict(
+                "property.tokenContractIdMismatch",
+                string.Equals(onChain, PropertyChainId.Unset, StringComparison.OrdinalIgnoreCase)
+                    ? $"This contract was deployed with an empty propertyId. Deploy it with "
+                      + $"PROPERTY_ID={expected} — the id cannot be set afterwards."
+                    : $"This contract belongs to another issue: it declares propertyId {onChain}, "
+                      + $"and this issue is {expected}."));
+
         try
         {
             property.SetTokenContract(contract, network.Tag, issuer);
@@ -110,10 +131,17 @@ public sealed class SetPropertyTokenContractCommandHandler
 
         _properties.Update(property);
 
+        // Recorded as a warning when the contract could not be asked: the binding is in force either
+        // way, and which of the two it was is exactly what someone reconciling a suspect register
+        // needs to know later.
         await _audit.WriteAsync(
             AuditEntities.Property, property.Id, AuditEvents.PropertyUpdated,
-            $"Объекту «{property.Name}» назначен токен-контракт {contract} в сети {network.Tag}",
-            AuditSeverity.Success, ct);
+            onChain is null
+                ? $"Объекту «{property.Name}» назначен токен-контракт {contract} в сети {network.Tag}; "
+                  + "сверить propertyId с контрактом не удалось"
+                : $"Объекту «{property.Name}» назначен токен-контракт {contract} в сети {network.Tag}, "
+                  + "propertyId сверен",
+            onChain is null ? AuditSeverity.Warning : AuditSeverity.Success, ct);
 
         await _uow.SaveChangesAsync(ct);
         return Result.Success();

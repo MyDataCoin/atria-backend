@@ -1,5 +1,6 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Properties.Commands;
+using Atria.Domain.Audit;
 using Atria.Domain.Holders;
 using Atria.Domain.Investments;
 using Atria.Domain.Whitelist;
@@ -22,6 +23,7 @@ public sealed class SetPropertyTokenContractCommandHandlerTests
     private readonly IChainNetworkResolver _networks = Substitute.For<IChainNetworkResolver>();
     private readonly IHolderPositionRepository _holders = Substitute.For<IHolderPositionRepository>();
     private readonly IMintListRepository _mintLists = Substitute.For<IMintListRepository>();
+    private readonly ITokenReader _tokens = Substitute.For<ITokenReader>();
     private readonly IAuditWriter _audit = Substitute.For<IAuditWriter>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
@@ -34,6 +36,10 @@ public sealed class SetPropertyTokenContractCommandHandlerTests
             .Returns(Array.Empty<HolderPosition>());
         _mintLists.ListAsync(Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<(MintList, string?)>());
+        // Default: the node is unreachable, so the id cannot be established either way. Tests that
+        // care about the check say what the contract answers.
+        _tokens.GetPropertyIdAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((string?)null);
     }
 
     private Property GivenIssue(string? boundTo = null)
@@ -47,7 +53,11 @@ public sealed class SetPropertyTokenContractCommandHandlerTests
     }
 
     private SetPropertyTokenContractCommandHandler NewHandler() =>
-        new(_properties, _networks, _holders, _mintLists, _audit, _uow);
+        new(_properties, _networks, _holders, _mintLists, _tokens, _audit, _uow);
+
+    private void GivenContractDeclares(string propertyIdWord)
+        => _tokens.GetPropertyIdAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(propertyIdWord);
 
     private static SetPropertyTokenContractCommand Bind(
         Guid id, string contract = Contract, string chain = "bsc-testnet") =>
@@ -141,6 +151,66 @@ public sealed class SetPropertyTokenContractCommandHandlerTests
         var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The contract naming the issue is what makes the register checkable rather than asserted, so a
+    /// contract that names a different one is refused however plausible the address looks.
+    /// </summary>
+    [Fact]
+    public async Task A_contract_belonging_to_another_issue_is_refused()
+    {
+        var property = GivenIssue();
+        GivenContractDeclares(PropertyChainId.From(Guid.NewGuid()));
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("property.tokenContractIdMismatch");
+        property.TokenContractAddress.Should().BeNull();
+    }
+
+    /// <summary>The zero placeholder identifies nothing; the id is immutable, so it means a redeploy.</summary>
+    [Fact]
+    public async Task A_contract_deployed_without_its_property_id_is_refused()
+    {
+        var property = GivenIssue();
+        GivenContractDeclares(PropertyChainId.Unset);
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("property.tokenContractIdMismatch");
+        result.Error.Message.Should().Contain(PropertyChainId.From(property.Id));
+    }
+
+    [Fact]
+    public async Task A_contract_naming_this_issue_is_bound()
+    {
+        var property = GivenIssue();
+        GivenContractDeclares(PropertyChainId.From(property.Id));
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        property.TokenContractAddress.Should().Be(Contract.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// An unreachable node must not read as a mismatch — that would refuse correct addresses whenever
+    /// the RPC is down. It is journalled as unverified instead.
+    /// </summary>
+    [Fact]
+    public async Task An_unreachable_contract_does_not_block_the_binding()
+    {
+        var property = GivenIssue();
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        await _audit.Received(1).WriteAsync(
+            Arg.Any<string>(), property.Id, Arg.Any<string>(), Arg.Any<string>(),
+            AuditSeverity.Warning, Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -215,12 +215,21 @@ BLOCKCHAIN_ORACLE_PRIVATE_KEY=0x...
 Leave `BLOCKCHAIN_TOKEN_SIGNING_MODE` unset and the custody path stays in force whatever the
 keys say. The minter wallet needs gas on the target network before anything it signs will land.
 
-Once the token contract is deployed, bind it to the issue with
-`PUT /api/v1/properties/{id}/token-contract` (Admin): contract address, network tag as configured
-under `Blockchain:Networks` (e.g. `bsc-testnet`), and the issuer wallet. Until that binding
-exists the issue is inert on chain — mint batches carry no contract, the holder register has
-nothing to sync against and collateral is never attested. Re-binding is allowed only while
-nothing has been issued; after the first holder position or mint batch it responds 409.
+The contract has to be deployed **for a particular issue**: `PROPERTY_ID` in the deployment is the
+issue's `Property.Id`, and the API hands over the exact word to deploy with —
+`GET /api/v1/properties/{id}/token-contract` → `propertyIdBytes32` (the guid left-aligned in the
+32-byte word, zero-padded on the right). The contract stores it immutably, so a deployment that gets
+it wrong can only be replaced, not repaired.
+
+Once deployed, bind it to the issue with `PUT /api/v1/properties/{id}/token-contract` (Admin):
+contract address, network tag as configured under `Blockchain:Networks` (e.g. `bsc-testnet`), and the
+issuer wallet. The binding asks the contract for its `propertyId()` and refuses (409) one that names
+a different issue or was deployed with a placeholder — that check is what makes the holder register
+verifiable rather than merely asserted. A node that cannot be reached does not block the binding; it
+is journalled as unverified instead. Until the binding exists the issue is inert on chain: mint
+batches carry no contract, the holder register has nothing to sync against and collateral is never
+attested. Re-binding is allowed only while nothing has been issued; after the first holder position
+or mint batch it responds 409.
 
 **Production hardening (before real traffic)**
 - Use an SSH **key** + non-root `deploy` user instead of a root password.
