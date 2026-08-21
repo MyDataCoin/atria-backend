@@ -16,7 +16,8 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
 
     public RefreshTokenStore(AtriaDbContext db) => _db = db;
 
-    public async Task StoreAsync(Guid userId, string refreshToken, DateTime expiresAtUtc, CancellationToken ct)
+    public async Task StoreAsync(
+        Guid userId, string refreshToken, DateTime expiresAtUtc, Guid familyId, CancellationToken ct)
         => await _db.RefreshTokens.AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
@@ -24,6 +25,7 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
             TokenHash = Hash(refreshToken),
             ExpiresAtUtc = expiresAtUtc,
             IsRevoked = false,
+            FamilyId = familyId == Guid.Empty ? Guid.NewGuid() : familyId,
             CreatedAtUtc = DateTime.UtcNow
         }, ct);
 
@@ -36,7 +38,8 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
         return entity is null
             ? null
             : new RefreshTokenInfo(
-                entity.UserId, refreshToken, entity.ExpiresAtUtc, entity.IsRevoked, entity.RevokedAtUtc);
+                entity.UserId, refreshToken, entity.ExpiresAtUtc, entity.IsRevoked, entity.RevokedAtUtc,
+                entity.FamilyId);
     }
 
     public async Task<bool> TryRevokeAsync(string refreshToken, CancellationToken ct)
@@ -96,6 +99,32 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
 
     /// <summary>False for the in-memory provider, which implements neither ExecuteUpdate nor ExecuteDelete.</summary>
     private bool SupportsBulkOperations => _db.Database.IsRelational();
+
+    public async Task RevokeFamilyAsync(Guid familyId, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+
+        if (SupportsBulkOperations)
+        {
+            await _db.RefreshTokens
+                .Where(r => r.FamilyId == familyId && !r.IsRevoked)
+                .ExecuteUpdateAsync(
+                    set => set
+                        .SetProperty(r => r.IsRevoked, true)
+                        .SetProperty(r => r.RevokedAtUtc, now),
+                    ct);
+            return;
+        }
+
+        var tokens = await _db.RefreshTokens
+            .Where(r => r.FamilyId == familyId && !r.IsRevoked)
+            .ToListAsync(ct);
+        foreach (var token in tokens)
+        {
+            token.IsRevoked = true;
+            token.RevokedAtUtc = now;
+        }
+    }
 
     public async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct)
     {

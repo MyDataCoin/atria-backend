@@ -23,5 +23,18 @@ public sealed class RefreshToken
     /// </remarks>
     public DateTime? RevokedAtUtc { get; set; }
 
+    /// <summary>
+    /// The sign-in this token descends from. Every token minted by rotating an earlier one inherits
+    /// its family; a fresh sign-in starts a new one.
+    /// </summary>
+    /// <remarks>
+    /// This is what makes a compromised token cost one session instead of all of them. Reuse
+    /// detection has to invalidate something, and without a family the only thing it could name was
+    /// "every token this user has" — so one stale token in one browser tab signed the person out of
+    /// their phone, their laptop and everything else at once. The family is exactly the chain the
+    /// suspect token belongs to, so the other devices keep working.
+    /// </remarks>
+    public Guid FamilyId { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 }

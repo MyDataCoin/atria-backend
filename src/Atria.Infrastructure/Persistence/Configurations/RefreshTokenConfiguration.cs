@@ -15,9 +15,13 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         b.Property(r => r.ExpiresAtUtc).IsRequired();
         b.Property(r => r.IsRevoked).IsRequired();
         b.Property(r => r.RevokedAtUtc);
+        b.Property(r => r.FamilyId).IsRequired();
         b.Property(r => r.CreatedAtUtc).IsRequired();
 
         b.HasIndex(r => r.TokenHash).IsUnique();
         b.HasIndex(r => r.UserId);
+
+        // Reuse detection revokes by family, and the cleanup job reads by it — index it.
+        b.HasIndex(r => r.FamilyId);
     }
 }

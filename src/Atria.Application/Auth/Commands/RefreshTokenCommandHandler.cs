@@ -7,7 +7,8 @@ namespace Atria.Application.Auth.Commands;
 /// <summary>
 /// Rotating refresh: look up the presented token, revoke it and issue a brand-new pair. A token
 /// that was already rotated away is a race inside <see cref="IRefreshRotationPolicy.ReuseGrace"/>
-/// (answered with a fresh pair) and reuse of a leaked token after it (the whole session is revoked).
+/// (answered with a fresh pair in the same family) and reuse of a leaked token after it (that family
+/// is revoked — the user's other devices, each its own family, keep working).
 /// </summary>
 public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, Result<AuthTokensDto>>
 {
@@ -53,9 +54,12 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
         if (info.IsRevoked)
         {
             if (IsRotationRace(info))
-                return await IssueForActiveUserAsync(info.UserId, ct);
+                return await IssueForActiveUserAsync(info.UserId, info.FamilyId, ct);
 
-            await _refreshTokens.RevokeAllForUserAsync(info.UserId, ct);
+            // Past the grace window this is treated as a leak. Only the presented token's own chain
+            // is finished: revoking everything the account has would sign the person out of every
+            // other device too, and a stale tab is a far likelier cause here than a thief.
+            await _refreshTokens.RevokeFamilyAsync(info.FamilyId, ct);
             await _unitOfWork.SaveChangesAsync(ct);
             return Result.Failure<AuthTokensDto>(InvalidToken);
         }
@@ -88,12 +92,15 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
 
             var raced = await _refreshTokens.FindAsync(request.RefreshToken, ct);
             if (raced is not null && IsRotationRace(raced))
-                return await IssueForActiveUserAsync(raced.UserId, ct);
+                return await IssueForActiveUserAsync(raced.UserId, raced.FamilyId, ct);
 
             return Result.Failure<AuthTokensDto>(InvalidToken);
         }
 
-        var tokens = await AuthTokensFactory.IssueAsync(user, _jwt, _refreshTokens, _unitOfWork, ct);
+        // Same family as the token being rotated: the chain IS the session, and reuse detection
+        // scopes its response to it.
+        var tokens = await AuthTokensFactory.IssueAsync(
+            user, _jwt, _refreshTokens, _unitOfWork, ct, info.FamilyId);
         return Result.Success(tokens);
     }
 
@@ -108,16 +115,20 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
            && info.ExpiresAtUtc > _clock.UtcNow;
 
     /// <summary>Issues a pair for a user resolved from a token, refusing accounts that are gone or banned.</summary>
-    private async Task<Result<AuthTokensDto>> IssueForActiveUserAsync(Guid userId, CancellationToken ct)
+    private async Task<Result<AuthTokensDto>> IssueForActiveUserAsync(
+        Guid userId, Guid familyId, CancellationToken ct)
     {
         var user = await _users.GetByIdAsync(userId, ct);
         if (user is null || !user.IsActive)
         {
+            // A gone or banned account is an account-level fact, not a token-level one: every session
+            // it has must end, not just this chain.
             await _refreshTokens.RevokeAllForUserAsync(userId, ct);
             await _unitOfWork.SaveChangesAsync(ct);
             return Result.Failure<AuthTokensDto>(InvalidToken);
         }
 
-        return Result.Success(await AuthTokensFactory.IssueAsync(user, _jwt, _refreshTokens, _unitOfWork, ct));
+        return Result.Success(await AuthTokensFactory.IssueAsync(
+            user, _jwt, _refreshTokens, _unitOfWork, ct, familyId));
     }
 }

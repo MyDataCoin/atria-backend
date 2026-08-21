@@ -13,7 +13,7 @@ public sealed class RefreshRotationOptions : IRefreshRotationPolicy
     /// fresh pair) instead of being read as a leak. 0 restores the old all-or-nothing behaviour.
     /// </summary>
     [Range(0, 300)]
-    public int ReuseGraceSeconds { get; init; } = 60;
+    public int ReuseGraceSeconds { get; init; } = 180;
 
     /// <inheritdoc />
     TimeSpan IRefreshRotationPolicy.ReuseGrace => TimeSpan.FromSeconds(ReuseGraceSeconds);

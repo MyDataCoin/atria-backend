@@ -27,18 +27,24 @@ public sealed record AuthTokensDto(
 internal static class AuthTokensFactory
 {
 
+    /// <param name="familyId">
+    /// The sign-in chain the new token joins. Pass the presented token's family when rotating, so the
+    /// whole chain stays one session; leave it null for a fresh sign-in, which starts its own.
+    /// </param>
     public static async Task<AuthTokensDto> IssueAsync(
         User user,
         IJwtTokenGenerator jwt,
         IRefreshTokenStore refreshTokens,
         IUnitOfWork unitOfWork,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? familyId = null)
     {
         var access = jwt.GenerateAccessToken(user.Id, user.Role, user.SecurityStamp);
         var refresh = jwt.GenerateRefreshToken();
 
         // Store with the refresh token's OWN lifetime (RefreshTokenDays), not the access TTL.
-        await refreshTokens.StoreAsync(user.Id, refresh.Token, refresh.ExpiresAtUtc, ct);
+        await refreshTokens.StoreAsync(
+            user.Id, refresh.Token, refresh.ExpiresAtUtc, familyId ?? Guid.NewGuid(), ct);
 
         // Persist the refresh token (and any pending changes from the caller, e.g. a
         // revoked old token or a newly created user) so rotation actually works.

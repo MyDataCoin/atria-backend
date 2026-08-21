@@ -52,7 +52,8 @@ public sealed class RefreshTokenRotationPersistenceTests
         var store = new RefreshTokenStore(_db);
         var uow = new UnitOfWork(_db);
         const string oldToken = OldToken;
-        await store.StoreAsync(user.Id, oldToken, now.AddDays(Jwt.RefreshTokenDays), CancellationToken.None);
+        await store.StoreAsync(
+            user.Id, oldToken, now.AddDays(Jwt.RefreshTokenDays), Guid.NewGuid(), CancellationToken.None);
         await uow.SaveChangesAsync(CancellationToken.None);
 
         var jwt = new JwtTokenGenerator(Microsoft.Extensions.Options.Options.Create(Jwt), _clock);
@@ -109,6 +110,30 @@ public sealed class RefreshTokenRotationPersistenceTests
 
     /// <summary>Outside the grace the same replay is reuse of a leaked token: the session dies.</summary>
     [Fact]
+    public async Task Replaying_a_token_after_the_grace_leaves_the_users_OTHER_sessions_alive()
+    {
+        // Одна учётная запись, два входа — телефон и ноутбук. Каждый вход это своя цепочка токенов.
+        var (store, uow, jwt, user) = await ArrangeRotatedSessionAsync();
+        const string otherDeviceToken = "other-device-refresh-token";
+        await store.StoreAsync(
+            user.Id, otherDeviceToken, DateTime.UtcNow.AddDays(Jwt.RefreshTokenDays), Guid.NewGuid(),
+            CancellationToken.None);
+        await uow.SaveChangesAsync(CancellationToken.None);
+
+        var sut = new RefreshTokenCommandHandler(_users, store, jwt, _clock, Grace(60), uow);
+        await sut.Handle(new RefreshTokenCommand(OldToken), CancellationToken.None);
+
+        var later = DateTime.UtcNow.AddMinutes(5);
+        _clock.UtcNow.Returns(_ => later);
+        await sut.Handle(new RefreshTokenCommand(OldToken), CancellationToken.None);
+
+        // Второе устройство к подозрительному токену отношения не имеет и обязано пережить это:
+        // раньше срабатывание защиты выкидывало человека отовсюду сразу.
+        var other = await store.FindAsync(otherDeviceToken, CancellationToken.None);
+        other!.IsRevoked.Should().BeFalse("reuse detection must not end unrelated sessions");
+    }
+
+    [Fact]
     public async Task Replaying_a_token_after_the_grace_revokes_the_whole_session()
     {
         var (store, uow, jwt, user) = await ArrangeRotatedSessionAsync();
@@ -139,7 +164,8 @@ public sealed class RefreshTokenRotationPersistenceTests
         var store = new RefreshTokenStore(_db);
         var uow = new UnitOfWork(_db);
         await store.StoreAsync(
-            user.Id, OldToken, DateTime.UtcNow.AddDays(Jwt.RefreshTokenDays), CancellationToken.None);
+            user.Id, OldToken, DateTime.UtcNow.AddDays(Jwt.RefreshTokenDays), Guid.NewGuid(),
+            CancellationToken.None);
         await uow.SaveChangesAsync(CancellationToken.None);
 
         return (store, uow, new JwtTokenGenerator(Microsoft.Extensions.Options.Options.Create(Jwt), _clock), user);
