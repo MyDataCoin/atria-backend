@@ -196,6 +196,32 @@ long and unique, and narrow access with a firewall rule on 5432 (or switch the m
 3. Push to `main`/`master` (or run the workflow manually) → the API comes up at
    `http://<server-ip>:8080` (Swagger at `/swagger`).
 
+**Testnet token signing**
+
+Token writes (mint, burn, forced transfer) and collateral attestations go through the custody
+signer by default: no key able to create or destroy shares lives in the API process. A test
+network has no custody service to call, so a testnet run switches to the operational-key path
+and hands the API two keys of its own — a `MINTER_ROLE` key and an `ORACLE_ROLE` key, separate
+so that the one speaking for the collateral cannot touch the shares:
+
+```bash
+# server .env — never in the repo, never in appsettings.json
+BLOCKCHAIN_TOKEN_SIGNING_MODE=OperationalKey
+BLOCKCHAIN_MINTER_PRIVATE_KEY=0x...
+BLOCKCHAIN_ORACLE_PRIVATE_KEY=0x...
+```
+
+`docker-compose.yml` maps these onto `Blockchain__TokenSigning__{Mode,MinterPrivateKey,OraclePrivateKey}`.
+Leave `BLOCKCHAIN_TOKEN_SIGNING_MODE` unset and the custody path stays in force whatever the
+keys say. The minter wallet needs gas on the target network before anything it signs will land.
+
+Once the token contract is deployed, bind it to the issue with
+`PUT /api/v1/properties/{id}/token-contract` (Admin): contract address, network tag as configured
+under `Blockchain:Networks` (e.g. `bsc-testnet`), and the issuer wallet. Until that binding
+exists the issue is inert on chain — mint batches carry no contract, the holder register has
+nothing to sync against and collateral is never attested. Re-binding is allowed only while
+nothing has been issued; after the first holder position or mint batch it responds 409.
+
 **Production hardening (before real traffic)**
 - Use an SSH **key** + non-root `deploy` user instead of a root password.
 - This serves plain **HTTP** on 8080. Put a reverse proxy (nginx/Caddy/Traefik) with
@@ -211,7 +237,7 @@ long and unique, and narrow access with a firewall rule on 5432 (or switch the m
 ```
 Auth        POST register/phone/request-otp · register/phone/verify-otp · refresh   (phone-only, KG +996; no email/password)
 KYC         POST kyc/submit [Investor] · GET kyc/me [Investor] · POST kyc/{id}/review [Compliance]
-Properties  GET properties · GET {id} · POST [Admin]
+Properties  GET properties · GET {id} · POST [Admin] · GET/PUT {id}/token-contract [Admin]
 Investments POST investments [Investor] · POST investments/{investmentId}/payments [Investor] · GET me · GET {id} · GET portfolio
 Documents   POST documents (multipart) [Investor] · GET {id} [owner/Admin/Compliance] · GET me
 Notifications GET notifications/me · POST {id}/read

@@ -303,6 +303,15 @@ public sealed record SetPropertyCollateralRequest(
     string? IssueRegistrationNumber = null,
     Guid? CollateralManagerUserId = null);
 
+/// <summary>PUT /properties/{id}/token-contract body. Binds a deployed token contract to an issue.</summary>
+/// <param name="TokenContractAddress">Address of the deployed permissioned token contract.</param>
+/// <param name="TokenChain">Tag of the network it is deployed on, e.g. <c>bsc-testnet</c>.</param>
+/// <param name="IssuerWalletAddress">Wallet the issuer holds the issue's own shares in.</param>
+public sealed record SetPropertyTokenContractRequest(
+    string TokenContractAddress,
+    string TokenChain,
+    string IssuerWalletAddress);
+
 /// <summary>POST /regulatory-reports body. Records a filing obligation and its deadline.</summary>
 /// <param name="Kind">Which notification, sent by name.</param>
 /// <param name="PeriodStartUtc">Start of the period covered.</param>

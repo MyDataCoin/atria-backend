@@ -222,6 +222,48 @@ public sealed class PropertiesController : ApiControllerBase
             request.EncumbranceRegistrationNumber, request.EncumbranceRegisteredAtUtc,
             request.IssueRegistrationNumber, request.CollateralManagerUserId), ct));
 
+    /// <summary>Reads the on-chain binding of an issue. Admin or auditor.</summary>
+    /// <remarks>
+    /// Which token contract carries the issue's shares, on which network, and the issuer's own wallet —
+    /// plus a block-explorer link when the network has one configured. All fields are <c>null</c> while
+    /// the issue has no contract deployed against it.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet("{id:guid}/token-contract")]
+    [Authorize(Roles = "Admin,Auditor")]
+    [ProducesResponseType<PropertyTokenContractDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTokenContract(Guid id, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new GetPropertyTokenContractQuery(id), ct));
+
+    /// <summary>Binds a deployed token contract to an issue. Admin only.</summary>
+    /// <remarks>
+    /// Records the contract address, the network tag and the issuer wallet. Until this is set, every
+    /// chain-facing feature of the issue is inert: mint batches carry no contract, the holder register
+    /// has nothing to sync against and collateral is never attested. The network tag must be one of the
+    /// configured networks (400 otherwise), and both addresses must be EVM addresses. Re-binding is
+    /// allowed while nothing has been issued; once a holder position or a mint batch exists the binding
+    /// is final and moving it responds with 409.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="request">The contract, the network and the issuer wallet.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPut("{id:guid}/token-contract")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SetTokenContract(
+        Guid id, SetPropertyTokenContractRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new SetPropertyTokenContractCommand(
+            id, request.TokenContractAddress, request.TokenChain, request.IssuerWalletAddress), ct));
+
     /// <summary>Announces a property as "coming soon". Admin only.</summary>
     /// <remarks>
     /// Moves a <b>draft</b> or <b>open</b> property to <b>coming soon</b> — teasing a new draft on the

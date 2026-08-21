@@ -102,6 +102,17 @@ services:
       # `env_file:` injected that file wholesale; the shell-style name matches every other secret
       # here and is what deploy.yml forwards. Whichever is set wins, so no .env has to be rewritten.
       Blockchain__Anchor__AgentPrivateKey: ${BLOCKCHAIN_ANCHOR_AGENT_PRIVATE_KEY:-${Blockchain__Anchor__AgentPrivateKey:-}}
+      # Who signs writes to an issue's token contract. Custody by default and in production: no key
+      # able to create or destroy shares lives in this process. A test network has no custody service
+      # to call, so a testnet deployment sets BLOCKCHAIN_TOKEN_SIGNING_MODE=OperationalKey and supplies
+      # the two keys below. Leaving the mode unset keeps the custody path whatever the keys say.
+      Blockchain__TokenSigning__Mode: ${BLOCKCHAIN_TOKEN_SIGNING_MODE:-Custody}
+      # MINTER_ROLE key — mints and burns shares. ORACLE_ROLE key — attests to what backs the issue.
+      # Two separate keys on purpose: the one that speaks for the collateral must not be able to touch
+      # the shares. Both are read only in OperationalKey mode, both are secrets, and both stay out of
+      # the repository — they come from the server .env, next to the anchor agent key above.
+      Blockchain__TokenSigning__MinterPrivateKey: ${BLOCKCHAIN_MINTER_PRIVATE_KEY:-${Blockchain__TokenSigning__MinterPrivateKey:-}}
+      Blockchain__TokenSigning__OraclePrivateKey: ${BLOCKCHAIN_ORACLE_PRIVATE_KEY:-${Blockchain__TokenSigning__OraclePrivateKey:-}}
       # Public media (property photos/documents): the API copies files to the media host over SCP
       # and stores an absolute URL served by that host's nginx. ONLY the credentials live here —
       # PublicBaseUrl, PublicBasePath, RemoteRoot, ScpHost and ScpPort are in appsettings.json.
