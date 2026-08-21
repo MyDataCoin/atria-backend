@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nethereum.Signer;
 
 namespace Atria.Infrastructure.Compliance;
 
@@ -28,14 +29,20 @@ public sealed class BlockchainOperationWorker : BackgroundService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BlockchainOperationWorker> _logger;
+    private readonly TokenSigningOptions _signing;
+    private readonly string? _agentKey;
 
     public BlockchainOperationWorker(
         IServiceScopeFactory scopeFactory,
         IOptions<BlockchainOptions> options,
+        IOptions<TokenSigningOptions> signing,
+        IOptions<EvmAnchorOptions> anchor,
         ILogger<BlockchainOperationWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _signing = signing.Value;
+        _agentKey = anchor.Value.AgentPrivateKey;
 
         var opts = options.Value;
         _maxAttempts = opts.MaxAttempts;
@@ -44,8 +51,46 @@ public sealed class BlockchainOperationWorker : BackgroundService
         _confirmationsRequired = opts.ConfirmationsRequired;
     }
 
+    /// <summary>
+    /// Reports, once, which addresses this process will actually sign as.
+    /// </summary>
+    /// <remarks>
+    /// A key that belongs to an address the contract granted no role produces a reverted transaction
+    /// and nothing else — the most common way a deployment is wrong, and the slowest to recognise
+    /// from the receipt. Printing the derived addresses at start makes it a comparison against the
+    /// role table rather than a debugging session. Addresses are public; the keys never leave here.
+    /// </remarks>
+    private void LogSigningIdentities()
+    {
+        _logger.LogInformation(
+            "Token signing mode: {Mode}. Minter {Minter}, oracle {Oracle}, allowlist agent {Agent}. "
+            + "These must be the addresses the token contract granted MINTER_ROLE and ORACLE_ROLE to, "
+            + "and the address registered as an allowlist agent.",
+            _signing.Mode,
+            AddressOf(_signing.MinterPrivateKey),
+            AddressOf(_signing.OraclePrivateKey),
+            AddressOf(_agentKey));
+    }
+
+    private static string AddressOf(string? privateKey)
+    {
+        if (string.IsNullOrWhiteSpace(privateKey))
+            return "(not configured)";
+
+        try
+        {
+            return new EthECKey(privateKey).GetPublicAddress();
+        }
+        catch (Exception)
+        {
+            return "(unreadable key)";
+        }
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        LogSigningIdentities();
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try

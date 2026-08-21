@@ -211,6 +211,11 @@ BLOCKCHAIN_MINTER_PRIVATE_KEY=0x...
 BLOCKCHAIN_ORACLE_PRIVATE_KEY=0x...
 ```
 
+In this mode the API refuses to start unless both keys are present and well-formed — a signing
+configuration that cannot sign should stop the process, not the first mint. At start the operation
+worker logs the addresses it will sign as, so they can be compared against the roles the token
+contract actually granted.
+
 `docker-compose.yml` maps these onto `Blockchain__TokenSigning__{Mode,MinterPrivateKey,OraclePrivateKey}`.
 Leave `BLOCKCHAIN_TOKEN_SIGNING_MODE` unset and the custody path stays in force whatever the
 keys say. The minter wallet needs gas on the target network before anything it signs will land.

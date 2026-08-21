@@ -88,7 +88,13 @@ public static class DependencyInjection
         BindValidated<TesseraOptions>(services, configuration, TesseraOptions.SectionName);
         BindValidated<BlockchainOptions>(services, configuration, BlockchainOptions.SectionName);
         BindValidated<EvmAnchorOptions>(services, configuration, EvmAnchorOptions.SectionName);
-        services.Configure<TokenSigningOptions>(configuration.GetSection(TokenSigningOptions.SectionName));
+        // Not BindValidated: the rule is conditional (keys are required only in the operational-key
+        // mode), which data annotations cannot express. Validated on start all the same — a signing
+        // configuration that cannot sign should stop the process, not the first mint.
+        services.AddOptions<TokenSigningOptions>()
+            .Bind(configuration.GetSection(TokenSigningOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<TokenSigningOptions>, TokenSigningOptionsValidator>();
         BindValidated<TravelRuleOptions>(services, configuration, TravelRuleOptions.SectionName);
     }
 
