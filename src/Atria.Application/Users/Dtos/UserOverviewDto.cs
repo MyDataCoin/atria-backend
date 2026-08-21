@@ -1,4 +1,5 @@
 using Atria.Domain.Kyc;
+using Atria.Domain.Users;
 
 namespace Atria.Application.Users.Dtos;
 
@@ -17,6 +18,12 @@ namespace Atria.Application.Users.Dtos;
 /// action on a verification — reviewing it, or pulling the provider's decision for one the webhook
 /// never delivered — is addressed by profile id, and without it this row can only be looked at.
 /// </param>
+/// <param name="Role">
+/// The account's role. Carried so the client can tell investors from staff: the list is every user
+/// there is, and the investor registry must not show admins, realtors or auditors. Without it the
+/// only separator available was "has a KYC profile", which quietly hid every investor who had not
+/// started verification yet — exactly the people an operator is looking for.
+/// </param>
 /// <param name="Blocked">Whether the account is banned by a super admin (<c>status: Blocked</c> on the client).</param>
 /// <param name="CreatedAtUtc">UTC timestamp when the user account was created.</param>
 public sealed record UserOverviewDto(
@@ -26,5 +33,6 @@ public sealed record UserOverviewDto(
     string? WalletAddress,
     KycStatus? Status,
     Guid? KycProfileId,
+    Role Role,
     bool Blocked,
     DateTime CreatedAtUtc);
