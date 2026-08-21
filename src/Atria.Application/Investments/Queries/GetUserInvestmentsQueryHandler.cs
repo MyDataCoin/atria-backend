@@ -39,6 +39,6 @@ public sealed class GetUserInvestmentsQueryHandler
 
     // Investor's share of the property, rounded to 4 decimals. Guards against a zero supply (never
     // expected for a real property) so the read can't throw.
-    private static decimal SharePercent(decimal tokenCount, decimal totalTokens)
+    private static decimal SharePercent(long tokenCount, long totalTokens)
         => totalTokens <= 0 ? 0m : Math.Round((decimal)tokenCount / totalTokens * 100m, 4);
 }

@@ -14,7 +14,7 @@ internal sealed class RefundObligationConfiguration : IEntityTypeConfiguration<R
         b.Property(r => r.PropertyId).IsRequired();
         b.Property(r => r.InvestorId).IsRequired();
         b.Property(r => r.WalletAddress).HasMaxLength(128).IsRequired();
-        b.Property(r => r.TokenCount).HasPrecision(28, 2).IsRequired();
+        b.Property(r => r.TokenCount).IsRequired();
         b.Property(r => r.Amount).HasPrecision(18, 2).IsRequired();
         b.Property(r => r.Currency).HasMaxLength(8).IsRequired();
         b.Property(r => r.Reason).HasConversion<int>().IsRequired();

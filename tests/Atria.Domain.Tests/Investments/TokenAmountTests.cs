@@ -5,62 +5,68 @@ using FluentAssertions;
 namespace Atria.Domain.Tests.Investments;
 
 /// <summary>
-/// Shares are divisible into hundredths, so an issue can be sized to something real (57.55 tokens
-/// for a 57.55 m² apartment) and an investor can buy a part of one. These cover the granularity
-/// itself: what is representable, how money rounds into shares, and the conversion the token
-/// contract sees.
+/// A token is one indivisible share of an issue, so every count is a whole number. These cover the
+/// three places that matters: turning money into shares, pricing the shares back, and the
+/// conversion the token contract sees.
 /// </summary>
 public sealed class TokenAmountTests
 {
     [Fact]
-    public void Smallest_share_is_one_hundredth()
+    public void A_share_does_not_divide()
     {
-        TokenAmount.Scale.Should().Be(2);
-        TokenAmount.Smallest.Should().Be(0.01m);
+        TokenAmount.Scale.Should().Be(0, "the token contract's decimals() is zero");
+        TokenAmount.Smallest.Should().Be(1);
+    }
+
+    [Fact]
+    public void Money_never_rounds_up_into_a_share()
+    {
+        // 8 750 сомони при цене 87 — 100,57 доли. Инвестор получает 100: округление вверх
+        // разместило бы больше выпуска, чем оплачено.
+        TokenAmount.FromMoney(8_750m, 87m).Should().Be(100);
+        TokenAmount.FromMoney(86.99m, 87m).Should().Be(0);
+        TokenAmount.FromMoney(87m, 87m).Should().Be(1);
     }
 
     [Theory]
-    [InlineData(57.55)]
-    [InlineData(0.01)]
-    [InlineData(128.82)]
-    [InlineData(1)]
-    public void Amounts_at_the_granularity_are_well_formed(decimal tokens)
-        => TokenAmount.IsWellFormed(tokens).Should().BeTrue();
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_non_positive_sum_buys_nothing(decimal amount)
+        => TokenAmount.FromMoney(amount, 87m).Should().Be(0);
 
     [Fact]
-    public void An_amount_finer_than_the_granularity_is_rejected()
+    public void A_zero_price_is_refused_rather_than_dividing_by_it()
     {
-        TokenAmount.IsWellFormed(0.001m).Should().BeFalse();
+        var act = () => TokenAmount.FromMoney(1_000m, 0m);
 
-        var act = () => TokenAmount.ToMinor(0.001m);
-
-        act.Should().Throw<DomainException>("silently rounding here would put the register and the chain on different numbers");
+        act.Should().Throw<DomainException>().WithMessage("*price must be positive*");
     }
 
     [Fact]
-    public void Floor_never_rounds_a_holding_up()
+    public void Shares_are_priced_back_exactly()
     {
-        // 100 сом при цене 3 сома — 33,33… доли. Инвестор получает ровно столько, сколько покрыли
-        // деньги: округление вверх разместило бы больше выпуска, чем оплачено.
-        TokenAmount.Floor(100m / 3m).Should().Be(33.33m);
-        TokenAmount.Floor(0.999m).Should().Be(0.99m);
-        TokenAmount.Floor(0.009m).Should().Be(0m);
-    }
-
-    [Fact]
-    public void Normalize_rounds_to_the_nearest_share()
-    {
-        TokenAmount.Normalize(57.5504m).Should().Be(57.55m);
-        TokenAmount.Normalize(0.005m).Should().Be(0.01m);
+        // Ровно то, что инвестор платит: количество × цена, без остатка.
+        TokenAmount.CostOf(100, 87m).Should().Be(8_700m);
+        TokenAmount.CostOf(TokenAmount.FromMoney(8_750m, 87m), 87m).Should().Be(8_700m);
     }
 
     [Fact]
     public void Minor_units_round_trip_through_the_contract_representation()
     {
-        // 57,55 доли контракт держит как 5755 минорных единиц (decimals() == Scale).
-        TokenAmount.ToMinor(57.55m).Should().Be(5_755);
+        // decimals() == Scale == 0, поэтому доля и есть единица контракта.
+        TokenAmount.ToMinor(5_755).Should().Be(5_755);
         TokenAmount.ToMinor(TokenAmount.Smallest).Should().Be(1);
-        TokenAmount.FromMinor(5_755).Should().Be(57.55m);
-        TokenAmount.FromMinor(TokenAmount.ToMinor(128.82m)).Should().Be(128.82m);
+        TokenAmount.FromMinor(5_755).Should().Be(5_755);
+    }
+
+    [Fact]
+    public void A_negative_or_oversized_chain_reading_is_refused()
+    {
+        var negative = () => TokenAmount.ToMinor(-1);
+        negative.Should().Throw<DomainException>();
+
+        var tooLarge = () => TokenAmount.FromMinor(System.Numerics.BigInteger.Pow(2, 70));
+        tooLarge.Should().Throw<DomainException>(
+            "a balance that cannot be a share count means the contract is not the one we think it is");
     }
 }

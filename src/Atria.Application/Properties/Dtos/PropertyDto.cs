@@ -9,6 +9,9 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="TokenPrice">Price of a single token, in the property's currency.</param>
 /// <param name="AvailableTokens">Number of tokens still available for investment.</param>
 /// <param name="TotalTokens">Total number of tokens the property was issued with.</param>
+/// <param name="MinPurchaseTokens">Fewest tokens one application may be for.</param>
+/// <param name="MinPurchaseAmount"><paramref name="MinPurchaseTokens"/> × <paramref name="TokenPrice"/> — the smallest sum that buys in.</param>
+/// <param name="AreaPerTokenSqM">Area one token stands for (<paramref name="TotalAreaSqM"/> ÷ <paramref name="TotalTokens"/>), or <c>null</c> when the area is unknown. A derived equivalent for display — the token is a share of the issue, not a square metre.</param>
 /// <param name="Currency">3-letter ISO currency code of the token price (e.g. USD, KGS).</param>
 /// <param name="Status">Lifecycle status, lowercase: <c>draft</c> | <c>coming_soon</c> | <c>open</c> | <c>completed</c>.</param>
 /// <param name="SalesPaused">Whether purchases are paused (blocks "buy" on the public site); orthogonal to status.</param>
@@ -33,8 +36,11 @@ public sealed record PropertyDto(
     string Name,
     string? Description,
     decimal TokenPrice,
-    decimal AvailableTokens,
-    decimal TotalTokens,
+    long AvailableTokens,
+    long TotalTokens,
+    long MinPurchaseTokens,
+    decimal MinPurchaseAmount,
+    decimal? AreaPerTokenSqM,
     string Currency,
     string Status,
     bool SalesPaused,
@@ -65,7 +71,8 @@ public sealed record PropertyDto(
 
         return new PropertyDto(
             p.Id, p.Name, p.Description, p.TokenPrice,
-            p.AvailableTokens, p.TotalTokens, p.Currency, ToWireStatus(p.Status), p.SalesPaused,
+            p.AvailableTokens, p.TotalTokens, p.MinPurchaseTokens, p.MinPurchaseAmount,
+            p.AreaPerTokenSqM, p.Currency, ToWireStatus(p.Status), p.SalesPaused,
             p.Address, p.PropertyType, p.City, p.YearBuilt, p.Developer, p.Floors,
             p.Images.Select(i => new PropertyImageDto(i.Id, i.Url)).ToList(),
             p.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList(),

@@ -49,7 +49,7 @@ public sealed class EvmTokenGateway : ITokenGateway
     }
 
     public async Task<TokenWriteResult> MintAsync(
-        string chainTag, string tokenContractAddress, string toAddress, decimal amount, CancellationToken ct)
+        string chainTag, string tokenContractAddress, string toAddress, long amount, CancellationToken ct)
     {
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount), "Mint amount must be positive.");
@@ -57,10 +57,9 @@ public sealed class EvmTokenGateway : ITokenGateway
         var web3 = ClientFor(chainTag);
         var handler = web3.Eth.GetContractTransactionHandler<MintFunction>();
 
-        // Shares are divisible to TokenAmount.Scale decimals and the token's decimals() matches, so
-        // the contract holds them as integer minor units: 57.55 shares is 57 550 000 units. Scaling
-        // by 10^18 the way an ordinary ERC-20 would expect would mint a million million shares;
-        // passing the decimal through untouched would truncate every fraction.
+        // The token's decimals() is zero, so 57 shares is the integer 57 and nothing is scaled.
+        // Scaling by 10^18 the way an ordinary ERC-20 would expect would mint a million million
+        // shares — which is why the conversion goes through TokenAmount rather than a literal.
         var mint = new MintFunction { To = toAddress, Amount = TokenAmount.ToMinor(amount) };
 
         // Pass the caller's token through: waiting for a receipt polls indefinitely by default, so a

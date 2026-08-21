@@ -43,7 +43,7 @@ public sealed class CreateHolderSnapshotCommandHandlerTests
     private CreateHolderSnapshotCommandHandler NewHandler() =>
         new(_snapshots, _positions, _properties, _sender, _currentUser, _clock, _uow);
 
-    private void GivenPositions(params (string Wallet, decimal Tokens, Guid? Investor)[] holdings)
+    private void GivenPositions(params (string Wallet, long Tokens, Guid? Investor)[] holdings)
         => _positions.GetByPropertyAsync(_property.Id, Arg.Any<CancellationToken>())
             .Returns(holdings
                 .Select(h => HolderPosition.Create(

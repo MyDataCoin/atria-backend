@@ -19,7 +19,7 @@ internal sealed class PayoutRunConfiguration : IEntityTypeConfiguration<PayoutRu
         b.Property(r => r.Status).HasConversion<int>().IsRequired();
         b.Property(r => r.DeclaredAmount).HasPrecision(18, 2).IsRequired();
         b.Property(r => r.Currency).HasMaxLength(3).IsRequired();
-        b.Property(r => r.TotalTokens).HasPrecision(28, 2).IsRequired();
+        b.Property(r => r.TotalTokens).IsRequired();
         b.Property(r => r.CreatedByUserId).IsRequired();
         b.Property(r => r.Note).HasMaxLength(512);
         b.Property(r => r.CancellationReason).HasMaxLength(512);
@@ -51,7 +51,7 @@ internal sealed class PayoutItemConfiguration : IEntityTypeConfiguration<PayoutI
         b.Property(i => i.PayoutRunId).IsRequired();
         b.Property(i => i.InvestorId).IsRequired();
         b.Property(i => i.WalletAddress).HasMaxLength(128).IsRequired();
-        b.Property(i => i.TokenCount).HasPrecision(28, 2).IsRequired();
+        b.Property(i => i.TokenCount).IsRequired();
         b.Property(i => i.Amount).HasPrecision(18, 2).IsRequired();
         b.Property(i => i.Status).HasConversion<int>().IsRequired();
         b.Property(i => i.SettlementReference).HasMaxLength(256);

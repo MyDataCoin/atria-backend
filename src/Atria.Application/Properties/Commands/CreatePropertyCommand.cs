@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Application.Properties.Dtos;
+using Atria.Domain.Investments;
 
 namespace Atria.Application.Properties.Commands;
 
@@ -15,14 +16,16 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="RoomCount">How many rooms the unit is sold as (2-, 3-, 4-комнатная).</param>
 /// <param name="TotalAreaSqM">Total floor area of the unit in m².</param>
 /// <param name="Rooms">Room breakdown: name + area per row, in display order.</param>
+/// <param name="MinPurchaseTokens">Fewest tokens one application may be for. Defaults to a single token.</param>
 public sealed record CreatePropertyCommand(
     string Name,
     string? Description,
     string? Address,
     decimal TotalValue,
     decimal TokenPrice,
-    decimal TotalTokens,
+    long TotalTokens,
     string Currency,
+    long MinPurchaseTokens = TokenAmount.Smallest,
     string? PropertyType = null,
     string? City = null,
     int? YearBuilt = null,

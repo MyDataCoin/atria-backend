@@ -16,7 +16,7 @@ internal sealed class MintListConfiguration : IEntityTypeConfiguration<MintList>
         b.Property(l => l.TokenContractAddress).HasMaxLength(128);
         b.Property(l => l.TokenChain).HasMaxLength(64);
         b.Property(l => l.Status).HasConversion<int>().IsRequired();
-        b.Property(l => l.TotalTokens).HasPrecision(28, 2).IsRequired();
+        b.Property(l => l.TotalTokens).IsRequired();
         b.Property(l => l.ItemCount).IsRequired();
         b.Property(l => l.CreatedByUserId).IsRequired();
         b.Property(l => l.SentAtUtc);
@@ -54,7 +54,7 @@ internal sealed class MintListItemConfiguration : IEntityTypeConfiguration<MintL
         b.Property(i => i.InvestmentId).IsRequired();
         b.Property(i => i.InvestorId).IsRequired();
         b.Property(i => i.WalletAddress).HasMaxLength(128).IsRequired();
-        b.Property(i => i.TokenCount).HasPrecision(28, 2).IsRequired();
+        b.Property(i => i.TokenCount).IsRequired();
 
         b.HasIndex(i => i.MintListId);
 

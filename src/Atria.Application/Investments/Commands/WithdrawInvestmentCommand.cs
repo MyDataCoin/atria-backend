@@ -156,7 +156,7 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
     /// is what surfaces that rather than the register quietly being ahead.
     /// </summary>
     private async Task StopCountingInRegistryAsync(
-        Guid propertyId, string wallet, decimal tokenCount, DateTime now, CancellationToken ct)
+        Guid propertyId, string wallet, long tokenCount, DateTime now, CancellationToken ct)
     {
         var position = await _positions.GetByAddressAsync(propertyId, wallet, ct);
         if (position is null)

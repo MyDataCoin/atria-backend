@@ -35,7 +35,7 @@ public sealed record TravelRuleMessageDto(
     Guid InvestorId,
     TravelRuleDirection Direction,
     TravelRuleStatus Status,
-    decimal TokenCount,
+    long TokenCount,
     decimal Amount,
     string Currency,
     string OriginatorAddress,

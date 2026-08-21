@@ -64,7 +64,7 @@ public sealed class TravelRuleMessage : AggregateRoot
     public Guid InvestorId { get; private set; }
 
     /// <summary>Shares transferred.</summary>
-    public decimal TokenCount { get; private set; }
+    public long TokenCount { get; private set; }
 
     /// <summary>Value of the transfer, used to judge it against the threshold.</summary>
     public decimal Amount { get; private set; }
@@ -118,7 +118,7 @@ public sealed class TravelRuleMessage : AggregateRoot
     /// Assembles the information owed on a transfer, from the identity data verified at the time.
     /// </summary>
     public static TravelRuleMessage Assemble(
-        Guid propertyId, Guid investorId, TravelRuleDirection direction, decimal tokenCount,
+        Guid propertyId, Guid investorId, TravelRuleDirection direction, long tokenCount,
         decimal amount, string currency, string originatorAddress, string beneficiaryAddress,
         string originatorName, string? originatorDocumentNumber, string? originatorNationality,
         string? beneficiaryName, string? counterpartyVasp, string? transactionHash)

@@ -16,7 +16,7 @@ public sealed class InvestmentAnnulmentTests
 {
     private static Investment NewReserved()
         => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, "KGS",
+            Guid.NewGuid(), Guid.NewGuid(), 10, "KGS",
             pricePerToken: 100m, reservedUntilUtc: DateTime.UtcNow.AddDays(3));
 
     private static Investment NewActive()

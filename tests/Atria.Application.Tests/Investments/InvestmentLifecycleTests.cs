@@ -34,7 +34,7 @@ public sealed class InvestmentLifecycleTests
         return kyc;
     }
 
-    private static Property OpenProperty(decimal totalTokens = 100)
+    private static Property OpenProperty(long totalTokens = 100)
     {
         var p = Property.Create("Tower One", null, null, 1_000_000m, 100m, totalTokens, "USD");
         p.Publish();
@@ -71,7 +71,7 @@ public sealed class InvestmentLifecycleTests
     {
         var property = OpenProperty(100);
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), property.Id, 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), property.Id, 5, "USD", 100m, DateTime.UtcNow.AddDays(3));
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
 
         var result = await new ApproveInvestmentCommandHandler(_investments, _clock, _uow)
@@ -86,7 +86,7 @@ public sealed class InvestmentLifecycleTests
     public async Task Approving_a_non_reserved_application_conflicts()
     {
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), 5, "USD", 100m, DateTime.UtcNow.AddDays(3));
         investment.Approve(DateTime.UtcNow); // already Active
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
 
@@ -105,7 +105,7 @@ public sealed class InvestmentLifecycleTests
         property.AvailableTokens.Should().Be(95);
 
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), property.Id, 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), property.Id, 5, "USD", 100m, DateTime.UtcNow.AddDays(3));
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
 
@@ -125,7 +125,7 @@ public sealed class InvestmentLifecycleTests
         property.ReserveTokens(5);
 
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), property.Id, 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), property.Id, 5, "USD", 100m, DateTime.UtcNow.AddDays(3));
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
 
@@ -158,7 +158,7 @@ public sealed class InvestmentLifecycleTests
         property.ReserveTokens(5);
 
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId, property.Id, 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
+            investorId, property.Id, 5, "USD", 100m, DateTime.UtcNow.AddDays(3));
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
 
@@ -180,7 +180,7 @@ public sealed class InvestmentLifecycleTests
         property.AvailableTokens.Should().Be(95);
 
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), property.Id, 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(-1));
+            Guid.NewGuid(), property.Id, 5, "USD", 100m, DateTime.UtcNow.AddDays(-1));
 
         investment.Expire();
         property.ReleaseTokens(investment.TokenCount);
@@ -194,7 +194,7 @@ public sealed class InvestmentLifecycleTests
     {
         _currentUser.UserId.Returns(Guid.NewGuid());
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 5, 500m, "USD", 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), 5, "USD", 100m, DateTime.UtcNow.AddDays(3));
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
 
         var result = await new CancelInvestmentCommandHandler(_investments, _properties, _uow, _currentUser)

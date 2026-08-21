@@ -34,7 +34,7 @@ public sealed class MintList : AggregateRoot
     public MintListStatus Status { get; private set; }
 
     /// <summary>Shares across all lines — what the batch mints in total.</summary>
-    public decimal TotalTokens { get; private set; }
+    public long TotalTokens { get; private set; }
 
     /// <summary>Number of lines in the batch.</summary>
     public int ItemCount { get; private set; }

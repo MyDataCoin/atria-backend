@@ -11,22 +11,23 @@ namespace Atria.Domain.Factories;
 /// </summary>
 public static class InvestmentFactory
 {
+    /// <remarks>
+    /// The amount is derived from the count and the price rather than passed in: the investor pays
+    /// for the whole tokens they get and not for the sum they happened to type, so there is no
+    /// remainder to explain and no way for the two numbers to disagree.
+    /// </remarks>
     public static Investment CreateForInvestor(
-        Guid investorId, Guid propertyId, decimal tokenCount, decimal amount, string currency,
+        Guid investorId, Guid propertyId, long tokenCount, string currency,
         decimal pricePerToken, DateTime reservedUntilUtc, string? referralToken = null)
     {
         if (tokenCount <= 0)
             throw new DomainException("Token count must be positive.");
-        if (!TokenAmount.IsWellFormed(tokenCount))
-            throw new DomainException(
-                $"A holding must be a multiple of {TokenAmount.Smallest} — the register and the token "
-                + "contract cannot represent anything finer.");
-        if (amount <= 0)
-            throw new DomainException("Investment amount must be positive.");
         if (string.IsNullOrWhiteSpace(currency))
             throw new DomainException("Currency is required.");
         if (pricePerToken <= 0)
             throw new DomainException("Price per token must be positive.");
+
+        var amount = TokenAmount.CostOf(tokenCount, pricePerToken);
 
         var investment = Investment.CreateReserved(
             investorId, propertyId, tokenCount, amount, currency, pricePerToken, reservedUntilUtc, referralToken);

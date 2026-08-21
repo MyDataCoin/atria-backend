@@ -42,7 +42,7 @@ public sealed class GetInvestmentChainRecordQueryHandlerTests
         property.SetTokenContract(Contract, "bsc-testnet", "0xissuer");
 
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId, property.Id, 10, 1_000m, "KGS", 100m, Now.AddDays(3));
+            investorId, property.Id, 10, "KGS", 100m, Now.AddDays(3));
         investment.Approve(Now);
 
         if (minted)

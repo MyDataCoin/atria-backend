@@ -17,13 +17,16 @@ public sealed class Investment : AggregateRoot
     public Guid InvestorId { get; private set; }
     public Guid PropertyId { get; private set; }
 
-    /// <summary>How many tokens the investor applied for (reserved, then allocated on approval).</summary>
-    public decimal TokenCount { get; private set; }
+    /// <summary>
+    /// How many whole tokens the investor applied for (reserved, then allocated on approval). Never
+    /// fractional: the token does not divide, so a fraction here could not be minted.
+    /// </summary>
+    public long TokenCount { get; private set; }
 
     /// <summary>
-    /// The amount snapshot for the application, in <see cref="Currency"/>. A point-in-time record of
-    /// the price at application; the position's worth is <see cref="TokenCount"/> ×
-    /// <see cref="PricePerToken"/>. Money is not settled on the platform.
+    /// The amount snapshot for the application, in <see cref="Currency"/>. Always exactly
+    /// <see cref="TokenCount"/> × <see cref="PricePerToken"/> — the investor is charged for the whole
+    /// tokens they get, not for the sum they typed. Money is not settled on the platform.
     /// </summary>
     public decimal Amount { get; private set; }
     public string Currency { get; private set; } = null!;
@@ -94,7 +97,7 @@ public sealed class Investment : AggregateRoot
 
     // Used by InvestmentFactory (same assembly) to build a Reserved application.
     internal static Investment CreateReserved(
-        Guid investorId, Guid propertyId, decimal tokenCount, decimal amount, string currency,
+        Guid investorId, Guid propertyId, long tokenCount, decimal amount, string currency,
         decimal pricePerToken, DateTime reservedUntilUtc, string? referralToken)
         => new()
         {

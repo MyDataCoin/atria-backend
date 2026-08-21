@@ -11,7 +11,7 @@ public sealed class WhitelistEntryTests
 
     private static WhitelistEntry NewEntry(string? wallet = Wallet)
         => WhitelistEntry.Queue(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), tokenCount: 10m, wallet, DateTime.UtcNow);
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), tokenCount: 10, wallet, DateTime.UtcNow);
 
     [Fact]
     public void Queue_ProducesPendingRequest()
@@ -21,13 +21,13 @@ public sealed class WhitelistEntryTests
         var propertyId = Guid.NewGuid();
         var requestedAt = DateTime.UtcNow;
 
-        var entry = WhitelistEntry.Queue(investmentId, investorId, propertyId, 12.5m, Wallet, requestedAt);
+        var entry = WhitelistEntry.Queue(investmentId, investorId, propertyId, 125, Wallet, requestedAt);
 
         entry.Status.Should().Be(WhitelistStatus.Pending);
         entry.InvestmentId.Should().Be(investmentId);
         entry.InvestorId.Should().Be(investorId);
         entry.PropertyId.Should().Be(propertyId);
-        entry.TokenCount.Should().Be(12.5m);
+        entry.TokenCount.Should().Be(125);
         entry.WalletAddress.Should().Be(Wallet);
         entry.RequestedAtUtc.Should().Be(requestedAt);
         entry.MintListId.Should().BeNull();
@@ -46,7 +46,7 @@ public sealed class WhitelistEntryTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void Queue_WhenTokenCountNotPositive_Throws(decimal tokenCount)
+    public void Queue_WhenTokenCountNotPositive_Throws(long tokenCount)
     {
         var act = () => WhitelistEntry.Queue(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), tokenCount, Wallet, DateTime.UtcNow);
@@ -58,7 +58,7 @@ public sealed class WhitelistEntryTests
     public void Queue_WhenWalletMalformed_Throws()
     {
         var act = () => WhitelistEntry.Queue(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1m, "not-an-address", DateTime.UtcNow);
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, "not-an-address", DateTime.UtcNow);
 
         act.Should().Throw<DomainException>();
     }

@@ -11,7 +11,7 @@ public sealed class MintListTests
     private const string WalletB = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string Contract = "0xcccccccccccccccccccccccccccccccccccccccc";
 
-    private static WhitelistEntry MintableEntry(Guid propertyId, string wallet, decimal tokenCount)
+    private static WhitelistEntry MintableEntry(Guid propertyId, string wallet, long tokenCount)
     {
         var entry = WhitelistEntry.Queue(
             Guid.NewGuid(), Guid.NewGuid(), propertyId, tokenCount, wallet, DateTime.UtcNow);
@@ -27,14 +27,14 @@ public sealed class MintListTests
     public void Create_FreezesOneLinePerRequestAndDerivesTheTotals()
     {
         var propertyId = Guid.NewGuid();
-        var first = MintableEntry(propertyId, WalletB, 3m);
-        var second = MintableEntry(propertyId, WalletA, 7.5m);
+        var first = MintableEntry(propertyId, WalletB, 3);
+        var second = MintableEntry(propertyId, WalletA, 15);
 
         var list = NewList(propertyId, first, second);
 
         list.Status.Should().Be(MintListStatus.Draft);
         list.ItemCount.Should().Be(2);
-        list.TotalTokens.Should().Be(10.5m);
+        list.TotalTokens.Should().Be(18);
         list.TokenContractAddress.Should().Be(Contract);
         list.TokenChain.Should().Be("bsc");
     }
@@ -43,8 +43,8 @@ public sealed class MintListTests
     public void Create_OrdersLinesByAddressSoTheSameBatchAlwaysRendersTheSame()
     {
         var propertyId = Guid.NewGuid();
-        var b = MintableEntry(propertyId, WalletB, 1m);
-        var a = MintableEntry(propertyId, WalletA, 1m);
+        var b = MintableEntry(propertyId, WalletB, 1);
+        var a = MintableEntry(propertyId, WalletA, 1);
 
         var list = NewList(propertyId, b, a);
 
@@ -63,8 +63,8 @@ public sealed class MintListTests
     public void Create_WhenARequestBelongsToAnotherIssuance_Throws()
     {
         var propertyId = Guid.NewGuid();
-        var mine = MintableEntry(propertyId, WalletA, 1m);
-        var foreign = MintableEntry(Guid.NewGuid(), WalletB, 1m);
+        var mine = MintableEntry(propertyId, WalletA, 1);
+        var foreign = MintableEntry(Guid.NewGuid(), WalletB, 1);
 
         var act = () => NewList(propertyId, mine, foreign);
 
@@ -75,9 +75,9 @@ public sealed class MintListTests
     public void Create_WhenARequestIsNotApproved_Throws()
     {
         var propertyId = Guid.NewGuid();
-        var approved = MintableEntry(propertyId, WalletA, 1m);
+        var approved = MintableEntry(propertyId, WalletA, 1);
         var pending = WhitelistEntry.Queue(
-            Guid.NewGuid(), Guid.NewGuid(), propertyId, 1m, WalletB, DateTime.UtcNow);
+            Guid.NewGuid(), Guid.NewGuid(), propertyId, 1, WalletB, DateTime.UtcNow);
 
         var act = () => NewList(propertyId, approved, pending);
 
@@ -88,7 +88,7 @@ public sealed class MintListTests
     public void MarkSent_RaisesTheHandoverEvent()
     {
         var propertyId = Guid.NewGuid();
-        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 4m));
+        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 4));
         var sentAt = DateTime.UtcNow;
 
         list.MarkSent(sentAt);
@@ -99,14 +99,14 @@ public sealed class MintListTests
         sent.Number.Should().Be("ML-2026-0001");
         sent.PropertyId.Should().Be(propertyId);
         sent.ItemCount.Should().Be(1);
-        sent.TotalTokens.Should().Be(4m);
+        sent.TotalTokens.Should().Be(4);
     }
 
     [Fact]
     public void MarkSent_Twice_Throws()
     {
         var propertyId = Guid.NewGuid();
-        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1m));
+        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1));
         list.MarkSent(DateTime.UtcNow);
 
         var act = () => list.MarkSent(DateTime.UtcNow);
@@ -118,7 +118,7 @@ public sealed class MintListTests
     public void MarkExecuted_RequiresTheBatchToHaveBeenSent()
     {
         var propertyId = Guid.NewGuid();
-        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1m));
+        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1));
 
         var act = () => list.MarkExecuted(DateTime.UtcNow);
 
@@ -129,7 +129,7 @@ public sealed class MintListTests
     public void MarkExecuted_ClosesTheBatchAndRaisesItsEvent()
     {
         var propertyId = Guid.NewGuid();
-        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1m));
+        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1));
         list.MarkSent(DateTime.UtcNow);
         var executedAt = DateTime.UtcNow;
 
@@ -144,7 +144,7 @@ public sealed class MintListTests
     public void Cancel_IsAllowedAfterTheBatchWentOut()
     {
         var propertyId = Guid.NewGuid();
-        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1m));
+        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1));
         list.MarkSent(DateTime.UtcNow);
 
         list.Cancel("Биржа не приняла батч");
@@ -158,7 +158,7 @@ public sealed class MintListTests
     public void Cancel_WhenAlreadyExecuted_Throws()
     {
         var propertyId = Guid.NewGuid();
-        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1m));
+        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1));
         list.MarkSent(DateTime.UtcNow);
         list.MarkExecuted(DateTime.UtcNow);
 
@@ -171,7 +171,7 @@ public sealed class MintListTests
     public void Cancel_WithoutReason_Throws()
     {
         var propertyId = Guid.NewGuid();
-        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1m));
+        var list = NewList(propertyId, MintableEntry(propertyId, WalletA, 1));
 
         var act = () => list.Cancel("");
 

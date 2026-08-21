@@ -15,7 +15,7 @@ public sealed class HolderSnapshotRow : Entity
     public string WalletAddress { get; private set; } = null!;
 
     /// <summary>Shares held on the address at snapshot time.</summary>
-    public decimal TokenCount { get; private set; }
+    public long TokenCount { get; private set; }
 
     /// <summary>The investor behind the address at snapshot time, if resolved. May be null.</summary>
     public Guid? InvestorId { get; private set; }
@@ -30,7 +30,7 @@ public sealed class HolderSnapshotRow : Entity
 
     // Built by HolderSnapshot.Create (same assembly) as part of an atomic, immutable snapshot.
     internal static HolderSnapshotRow Create(
-        Guid snapshotId, string walletAddress, decimal tokenCount, Guid? investorId, decimal share)
+        Guid snapshotId, string walletAddress, long tokenCount, Guid? investorId, decimal share)
         => new()
         {
             Id = Guid.NewGuid(),

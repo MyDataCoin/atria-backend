@@ -3,11 +3,11 @@ namespace Atria.Application.Abstractions;
 /// <summary>One share movement observed on chain.</summary>
 /// <param name="From">Sender; the zero address for a mint.</param>
 /// <param name="To">Recipient; the zero address for a burn.</param>
-/// <param name="Amount">Shares moved, at the share granularity (decimals of a share).</param>
+/// <param name="Amount">Whole shares moved.</param>
 /// <param name="BlockNumber">Block the transfer was mined in.</param>
 /// <param name="TransactionHash">Transaction that produced it.</param>
 public sealed record TokenTransfer(
-    string From, string To, decimal Amount, long BlockNumber, string TransactionHash);
+    string From, string To, long Amount, long BlockNumber, string TransactionHash);
 
 /// <summary>
 /// Reads an issue's token contract. Read-only by design: it holds no key, so nothing here can change
@@ -22,10 +22,10 @@ public sealed record TokenTransfer(
 public interface ITokenReader
 {
     /// <summary>Shares held by an address right now.</summary>
-    Task<decimal> GetBalanceAsync(string chainTag, string tokenContractAddress, string address, CancellationToken ct);
+    Task<long> GetBalanceAsync(string chainTag, string tokenContractAddress, string address, CancellationToken ct);
 
     /// <summary>Total shares in existence on the contract.</summary>
-    Task<decimal> GetTotalSupplyAsync(string chainTag, string tokenContractAddress, CancellationToken ct);
+    Task<long> GetTotalSupplyAsync(string chainTag, string tokenContractAddress, CancellationToken ct);
 
     /// <summary>
     /// The issue id the contract was deployed with, as a <c>bytes32</c> hex word, or null when the
@@ -37,6 +37,21 @@ public interface ITokenReader
     /// the check it is making.
     /// </remarks>
     Task<string?> GetPropertyIdAsync(string chainTag, string tokenContractAddress, CancellationToken ct);
+
+    /// <summary>
+    /// The ceiling the contract will ever mint to — its <c>maxSupply()</c>, set from the
+    /// <c>TOKEN_MAX_SUPPLY</c> deployment variable and only ever decreasable. Null when the contract
+    /// does not answer: no such function, or the node is unreachable. As with
+    /// <see cref="GetPropertyIdAsync"/>, null means "not established", never "unlimited".
+    /// </summary>
+    Task<long?> GetMaxSupplyAsync(string chainTag, string tokenContractAddress, CancellationToken ct);
+
+    /// <summary>
+    /// The contract's <c>decimals()</c>. Null when it cannot be established (no such function, or an
+    /// unreachable node) — never a guess, because a wrong scale here is exactly the mistake that
+    /// makes the register and the chain describe different holdings.
+    /// </summary>
+    Task<int?> GetDecimalsAsync(string chainTag, string tokenContractAddress, CancellationToken ct);
 
     /// <summary>The block the chain is currently at.</summary>
     Task<long> GetHeadBlockAsync(string chainTag, CancellationToken ct);

@@ -42,10 +42,11 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.CollateralAppraiser).HasMaxLength(256);
         b.Property(p => p.EncumbranceRegistrationNumber).HasMaxLength(128);
         b.Property(p => p.IssueRegistrationNumber).HasMaxLength(128);
-        // Доли дробные: scale 2 совпадает с TokenAmount.Scale и с decimals() токена, поэтому
-        // база не может хранить величину, которую реестр или контракт не смогут представить.
-        b.Property(p => p.TotalTokens).HasPrecision(28, 2).IsRequired();
-        b.Property(p => p.AvailableTokens).HasPrecision(28, 2).IsRequired();
+        // Целые доли: bigint совпадает с decimals() = 0 у токена, поэтому база не может хранить
+        // величину, которую реестр или контракт не смогут представить.
+        b.Property(p => p.TotalTokens).IsRequired();
+        b.Property(p => p.AvailableTokens).IsRequired();
+        b.Property(p => p.MinPurchaseTokens).IsRequired();
         b.Property(p => p.Currency).HasMaxLength(8).IsRequired();
         b.Property(p => p.Status).HasConversion<int>().IsRequired();
         b.Property(p => p.SalesPaused).IsRequired();

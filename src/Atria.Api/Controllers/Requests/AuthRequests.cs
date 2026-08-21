@@ -137,8 +137,9 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="Address">Optional physical address; max 512 characters.</param>
 /// <param name="TotalValue">Total monetary value of the property; must be greater than 0.</param>
 /// <param name="TokenPrice">Price of a single token; must be greater than 0.</param>
-/// <param name="TotalTokens">Total number of tokens to issue; must be greater than 0.</param>
+/// <param name="TotalTokens">Total number of tokens to issue; a whole number greater than 0.</param>
 /// <param name="Currency">3-letter ISO currency code (e.g. USD, KGS).</param>
+/// <param name="MinPurchaseTokens">Fewest tokens one application may be for; a whole number, at least 1 and at most <paramref name="TotalTokens"/>. Defaults to 1.</param>
 /// <param name="PropertyType">Kind of property (e.g. residential, commercial); optional.</param>
 /// <param name="City">City the property is in; optional.</param>
 /// <param name="YearBuilt">Year the property was built; optional.</param>
@@ -157,8 +158,9 @@ public sealed record CreatePropertyRequest(
     string? Address,
     decimal TotalValue,
     decimal TokenPrice,
-    decimal TotalTokens,
+    long TotalTokens,
     string Currency,
+    long MinPurchaseTokens = 1,
     string? PropertyType = null,
     string? City = null,
     int? YearBuilt = null,
@@ -327,7 +329,7 @@ public sealed record MarkReportFiledRequest(string FilingReference);
 /// <summary>POST /properties/{id}/annul-tokens body. Annuls unplaced capacity of an issue.</summary>
 /// <param name="TokenCount">How many unplaced shares to annul.</param>
 /// <param name="Reason">Why; required and journalled.</param>
-public sealed record AnnulTokensRequest(decimal TokenCount, string Reason);
+public sealed record AnnulTokensRequest(long TokenCount, string Reason);
 
 /// <summary>POST /properties/{id}/invalidate body. Declares an issue invalid (§73).</summary>
 /// <param name="Reason">The ground on which the issue is declared invalid; required and journalled.</param>

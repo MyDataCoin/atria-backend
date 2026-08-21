@@ -29,7 +29,7 @@ public sealed class WhitelistEntry : AggregateRoot
     public Guid PropertyId { get; private set; }
 
     /// <summary>Shares to mint — the application's token count, snapshotted at request time.</summary>
-    public decimal TokenCount { get; private set; }
+    public long TokenCount { get; private set; }
 
     /// <summary>
     /// The address the shares are to be minted to, as known when the request was queued. Null when the
@@ -62,7 +62,7 @@ public sealed class WhitelistEntry : AggregateRoot
 
     /// <summary>Queues a freshly submitted purchase request, awaiting the operator's decision.</summary>
     public static WhitelistEntry Queue(
-        Guid investmentId, Guid investorId, Guid propertyId, decimal tokenCount,
+        Guid investmentId, Guid investorId, Guid propertyId, long tokenCount,
         string? walletAddress, DateTime requestedAtUtc)
     {
         if (investmentId == Guid.Empty)

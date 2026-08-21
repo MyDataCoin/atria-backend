@@ -32,7 +32,7 @@ public sealed class CustodyTokenGateway : ITokenGateway
     }
 
     public async Task<TokenWriteResult> MintAsync(
-        string chainTag, string tokenContractAddress, string toAddress, decimal amount, CancellationToken ct)
+        string chainTag, string tokenContractAddress, string toAddress, long amount, CancellationToken ct)
     {
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount), "Mint amount must be positive.");
@@ -41,8 +41,8 @@ public sealed class CustodyTokenGateway : ITokenGateway
             ?? throw new InvalidOperationException(
                 $"Chain '{chainTag}' is not configured under Blockchain:Networks.");
 
-        // mint(address,uint256). The contract holds shares as integer minor units with
-        // decimals() == TokenAmount.Scale, so the divisible share count is scaled up here.
+        // mint(address,uint256). decimals() == TokenAmount.Scale is zero, so the share count IS the
+        // contract's unit; it still goes through ToMinor so the conversion has one home.
         var minorUnits = TokenAmount.ToMinor(amount);
         var callData = new FunctionCallEncoder().EncodeRequest(
             sha3Signature: "40c10f19",

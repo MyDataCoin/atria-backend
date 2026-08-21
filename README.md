@@ -220,8 +220,15 @@ contract actually granted.
 Leave `BLOCKCHAIN_TOKEN_SIGNING_MODE` unset and the custody path stays in force whatever the
 keys say. The minter wallet needs gas on the target network before anything it signs will land.
 
-The contract has to be deployed **for a particular issue**: `PROPERTY_ID` in the deployment is the
-issue's `Property.Id`, and the API hands over the exact word to deploy with —
+The contract has to be deployed **for a particular issue**, and two of its deployment parameters are
+immutable afterwards, so both are settled before deploying:
+
+- `TOKEN_MAX_SUPPLY` — the issue's `totalTokens`. A token is indivisible (`decimals() == 0`), so the
+  issue is cut into enough shares that the unit price stays small against the minimum entry; the
+  sizing rule the platform uses is a token price of at most one percent of the minimum entry (at an
+  8 700 somoni entry: an 87 somoni token and a 100-token floor). Deploy with a cap below the issue
+  and its last shares can never be minted — which is why the binding below refuses that pairing.
+- `PROPERTY_ID` — the issue's `Property.Id`. The API hands over the exact word to deploy with —
 `GET /api/v1/properties/{id}/token-contract` → `propertyIdBytes32` (the guid left-aligned in the
 32-byte word, zero-padded on the right). The contract stores it immutably, so a deployment that gets
 it wrong can only be replaced, not repaired.
@@ -230,8 +237,10 @@ Once deployed, bind it to the issue with `PUT /api/v1/properties/{id}/token-cont
 contract address, network tag as configured under `Blockchain:Networks` (e.g. `bsc-testnet`), and the
 issuer wallet. The binding asks the contract for its `propertyId()` and refuses (409) one that names
 a different issue or was deployed with a placeholder — that check is what makes the holder register
-verifiable rather than merely asserted. A node that cannot be reached does not block the binding; it
-is journalled as unverified instead. Until the binding exists the issue is inert on chain: mint
+verifiable rather than merely asserted. It also reads `TOKEN_MAX_SUPPLY` and refuses (409) a contract
+that will never mint the whole issue, rather than letting that surface as a reverted mint batch
+later. A node that cannot be reached does not block the binding; it is journalled as unverified
+instead. Until the binding exists the issue is inert on chain: mint
 batches carry no contract, the holder register has nothing to sync against and collateral is never
 attested. Re-binding is allowed only while nothing has been issued; after the first holder position
 or mint batch it responds 409.

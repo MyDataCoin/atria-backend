@@ -40,7 +40,21 @@ public sealed class SetPropertyTokenContractCommandHandlerTests
         // care about the check say what the contract answers.
         _tokens.GetPropertyIdAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((string?)null);
+        // Same default for the supply cap: unknown, so it neither blocks nor waves anything through.
+        _tokens.GetMaxSupplyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((long?)null);
+        // Scale defaults to the one the platform counts at, so only the tests that care say otherwise.
+        _tokens.GetDecimalsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(TokenAmount.Scale);
     }
+
+    private void GivenContractDecimals(int? decimals)
+        => _tokens.GetDecimalsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(decimals);
+
+    private void GivenContractCap(long? cap)
+        => _tokens.GetMaxSupplyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(cap);
 
     private Property GivenIssue(string? boundTo = null)
     {
@@ -122,7 +136,7 @@ public sealed class SetPropertyTokenContractCommandHandlerTests
         _holders.GetByPropertyAsync(property.Id, Arg.Any<CancellationToken>()).Returns(new[]
         {
             HolderPosition.Create(
-                property.Id, Issuer.ToLowerInvariant(), 10m, null, true,
+                property.Id, Issuer.ToLowerInvariant(), 10, null, true,
                 HolderSource.Chain, DateTime.UtcNow)
         });
 
@@ -144,7 +158,7 @@ public sealed class SetPropertyTokenContractCommandHandlerTests
         _holders.GetByPropertyAsync(property.Id, Arg.Any<CancellationToken>()).Returns(new[]
         {
             HolderPosition.Create(
-                property.Id, Issuer.ToLowerInvariant(), 10m, null, true,
+                property.Id, Issuer.ToLowerInvariant(), 10, null, true,
                 HolderSource.Chain, DateTime.UtcNow)
         });
 
@@ -220,5 +234,91 @@ public sealed class SetPropertyTokenContractCommandHandlerTests
 
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("property.notFound");
+    }
+
+    /// <summary>
+    /// TOKEN_MAX_SUPPLY is immutable after deployment, so an issue larger than the cap is not a
+    /// problem for later — it is an issue whose last shares can never be minted.
+    /// </summary>
+    [Fact]
+    public async Task An_issue_larger_than_the_contracts_cap_is_refused()
+    {
+        var property = GivenIssue();          // 1 000 долей
+        GivenContractCap(900);
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("property.issueExceedsMaxSupply");
+        result.Error.Message.Should().Contain("1000").And.Contain("900");
+        property.TokenContractAddress.Should().BeNull("привязка не должна состояться");
+    }
+
+    [Fact]
+    public async Task A_cap_that_exactly_covers_the_issue_binds()
+    {
+        var property = GivenIssue();
+        GivenContractCap(1_000);
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        property.TokenContractAddress.Should().Be(Contract.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// An unreachable node leaves the cap unknown, and unknown is not "unlimited": the binding goes
+    /// through — refusing correct addresses because a node blinked would be worse — but it is
+    /// journalled as unverified so a suspect register can be traced back to this moment.
+    /// </summary>
+    [Fact]
+    public async Task An_unreadable_cap_does_not_block_the_binding_but_is_journalled_as_a_warning()
+    {
+        var property = GivenIssue();
+        GivenContractDeclares(PropertyChainId.From(property.Id));
+        GivenContractCap(null);
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        await _audit.Received().WriteAsync(
+            Arg.Any<string>(), property.Id, Arg.Any<string>(),
+            Arg.Is<string>(m => m.Contains("maxSupply прочитать не удалось")),
+            AuditSeverity.Warning, Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// A token on the wrong scale keeps working and means something else by every number: at
+    /// decimals 2 a mint of 100 is one share, not a hundred. Nothing downstream can tell the
+    /// difference, because both sides are plain integers — so it is caught at the binding.
+    /// </summary>
+    [Fact]
+    public async Task A_contract_on_a_different_scale_is_refused()
+    {
+        var property = GivenIssue();
+        GivenContractDecimals(2);
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("property.tokenDecimalsMismatch");
+        property.TokenContractAddress.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task An_unreadable_scale_does_not_block_the_binding_but_is_journalled()
+    {
+        var property = GivenIssue();
+        GivenContractDeclares(PropertyChainId.From(property.Id));
+        GivenContractCap(1_000);
+        GivenContractDecimals(null);
+
+        var result = await NewHandler().Handle(Bind(property.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        await _audit.Received().WriteAsync(
+            Arg.Any<string>(), property.Id, Arg.Any<string>(),
+            Arg.Is<string>(m => m.Contains("decimals() прочитать не удалось")),
+            AuditSeverity.Warning, Arg.Any<CancellationToken>());
     }
 }

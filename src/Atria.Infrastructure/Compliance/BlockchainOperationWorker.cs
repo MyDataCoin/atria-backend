@@ -145,11 +145,11 @@ public sealed class BlockchainOperationWorker : BackgroundService
         var root = payload.RootElement;
 
         var wallet = root.TryGetProperty("wallet", out var w) ? w.GetString() : null;
-        // Shares are divisible, so the payload carries a decimal — TryGetInt64 would reject 57.55
-        // outright and a whole-number reading would quietly drop the fraction.
-        var tokenCount = root.TryGetProperty("tokenCount", out var c) && c.TryGetDecimal(out var parsed)
+        // Whole shares: a fractional payload is a bug upstream, and TryGetInt64 refusing it here is
+        // the point — reading it as a decimal and truncating would mint a number nobody authorised.
+        var tokenCount = root.TryGetProperty("tokenCount", out var c) && c.TryGetInt64(out var parsed)
             ? parsed
-            : 0m;
+            : 0L;
         var chain = root.TryGetProperty("chain", out var ch) ? ch.GetString() : null;
 
         if (string.IsNullOrWhiteSpace(wallet) || tokenCount <= 0)

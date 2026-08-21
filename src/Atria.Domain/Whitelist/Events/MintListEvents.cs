@@ -11,7 +11,7 @@ public sealed record MintListSentToExchangeEvent(
     string Number,
     Guid PropertyId,
     int ItemCount,
-    decimal TotalTokens) : DomainEventBase;
+    long TotalTokens) : DomainEventBase;
 
 /// <summary>Raised when the exchange reports a batch minted.</summary>
 public sealed record MintListExecutedEvent(
@@ -19,7 +19,7 @@ public sealed record MintListExecutedEvent(
     string Number,
     Guid PropertyId,
     int ItemCount,
-    decimal TotalTokens) : DomainEventBase;
+    long TotalTokens) : DomainEventBase;
 
 /// <summary>Raised when a mint list is called off; its requests return to the mintable pool.</summary>
 public sealed record MintListCancelledEvent(

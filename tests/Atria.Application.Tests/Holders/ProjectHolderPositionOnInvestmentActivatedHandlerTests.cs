@@ -43,7 +43,7 @@ public sealed class ProjectHolderPositionOnInvestmentActivatedHandlerTests
         return profile;
     }
 
-    private static InvestmentActivatedEvent Event(decimal tokenCount = 30)
+    private static InvestmentActivatedEvent Event(long tokenCount = 30)
         => new(Guid.NewGuid(), InvestorId, PropertyId, tokenCount, 3_000m);
 
     [Fact]

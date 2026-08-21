@@ -21,13 +21,13 @@ public sealed class MintListItem : Entity
     /// <summary>Address to mint to, as it stood when the list was assembled.</summary>
     public string WalletAddress { get; private set; } = null!;
 
-    public decimal TokenCount { get; private set; }
+    public long TokenCount { get; private set; }
 
     private MintListItem() { }
 
     internal static MintListItem Create(
         Guid mintListId, Guid whitelistEntryId, Guid investmentId, Guid investorId,
-        string walletAddress, decimal tokenCount)
+        string walletAddress, long tokenCount)
         => new()
         {
             Id = Guid.NewGuid(),

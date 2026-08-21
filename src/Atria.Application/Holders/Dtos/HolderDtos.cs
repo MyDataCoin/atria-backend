@@ -11,7 +11,7 @@ namespace Atria.Application.Holders.Dtos;
 /// <param name="LastSyncedAtUtc">When the position was last reconciled with its source.</param>
 public sealed record HolderPositionDto(
     string WalletAddress,
-    decimal TokenCount,
+    long TokenCount,
     Guid? InvestorId,
     bool IsAllowlisted,
     HolderSource Source,
@@ -33,7 +33,7 @@ public sealed record HolderSnapshotDto(
     DateTime SnapshotAtUtc,
     SnapshotPurpose Purpose,
     long? BlockNumber,
-    decimal TotalTokens,
+    long TotalTokens,
     int AddressCount,
     Guid CreatedByUserId,
     DateTime CreatedAtUtc);
@@ -45,7 +45,7 @@ public sealed record HolderSnapshotDto(
 /// <param name="Share">TokenCount / TotalTokens, rounded to <see cref="HolderSnapshot.ShareScale"/> places.</param>
 public sealed record HolderSnapshotRowDto(
     string WalletAddress,
-    decimal TokenCount,
+    long TokenCount,
     Guid? InvestorId,
     decimal Share);
 

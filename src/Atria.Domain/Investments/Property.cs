@@ -51,8 +51,34 @@ public sealed class Property : AggregateRoot
 
     public decimal TotalValue { get; private set; }
     public decimal TokenPrice { get; private set; }
-    public decimal TotalTokens { get; private set; }
-    public decimal AvailableTokens { get; private set; }
+
+    /// <summary>
+    /// Shares the issue is cut into. A whole number: the token is indivisible, so a fractional issue
+    /// could never be minted. Sized so <see cref="TokenPrice"/> stays small against
+    /// <see cref="MinPurchaseTokens"/> × price — see <see cref="TokenAmount"/> for why.
+    /// </summary>
+    public long TotalTokens { get; private set; }
+
+    /// <summary>Shares of <see cref="TotalTokens"/> not yet reserved or placed.</summary>
+    public long AvailableTokens { get; private set; }
+
+    /// <summary>
+    /// Fewest shares one application may be for. The floor on entry: with a unit price small enough
+    /// to make any sum expressible in whole tokens, this is what keeps a purchase from being a
+    /// handful of somoni. At least 1.
+    /// </summary>
+    public long MinPurchaseTokens { get; private set; } = TokenAmount.Smallest;
+
+    /// <summary>The money a minimum-size application costs — what the investor is told to bring.</summary>
+    public decimal MinPurchaseAmount => TokenAmount.CostOf(MinPurchaseTokens, TokenPrice);
+
+    /// <summary>
+    /// Area one share stands for, or null when the unit's area is unknown. An equivalent shown
+    /// beside a holding, never the unit of issue itself.
+    /// </summary>
+    public decimal? AreaPerTokenSqM
+        => TotalAreaSqM is { } area && TotalTokens > 0 ? area / TotalTokens : null;
+
     public string Currency { get; private set; } = null!;
 
     // --- On-chain issuance (each property is its own registered issuance / permissioned contract) ---
@@ -126,9 +152,9 @@ public sealed class Property : AggregateRoot
 
     public static Property Create(
         string name, string? description, string? address, decimal totalValue,
-        decimal tokenPrice, decimal totalTokens, string currency,
+        decimal tokenPrice, long totalTokens, string currency,
         string? propertyType = null, string? city = null, int? yearBuilt = null,
-        string? developer = null, int? floors = null)
+        string? developer = null, int? floors = null, long minPurchaseTokens = TokenAmount.Smallest)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Property name is required.");
@@ -138,9 +164,10 @@ public sealed class Property : AggregateRoot
             throw new DomainException("Token price must be positive.");
         if (totalTokens <= 0)
             throw new DomainException("Total tokens must be positive.");
-        if (!TokenAmount.IsWellFormed(totalTokens))
-            throw new DomainException(
-                $"Issue size must be a multiple of {TokenAmount.Smallest} — a finer issue could never be held or minted.");
+        if (minPurchaseTokens < TokenAmount.Smallest)
+            throw new DomainException($"Minimum purchase must be at least {TokenAmount.Smallest} token.");
+        if (minPurchaseTokens > totalTokens)
+            throw new DomainException("Minimum purchase cannot exceed the whole issue.");
         if (string.IsNullOrWhiteSpace(currency))
             throw new DomainException("Currency is required.");
 
@@ -159,6 +186,7 @@ public sealed class Property : AggregateRoot
             TokenPrice = tokenPrice,
             TotalTokens = totalTokens,
             AvailableTokens = totalTokens, // full supply available at creation
+            MinPurchaseTokens = minPurchaseTokens,
             Currency = currency,
             Status = PropertyStatus.Draft // created as a draft; goes live via Publish()
         };
@@ -273,13 +301,10 @@ public sealed class Property : AggregateRoot
     /// the authoritative point where capacity is claimed (at application time), so the offering cannot
     /// be oversubscribed by concurrent applications racing on the last tokens.
     /// </summary>
-    public void ReserveTokens(decimal count)
+    public void ReserveTokens(long count)
     {
         if (count <= 0)
             throw new DomainException("Token reservation count must be positive.");
-        if (!TokenAmount.IsWellFormed(count))
-            throw new DomainException(
-                $"Reserved shares must be a multiple of {TokenAmount.Smallest}.");
         if (count > AvailableTokens)
             throw new DomainException("Cannot reserve more tokens than are available.");
 
@@ -290,13 +315,10 @@ public sealed class Property : AggregateRoot
     /// Returns <paramref name="count"/> previously reserved tokens to the available supply when an
     /// application is rejected, cancelled, or its reservation lapses.
     /// </summary>
-    public void ReleaseTokens(decimal count)
+    public void ReleaseTokens(long count)
     {
         if (count <= 0)
             throw new DomainException("Token release count must be positive.");
-        if (!TokenAmount.IsWellFormed(count))
-            throw new DomainException(
-                $"Released shares must be a multiple of {TokenAmount.Smallest}.");
         if (AvailableTokens + count > TotalTokens)
             throw new DomainException("Cannot release more tokens than the total supply.");
 
@@ -324,13 +346,10 @@ public sealed class Property : AggregateRoot
     /// way — shares already in an investor's hands are withdrawn from circulation instead, which is
     /// what invalidating an issue does.
     /// </summary>
-    public void AnnulUnplacedTokens(decimal count)
+    public void AnnulUnplacedTokens(long count)
     {
         if (count <= 0)
             throw new DomainException("Annulled token count must be positive.");
-        if (!TokenAmount.IsWellFormed(count))
-            throw new DomainException(
-                $"Annulled shares must be a multiple of {TokenAmount.Smallest}.");
         if (count > AvailableTokens)
             throw new DomainException("Cannot annul more tokens than remain unplaced.");
 

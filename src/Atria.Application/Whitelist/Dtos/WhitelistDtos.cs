@@ -23,7 +23,7 @@ public sealed record WhitelistEntryDto(
     Guid InvestorId,
     Guid PropertyId,
     string? PropertyName,
-    decimal TokenCount,
+    long TokenCount,
     string? WalletAddress,
     WhitelistStatus Status,
     DateTime RequestedAtUtc,
@@ -58,7 +58,7 @@ public sealed record MintListDto(
     string? TokenChain,
     MintListStatus Status,
     int ItemCount,
-    decimal TotalTokens,
+    long TotalTokens,
     Guid CreatedByUserId,
     DateTime CreatedAtUtc,
     DateTime? SentAtUtc,
@@ -77,7 +77,7 @@ public sealed record MintListItemDto(
     Guid InvestmentId,
     Guid InvestorId,
     string WalletAddress,
-    decimal TokenCount);
+    long TokenCount);
 
 /// <summary>A batch with its lines — what the exchange is handed, in JSON.</summary>
 /// <param name="MintList">Batch header.</param>

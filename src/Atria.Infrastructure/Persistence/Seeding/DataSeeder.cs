@@ -20,28 +20,42 @@ public static class DataSeeder
         }
 
         // Demo Kyrgyzstan real-estate tokenization objects. Currency KGS; full supply available.
+        //
+        // The denomination follows the rule the platform is sized by: a token costs no more than one
+        // percent of the minimum entry. At a 10 000 KGS minimum that is a 100 KGS token and a
+        // 100-token floor, and the issue is the object's value divided by that price. Sized any
+        // coarser and an investor entering a round sum lands between two tokens — which is the whole
+        // reason the counts are whole (see TokenAmount).
+        const decimal tokenPrice = 100m;
+        const long minPurchase = 100;
+
         var properties = new[]
         {
             Property.Create(
                 "Bishkek Central Residence",
                 "Premium residential complex in the heart of Bishkek (Erkindik Blvd).",
-                "Erkindik Blvd 12, Bishkek", 50_000_000m, 5_000m, 10_000, "KGS"),
+                "Erkindik Blvd 12, Bishkek", 50_000_000m, tokenPrice, 500_000, "KGS",
+                minPurchaseTokens: minPurchase),
             Property.Create(
                 "Issyk-Kul Resort Villas",
                 "Beachfront resort villas on the northern shore of Issyk-Kul.",
-                "Cholpon-Ata, Issyk-Kul Region", 120_000_000m, 10_000m, 12_000, "KGS"),
+                "Cholpon-Ata, Issyk-Kul Region", 120_000_000m, tokenPrice, 1_200_000, "KGS",
+                minPurchaseTokens: minPurchase),
             Property.Create(
                 "Osh Commercial Plaza",
                 "Mixed-use commercial plaza in central Osh.",
-                "Kurmanjan Datka St 45, Osh", 80_000_000m, 8_000m, 10_000, "KGS"),
+                "Kurmanjan Datka St 45, Osh", 80_000_000m, tokenPrice, 800_000, "KGS",
+                minPurchaseTokens: minPurchase),
             Property.Create(
                 "Ala-Too Business Center",
                 "Class-A office tower near Ala-Too Square, Bishkek.",
-                "Chuy Ave 136, Bishkek", 200_000_000m, 20_000m, 10_000, "KGS"),
+                "Chuy Ave 136, Bishkek", 200_000_000m, tokenPrice, 2_000_000, "KGS",
+                minPurchaseTokens: minPurchase),
             Property.Create(
                 "Karakol Mountain Lodge",
                 "Boutique lodge serving the Karakol ski resort.",
-                "Karakol, Issyk-Kul Region", 35_000_000m, 3_500m, 10_000, "KGS"),
+                "Karakol, Issyk-Kul Region", 35_000_000m, tokenPrice, 350_000, "KGS",
+                minPurchaseTokens: minPurchase),
         };
 
         // Demo objects are meant to be live on the public site, so publish them (Draft -> Open).

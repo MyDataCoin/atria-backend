@@ -21,7 +21,7 @@ public sealed class EvmTokenReader : ITokenReader
 
     public EvmTokenReader(IChainNetworkResolver networks) => _networks = networks;
 
-    public async Task<decimal> GetBalanceAsync(
+    public async Task<long> GetBalanceAsync(
         string chainTag, string tokenContractAddress, string address, CancellationToken ct)
     {
         var handler = ClientFor(chainTag).Eth.GetContractQueryHandler<BalanceOfFunction>();
@@ -31,7 +31,7 @@ public sealed class EvmTokenReader : ITokenReader
         return ToShares(balance);
     }
 
-    public async Task<decimal> GetTotalSupplyAsync(
+    public async Task<long> GetTotalSupplyAsync(
         string chainTag, string tokenContractAddress, CancellationToken ct)
     {
         var handler = ClientFor(chainTag).Eth.GetContractQueryHandler<TotalSupplyFunction>();
@@ -55,6 +55,38 @@ public sealed class EvmTokenReader : ITokenReader
             // A contract without the function, a node that is down, an address that holds no code:
             // all of them mean the same thing here — the id could not be established. Reporting that
             // as an answer would turn "unknown" into "different".
+            return null;
+        }
+    }
+
+    public async Task<long?> GetMaxSupplyAsync(
+        string chainTag, string tokenContractAddress, CancellationToken ct)
+    {
+        try
+        {
+            var handler = ClientFor(chainTag).Eth.GetContractQueryHandler<MaxSupplyFunction>();
+            var cap = await handler.QueryAsync<BigInteger>(tokenContractAddress, new MaxSupplyFunction());
+
+            return ToShares(cap);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Same reasoning as GetPropertyIdAsync: an unreachable node is "unknown", and reporting
+            // it as a number — any number — would turn that into a cap the caller then trusts.
+            return null;
+        }
+    }
+
+    public async Task<int?> GetDecimalsAsync(
+        string chainTag, string tokenContractAddress, CancellationToken ct)
+    {
+        try
+        {
+            var handler = ClientFor(chainTag).Eth.GetContractQueryHandler<DecimalsFunction>();
+            return await handler.QueryAsync<byte>(tokenContractAddress, new DecimalsFunction());
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
             return null;
         }
     }
@@ -92,20 +124,14 @@ public sealed class EvmTokenReader : ITokenReader
     }
 
     /// <summary>
-    /// The contract holds shares as integer minor units with <c>decimals() == TokenAmount.Scale</c>,
-    /// so a raw amount is scaled back down to a share count here. A value too large to be a share
-    /// count means the contract is not the one we think it is, and quietly truncating it would put a
-    /// fabricated number into the registry.
+    /// The contract holds shares as integers with <c>decimals() == TokenAmount.Scale</c> (zero), so a
+    /// raw amount is a share count already. A value too large to be one means the contract is not the
+    /// one we think it is, and quietly truncating it would put a fabricated number into the registry.
     /// </summary>
-    private static decimal ToShares(BigInteger raw)
-        => raw > MaxRawUnits || raw < 0
+    private static long ToShares(BigInteger raw)
+        => raw > long.MaxValue || raw < 0
             ? throw new InvalidOperationException($"Share amount {raw} is out of range for this issue.")
             : TokenAmount.FromMinor(raw);
-
-    // The largest raw amount that still converts to a decimal share count without overflowing.
-    // Derived from the share scale rather than a literal, so it cannot drift away from TokenAmount.
-    private static readonly BigInteger MaxRawUnits = TokenAmount.ToMinor(
-        decimal.Truncate(decimal.MaxValue / (decimal)Math.Pow(10, TokenAmount.Scale)));
 
     private Web3 ClientFor(string chainTag)
     {
@@ -123,8 +149,17 @@ public sealed class EvmTokenReader : ITokenReader
         public string Account { get; set; } = null!;
     }
 
+    [Function("decimals", "uint8")]
+    private sealed class DecimalsFunction : FunctionMessage;
+
     [Function("totalSupply", "uint256")]
     private sealed class TotalSupplyFunction : FunctionMessage;
+
+    // The contract exposes the cap as the public state variable `maxSupply`, so the getter is
+    // `maxSupply()`. TOKEN_MAX_SUPPLY is only the DEPLOYMENT variable's name — asking for that would
+    // hit no function at all and report the cap as permanently unknown.
+    [Function("maxSupply", "uint256")]
+    private sealed class MaxSupplyFunction : FunctionMessage;
 
     [Function("propertyId", "bytes32")]
     private sealed class PropertyIdFunction : FunctionMessage;

@@ -13,7 +13,7 @@ internal sealed class InvestmentConfiguration : IEntityTypeConfiguration<Investm
 
         b.Property(i => i.InvestorId).IsRequired();
         b.Property(i => i.PropertyId).IsRequired();
-        b.Property(i => i.TokenCount).HasPrecision(28, 2).IsRequired();
+        b.Property(i => i.TokenCount).IsRequired();
         b.Property(i => i.Amount).HasPrecision(18, 2).IsRequired();
         b.Property(i => i.Currency).HasMaxLength(8).IsRequired();
         b.Property(i => i.PricePerToken).HasPrecision(18, 2).IsRequired();

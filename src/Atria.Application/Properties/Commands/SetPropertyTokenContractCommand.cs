@@ -120,6 +120,32 @@ public sealed class SetPropertyTokenContractCommandHandler
                     : $"This contract belongs to another issue: it declares propertyId {onChain}, "
                       + $"and this issue is {expected}."));
 
+        // The contract's decimals() IS the platform's share granularity. A token deployed with any
+        // other scale would keep working — mints would land, transfers would clear — while meaning
+        // something different by every number: at decimals 2 a mint of 100 is one share, not a
+        // hundred. Nothing downstream could tell, because both sides are just integers. Checked
+        // once, here, where the binding can still be refused.
+        var decimals = await _tokens.GetDecimalsAsync(network.Tag, contract, ct);
+        if (decimals is { } scale && scale != TokenAmount.Scale)
+            return Result.Failure(Error.Conflict(
+                "property.tokenDecimalsMismatch",
+                $"This contract reports decimals() = {scale}, but the platform counts shares at "
+                + $"{TokenAmount.Scale}. Binding it would put the register and the chain on different "
+                + "numbers. Deploy the token with decimals() = " + TokenAmount.Scale + "."));
+
+        // TOKEN_MAX_SUPPLY is fixed at deployment and cannot be raised afterwards, so an issue
+        // larger than the cap is not a problem for later — it is an issue whose last shares can never
+        // be minted, discovered only when a mint batch reverts. Asked here, while the binding can
+        // still be refused. A contract that will not answer leaves the cap unknown, and unknown is
+        // not "unlimited": the binding proceeds and the audit entry below says the check was skipped.
+        var maxSupply = await _tokens.GetMaxSupplyAsync(network.Tag, contract, ct);
+        if (maxSupply is { } cap && property.TotalTokens > cap)
+            return Result.Failure(Error.Conflict(
+                "property.issueExceedsMaxSupply",
+                $"This issue is {property.TotalTokens} tokens, but the contract will never mint more "
+                + $"than {cap}. Re-deploy with TOKEN_MAX_SUPPLY at least {property.TotalTokens}, or "
+                + "reduce the issue before binding."));
+
         try
         {
             property.SetTokenContract(contract, network.Tag, issuer);
@@ -136,12 +162,17 @@ public sealed class SetPropertyTokenContractCommandHandler
         // needs to know later.
         await _audit.WriteAsync(
             AuditEntities.Property, property.Id, AuditEvents.PropertyUpdated,
-            onChain is null
-                ? $"Объекту «{property.Name}» назначен токен-контракт {contract} в сети {network.Tag}; "
-                  + "сверить propertyId с контрактом не удалось"
-                : $"Объекту «{property.Name}» назначен токен-контракт {contract} в сети {network.Tag}, "
-                  + "propertyId сверен",
-            onChain is null ? AuditSeverity.Warning : AuditSeverity.Success, ct);
+            $"Объекту «{property.Name}» назначен токен-контракт {contract} в сети {network.Tag}; "
+            + (onChain is null ? "сверить propertyId с контрактом не удалось" : "propertyId сверен")
+            + "; "
+            + (maxSupply is { } known
+                ? $"выпуск {property.TotalTokens} укладывается в maxSupply {known}"
+                : "maxSupply прочитать не удалось")
+            + "; "
+            + (decimals is { } known2 ? $"decimals() = {known2} сверен" : "decimals() прочитать не удалось"),
+            onChain is null || maxSupply is null || decimals is null
+                ? AuditSeverity.Warning
+                : AuditSeverity.Success, ct);
 
         await _uow.SaveChangesAsync(ct);
         return Result.Success();

@@ -1,3 +1,4 @@
+using System.Numerics;
 using Atria.Domain.Common;
 using Atria.Domain.Holders;
 using Atria.Domain.Investments;
@@ -49,7 +50,7 @@ public sealed class PayoutRun : AggregateRoot
     public PayoutRunStatus Status { get; private set; }
 
     /// <summary>Shares the distribution was divided across — the snapshot's total.</summary>
-    public decimal TotalTokens { get; private set; }
+    public long TotalTokens { get; private set; }
 
     public Guid CreatedByUserId { get; private set; }
     public DateTime? ApprovedAtUtc { get; private set; }
@@ -148,17 +149,17 @@ public sealed class PayoutRun : AggregateRoot
         var factor = Pow10(MinorUnitScale);
         var totalMinor = decimal.ToInt64(decimal.Round(declaredAmount * factor, 0, MidpointRounding.ToEven));
 
-        // Holdings are fractional, so both sides of the ratio go to their integer minor units first
-        // (TokenAmount.Scale decimals). That keeps the whole split in exact integer arithmetic —
-        // decimal division here would round every line and the parts would stop summing to the whole.
-        var totalTokens = TokenAmount.ToMinor(snapshot.TotalTokens);
+        // Holdings are whole tokens and the money is in whole minor units, so the entire split stays
+        // in integer arithmetic. Decimal division here would round every line instead, and the parts
+        // would stop summing to the whole.
+        BigInteger totalTokens = snapshot.TotalTokens;
 
-        // The floor each line certainly gets, and what it lost to the floor. Integer arithmetic
-        // throughout: the exact numerator is tokens * totalMinor, which stays whole.
+        // The floor each line certainly gets, and what it lost to the floor. The exact numerator is
+        // tokens * totalMinor, which can overflow a long on a large issue — hence BigInteger.
         var lines = snapshot.Rows
             .Select(row =>
             {
-                var numerator = TokenAmount.ToMinor(row.TokenCount) * totalMinor;
+                var numerator = (BigInteger)row.TokenCount * totalMinor;
                 var floor = (long)(numerator / totalTokens);
                 var remainder = (long)(numerator % totalTokens);
                 return (Row: row, Floor: floor, Remainder: remainder);

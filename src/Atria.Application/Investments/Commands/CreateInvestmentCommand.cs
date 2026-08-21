@@ -73,20 +73,22 @@ public sealed class CreateInvestmentCommandHandler
         if (property.SalesPaused)
             return Result.Failure<Guid>(Error.Conflict("investment.sales_paused", "Purchases are currently paused for this property."));
 
-        var remainingCapacity = property.AvailableTokens * property.TokenPrice;
-        if (request.Amount > remainingCapacity)
+        // Whole tokens the amount buys at the property's unit price, rounded DOWN: the investor gets
+        // what their money covers, so a rounding sliver can never place more of the issue than was
+        // paid for. This is where wholeness is settled — before any capacity is claimed. Checking it
+        // at mint time instead would surface the fraction after the application had been reserved
+        // and approved, with an investor already told the shares were theirs.
+        var tokenCount = TokenAmount.FromMoney(request.Amount, property.TokenPrice);
+
+        if (tokenCount < property.MinPurchaseTokens)
+            return Result.Failure<Guid>(Error.Validation(
+                "investment.below_minimum",
+                $"The minimum purchase for this offering is {property.MinPurchaseTokens} tokens "
+                + $"({property.MinPurchaseAmount:0.##} {property.Currency})."));
+
+        if (tokenCount > property.AvailableTokens)
             return Result.Failure<Guid>(Error.Conflict(
                 "investment.insufficient_tokens", "Requested amount exceeds the property's remaining token capacity."));
-
-        // Shares the amount buys at the property's unit price. Rounded DOWN to the share
-        // granularity, never up: the investor gets what their money covers, so a rounding sliver can
-        // never place more of the issue than was paid for. Anything below the smallest share is not
-        // a purchase at all.
-        var tokenCount = TokenAmount.Floor(request.Amount / property.TokenPrice);
-        if (tokenCount <= 0)
-            return Result.Failure<Guid>(Error.Conflict(
-                "investment.amount_too_low",
-                $"The amount must cover at least {TokenAmount.Smallest} of a token."));
 
         // If the investor arrived via a realtor's referral link, keep the token only when it still
         // resolves to a redeemable deal for THIS property. A missing/expired/mismatched token is
@@ -107,8 +109,11 @@ public sealed class CreateInvestmentCommandHandler
 
         // The property defines the settlement currency and the price snapshot for the application.
         var reservedUntilUtc = _clock.UtcNow.Add(_reservation.Window);
+        // The application is priced off the whole token count, never off request.Amount: the investor
+        // pays for exactly what they receive, and the difference from what they typed is shown to
+        // them by the quote endpoint before they confirm.
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId.Value, request.PropertyId, tokenCount, request.Amount, property.Currency,
+            investorId.Value, request.PropertyId, tokenCount, property.Currency,
             property.TokenPrice, reservedUntilUtc, referralToken);
 
         await _investments.AddAsync(investment, ct);

@@ -17,7 +17,7 @@ public sealed class InvestmentWithdrawalTests
     private static Investment ActiveInvestment()
     {
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, 1_000m, "KGS", 100m, Activated.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), 10, "KGS", 100m, Activated.AddDays(3));
         investment.Approve(Activated);
         return investment;
     }
@@ -34,7 +34,7 @@ public sealed class InvestmentWithdrawalTests
     public void A_reserved_application_has_no_withdrawal_window_yet()
     {
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, 1_000m, "KGS", 100m, Activated.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), 10, "KGS", 100m, Activated.AddDays(3));
 
         investment.WithdrawalDeadlineUtc.Should().BeNull();
         investment.CanWithdrawAt(Activated).Should().BeFalse();
@@ -99,7 +99,7 @@ public sealed class InvestmentWithdrawalTests
     public void Only_an_active_investment_can_be_withdrawn()
     {
         var reserved = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, 1_000m, "KGS", 100m, Activated.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), 10, "KGS", 100m, Activated.AddDays(3));
 
         var act = () => reserved.Withdraw(Activated);
 

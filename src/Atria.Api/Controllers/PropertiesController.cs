@@ -101,7 +101,7 @@ public sealed class PropertiesController : ApiControllerBase
     {
         var result = await Sender.Send(new CreatePropertyCommand(
             request.Name, request.Description, request.Address, request.TotalValue,
-            request.TokenPrice, request.TotalTokens, request.Currency,
+            request.TokenPrice, request.TotalTokens, request.Currency, request.MinPurchaseTokens,
             request.PropertyType, request.City, request.YearBuilt, request.Developer, request.Floors,
             request.BuildingId, request.UnitType, request.UnitNumber, request.FloorNumber,
             request.RoomCount, request.TotalAreaSqM, request.Rooms), ct);

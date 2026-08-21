@@ -1,4 +1,5 @@
 using Atria.Application.Properties.Commands;
+using Atria.Domain.Investments;
 using FluentValidation;
 
 namespace Atria.Application.Properties.Validators;
@@ -15,6 +16,13 @@ public sealed class CreatePropertyCommandValidator : AbstractValidator<CreatePro
         RuleFor(x => x.TokenPrice).GreaterThan(0);
         RuleFor(x => x.TotalTokens).GreaterThan(0);
         RuleFor(x => x.Currency).NotEmpty().Length(3);
+
+        // A minimum bigger than the issue would make the offering unbuyable, and one below a whole
+        // token is not a minimum at all — the token does not divide.
+        RuleFor(x => x.MinPurchaseTokens)
+            .GreaterThanOrEqualTo(TokenAmount.Smallest)
+            .LessThanOrEqualTo(x => x.TotalTokens)
+                .WithMessage("Minimum purchase cannot exceed the total issue.");
 
         // Optional descriptive characteristics.
         RuleFor(x => x.PropertyType).MaximumLength(64);

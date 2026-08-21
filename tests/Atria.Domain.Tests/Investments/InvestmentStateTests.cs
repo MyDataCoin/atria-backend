@@ -10,7 +10,7 @@ public sealed class InvestmentStateTests
 {
     private static Investment NewReservedInvestment()
         => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, "USD",
+            Guid.NewGuid(), Guid.NewGuid(), 10, "USD",
             pricePerToken: 100m, reservedUntilUtc: DateTime.UtcNow.AddDays(3));
 
     [Fact]
@@ -21,7 +21,7 @@ public sealed class InvestmentStateTests
         var reservedUntil = DateTime.UtcNow.AddDays(3);
 
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId, propertyId, 50, 5000m, "USD", pricePerToken: 100m, reservedUntilUtc: reservedUntil);
+            investorId, propertyId, 50, "USD", pricePerToken: 100m, reservedUntilUtc: reservedUntil);
 
         investment.Status.Should().Be(InvestmentStatus.Reserved);
         investment.OnChainStatus.Should().Be(OnChainStatus.None);
@@ -40,23 +40,27 @@ public sealed class InvestmentStateTests
     [Theory]
     [InlineData(0)]
     [InlineData(-100)]
-    public void Factory_WhenTokenCountNotPositive_ThrowsDomainException(decimal tokenCount)
+    public void Factory_WhenTokenCountNotPositive_ThrowsDomainException(long tokenCount)
     {
         var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), tokenCount, 1000m, "USD", 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), tokenCount, "USD", 100m, DateTime.UtcNow.AddDays(3));
 
         act.Should().Throw<DomainException>().WithMessage("*Token count must be positive*");
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-100)]
-    public void Factory_WhenAmountNotPositive_ThrowsDomainException(decimal amount)
+    [Fact]
+    public void Factory_PricesTheApplicationFromTheWholeTokenCount()
     {
-        var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, amount, "USD", 100m, DateTime.UtcNow.AddDays(3));
+        // The amount is not an input any more. An investor who types 5 555 somoni at 100 a token
+        // gets 55 tokens and owes 5 500 — the leftover 55 buys nothing, so charging it would charge
+        // for shares that were never issued.
+        var tokenCount = TokenAmount.FromMoney(5_555m, 100m);
 
-        act.Should().Throw<DomainException>().WithMessage("*amount must be positive*");
+        var investment = InvestmentFactory.CreateForInvestor(
+            Guid.NewGuid(), Guid.NewGuid(), tokenCount, "TJS", 100m, DateTime.UtcNow.AddDays(3));
+
+        investment.TokenCount.Should().Be(55);
+        investment.Amount.Should().Be(5_500m);
     }
 
     [Theory]
@@ -65,7 +69,7 @@ public sealed class InvestmentStateTests
     public void Factory_WhenCurrencyMissing_ThrowsDomainException(string currency)
     {
         var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, 1000m, currency, 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), 10, currency, 100m, DateTime.UtcNow.AddDays(3));
 
         act.Should().Throw<DomainException>().WithMessage("*Currency is required*");
     }

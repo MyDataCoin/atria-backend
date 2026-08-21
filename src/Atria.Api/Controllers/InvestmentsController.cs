@@ -44,6 +44,30 @@ public sealed class InvestmentsController : ApiControllerBase
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
+    /// <summary>What a sum buys here, before anything is reserved.</summary>
+    /// <remarks>
+    /// Call this while the investor is typing. The offering is placed in whole tokens, so a sum
+    /// almost never lands exactly on a token boundary: this returns the whole tokens the sum covers,
+    /// what they actually cost (<c>totalAmount</c>), and the part of the entered sum that buys nothing
+    /// (<c>changeAmount</c>) — which is what the investor should see before confirming, because
+    /// <c>POST /investments</c> charges <c>totalAmount</c> and not what they typed. <c>canPurchase</c>
+    /// is false when the count falls under the offering's minimum or over what is left; the minimum
+    /// and its price come back either way so the form can say what to enter instead.
+    /// Reserves nothing and changes nothing.
+    /// </remarks>
+    /// <param name="propertyId">The offering to quote against.</param>
+    /// <param name="amount">The sum the investor entered.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet("quote")]
+    [Authorize(Roles = "Investor")]
+    [ProducesResponseType<InvestmentQuoteDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Quote(
+        [FromQuery] Guid propertyId, [FromQuery] decimal amount, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new QuoteInvestmentQuery(propertyId, amount), ct));
+
     /// <summary>Approves a reserved application, activating the investment. Operator only.</summary>
     /// <remarks>
     /// Requires the <c>Admin</c> role. Replaces the old payment callback: confirming the (off-platform)

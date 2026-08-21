@@ -25,8 +25,8 @@ public sealed class PayoutRunTests
             Guid.NewGuid(), Cut, SnapshotPurpose.Payout, 1_000_000, Operator, entries);
     }
 
-    /// <summary>The same register, but with divisible holdings — the issue is sized in fractions.</summary>
-    private static HolderSnapshot FractionalRegister(params decimal[] holdings)
+    /// <summary>The same register, but with awkward holdings that do not divide the money evenly.</summary>
+    private static HolderSnapshot AwkwardRegister(params long[] holdings)
     {
         var entries = holdings.Select((tokens, i) => new HolderSnapshotEntry(
             $"0x{i:D40}", tokens, Guid.NewGuid()));
@@ -272,11 +272,12 @@ public sealed class PayoutRunTests
         act.Should().Throw<DomainException>();
     }
     [Fact]
-    public void Fractional_holdings_still_split_the_declared_amount_exactly()
+    public void Holdings_that_do_not_divide_evenly_still_split_the_declared_amount_exactly()
     {
-        // Доли дробные, но выплата обязана сойтись до копейки: аллокация считается в целых
-        // минорных единицах с обеих сторон дроби, иначе остаток растворяется в округлении.
-        var snapshot = FractionalRegister(28.68m, 5.65m, 4.67m, 14.88m, 3.67m);
+        // Доли целые, но на них сумма нацело не делится — выплата всё равно обязана сойтись до
+        // копейки: аллокация считается в целых минорных единицах, иначе остаток растворяется
+        // в округлении.
+        var snapshot = AwkwardRegister(2_868, 565, 467, 1_488, 367);
 
         var run = PayoutRun.Create(
             snapshot, PayoutKind.Dividend, PayoutMethod.BankTransfer, 100_000m, "KGS", Operator, null);
@@ -290,7 +291,7 @@ public sealed class PayoutRunTests
     {
         // Держатель с минимальной долей не должен исчезать из выплаты из-за округления вниз:
         // остаток раздаётся по наибольшей потерянной части, и сумма всё равно сходится.
-        var snapshot = FractionalRegister(99.99m, 0.01m);
+        var snapshot = AwkwardRegister(9_999, 1);
 
         var run = PayoutRun.Create(
             snapshot, PayoutKind.Dividend, PayoutMethod.BankTransfer, 1_000m, "KGS", Operator, null);

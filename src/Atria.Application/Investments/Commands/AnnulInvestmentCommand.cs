@@ -155,7 +155,7 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
 
     /// <summary>Takes the shares out of the holder's position so the register stops counting them.</summary>
     private async Task StopCountingInRegistryAsync(
-        Guid propertyId, string wallet, decimal tokenCount, CancellationToken ct)
+        Guid propertyId, string wallet, long tokenCount, CancellationToken ct)
     {
         var position = await _positions.GetByAddressAsync(propertyId, wallet, ct);
         if (position is null)

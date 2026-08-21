@@ -10,7 +10,7 @@ namespace Atria.Domain.Tests.Investments;
 /// </summary>
 public sealed class PropertyAnnulmentTests
 {
-    private static Property OpenIssue(decimal totalTokens = 1_000)
+    private static Property OpenIssue(long totalTokens = 1_000)
     {
         var p = Property.Create("Tower One", null, null, 1_000_000m, 100m, totalTokens, "KGS");
         p.Publish();

@@ -90,11 +90,14 @@ sealed class Building : AggregateRoot   // groups the units sold inside it; issu
   BuildingImage AddImage(string url); BuildingImage? RemoveImage(Guid imageId);  // max Building.MaxImages
 sealed class Property : AggregateRoot   // THE unit of issuance: standalone, or one unit of a Building
   string Name; string? Description; string? Address; decimal TotalValue; decimal TokenPrice;
-  long TotalTokens; long AvailableTokens; string Currency; PropertyStatus Status; bool SalesPaused;
+  long TotalTokens; long AvailableTokens; long MinPurchaseTokens; string Currency;
+  decimal MinPurchaseAmount; decimal? AreaPerTokenSqM;   // derived: min × price, area ÷ supply
+  PropertyStatus Status; bool SalesPaused;
   Guid? BuildingId; UnitType UnitType; string? UnitNumber; int? FloorNumber;
   int? RoomCount; decimal? TotalAreaSqM; IReadOnlyCollection<PropertyRoom> Rooms;
   static Property Create(string name, string? description, string? address, decimal totalValue,
-                         decimal tokenPrice, long totalTokens, string currency, ...descriptive optionals);
+                         decimal tokenPrice, long totalTokens, string currency, ...descriptive optionals,
+                         long minPurchaseTokens = TokenAmount.Smallest);
   void AssignToBuilding(Guid? buildingId);            // Guid.Empty == null == standalone
   void SetUnitDetails(UnitType?, string? unitNumber, int? floorNumber, int? roomCount, decimal? totalAreaSqM);
   void ReplaceRooms(IEnumerable<(string Name, decimal AreaSqM)> rooms);  // whole-list swap; [] clears
@@ -121,9 +124,15 @@ Events (`...Investments.Events`):
   InvestmentExpiredEvent(Guid InvestmentId, Guid InvestorId, Guid PropertyId, long TokenCount)
 Factory (`Atria.Domain.Factories`):
   static class InvestmentFactory {
-    static Investment CreateForInvestor(Guid investorId, Guid propertyId, long tokenCount, decimal amount,
+    static Investment CreateForInvestor(Guid investorId, Guid propertyId, long tokenCount,
       string currency, decimal pricePerToken, DateTime reservedUntilUtc, string? referralToken = null)
-      // Reserved ; raises InvestmentCreatedEvent }
+      // Reserved ; raises InvestmentCreatedEvent. Amount is DERIVED (tokenCount × pricePerToken),
+      // never passed in: the investor pays for the whole tokens they get, not the sum they typed. }
+Token granularity (`Atria.Domain.Investments.TokenAmount`):
+  const int Scale = 0; const long Smallest = 1;   // the contract's decimals() is zero — a share does not divide
+  static long FromMoney(decimal amount, decimal pricePerToken);   // floor; what the money covers, never more
+  static decimal CostOf(long tokens, decimal pricePerToken);      // what those tokens actually cost
+  static BigInteger ToMinor(long tokens); static long FromMinor(BigInteger minor);
 Reservation expiry: a background sweep (Atria.Infrastructure.Investments.ReservationExpiryBackgroundService)
   reclaims Reserved applications past ReservedUntilUtc (-> Expired, tokens released). Window + sweep pacing
   are configured via the InvestmentReservation section (WindowDays=3, SweepIntervalMinutes=15, SweepBatchSize=100).
@@ -223,7 +232,10 @@ the implementer's choice (keep minimal, in `<Module>/Dtos`). Resource ownership 
   AddBuildingImageCommand/RemoveBuildingImageCommand [Admin];
   GetBuildingsQuery→Result<IReadOnlyList<BuildingDto>>; GetBuildingByIdQuery(Guid id)→Result<BuildingDto>
   (both carry the building's units; draft units are staff-only).
-- **Investments**: CreateInvestmentCommand(Guid propertyId, decimal amount)→Result<Guid> [Investor, KYC-gated];
+- **Investments**: CreateInvestmentCommand(Guid propertyId, decimal amount)→Result<Guid> [Investor, KYC-gated]
+  (the amount is floored to whole tokens and the application is priced off that count);
+  QuoteInvestmentQuery(Guid propertyId, decimal amount)→Result<InvestmentQuoteDto> — what the sum buys,
+  what it costs and the leftover, shown before confirming; reserves nothing;
   CreatePaymentSessionCommand(Guid investmentId, PaymentProviderType provider)→Result<PaymentSessionDto>;
   HandlePaymentCallbackCommand(string provider, WebhookPayload payload)→Result (webhook, idempotent);
   GetMyInvestmentsQuery→Result<IReadOnlyList<InvestmentDto>>; GetInvestmentByIdQuery(Guid id)→Result<InvestmentDto>;

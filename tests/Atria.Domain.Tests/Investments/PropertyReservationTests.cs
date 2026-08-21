@@ -11,8 +11,9 @@ namespace Atria.Domain.Tests.Investments;
 /// </summary>
 public sealed class PropertyReservationTests
 {
-    private static Property NewProperty(decimal totalTokens = 100)
-        => Property.Create("Tower One", null, null, 1_000_000m, 100m, totalTokens, "USD");
+    private static Property NewProperty(long totalTokens = 100, long minPurchaseTokens = 1)
+        => Property.Create("Tower One", null, null, 1_000_000m, 100m, totalTokens, "USD",
+            minPurchaseTokens: minPurchaseTokens);
 
     [Fact]
     public void ReserveTokens_reduces_available_supply()
@@ -79,53 +80,60 @@ public sealed class PropertyReservationTests
     }
 
     [Fact]
-    public void An_issue_can_be_sized_to_a_fraction()
+    public void An_issue_is_cut_into_whole_shares()
     {
-        // 57,55 доли под квартиру в 57,55 м² — ровно то, ради чего доля стала делимой.
-        var property = NewProperty(57.55m);
+        // 57,55 м² больше не значит 57,55 доли: токен — доля выпуска, а не квадратный метр, и
+        // выпуск режется так, чтобы цена доли была мелкой, а количество — целым.
+        var property = NewProperty(500_000);
 
-        property.TotalTokens.Should().Be(57.55m);
-        property.AvailableTokens.Should().Be(57.55m);
+        property.TotalTokens.Should().Be(500_000);
+        property.AvailableTokens.Should().Be(500_000);
     }
 
     [Fact]
-    public void Fractional_reservations_add_up_exactly()
+    public void Reservations_add_up_exactly()
     {
-        var property = NewProperty(57.55m);
+        var property = NewProperty(5_755);
 
-        property.ReserveTokens(0.01m);
-        property.ReserveTokens(7.54m);
-        property.ReserveTokens(50m);
+        property.ReserveTokens(1);
+        property.ReserveTokens(754);
+        property.ReserveTokens(5_000);
 
-        property.AvailableTokens.Should().Be(0m, "the fractions must close the issue exactly, not nearly");
+        property.AvailableTokens.Should().Be(0, "целые доли должны закрывать выпуск точно, а не почти");
     }
 
     [Fact]
-    public void A_fractional_reservation_still_cannot_oversubscribe()
+    public void A_reservation_still_cannot_oversubscribe()
     {
-        var property = NewProperty(1m);
-        property.ReserveTokens(0.99m);
+        var property = NewProperty(100);
+        property.ReserveTokens(99);
 
-        var act = () => property.ReserveTokens(0.02m);
+        var act = () => property.ReserveTokens(2);
 
         act.Should().Throw<DomainException>().WithMessage("*more tokens than are available*");
     }
 
     [Fact]
-    public void An_issue_finer_than_the_share_granularity_is_rejected()
+    public void A_minimum_purchase_larger_than_the_issue_is_rejected()
     {
-        var act = () => NewProperty(57.555m);
+        var act = () => NewProperty(100, minPurchaseTokens: 101);
 
-        act.Should().Throw<DomainException>().WithMessage("*multiple of*");
+        act.Should().Throw<DomainException>().WithMessage("*cannot exceed the whole issue*");
     }
 
     [Fact]
-    public void A_reservation_finer_than_the_share_granularity_is_rejected()
+    public void A_minimum_purchase_below_one_token_is_rejected()
     {
-        var property = NewProperty(100);
+        var act = () => NewProperty(100, minPurchaseTokens: 0);
 
-        var act = () => property.ReserveTokens(0.001m);
+        act.Should().Throw<DomainException>().WithMessage("*at least 1 token*");
+    }
 
-        act.Should().Throw<DomainException>().WithMessage("*multiple of*");
+    [Fact]
+    public void The_minimum_purchase_carries_its_price()
+    {
+        var property = NewProperty(500_000, minPurchaseTokens: 100);
+
+        property.MinPurchaseAmount.Should().Be(10_000m, "100 долей по 100 — это и есть порог входа");
     }
 }

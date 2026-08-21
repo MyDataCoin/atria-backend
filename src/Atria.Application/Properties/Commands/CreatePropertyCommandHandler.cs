@@ -50,7 +50,8 @@ public sealed class CreatePropertyCommandHandler
         var property = Property.Create(
             request.Name, request.Description, request.Address,
             request.TotalValue, request.TokenPrice, request.TotalTokens, request.Currency,
-            request.PropertyType, request.City, request.YearBuilt, request.Developer, request.Floors);
+            request.PropertyType, request.City, request.YearBuilt, request.Developer, request.Floors,
+            request.MinPurchaseTokens);
 
         property.AssignToBuilding(request.BuildingId);
         property.SetUnitDetails(

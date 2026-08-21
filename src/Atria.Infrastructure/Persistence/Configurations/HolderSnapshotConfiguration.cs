@@ -15,7 +15,7 @@ internal sealed class HolderSnapshotConfiguration : IEntityTypeConfiguration<Hol
         b.Property(s => s.SnapshotAtUtc).IsRequired();
         b.Property(s => s.Purpose).HasConversion<int>().IsRequired();
         b.Property(s => s.BlockNumber);
-        b.Property(s => s.TotalTokens).HasPrecision(28, 2).IsRequired();
+        b.Property(s => s.TotalTokens).IsRequired();
         b.Property(s => s.AddressCount).IsRequired();
         b.Property(s => s.CreatedByUserId).IsRequired();
 
@@ -45,7 +45,7 @@ internal sealed class HolderSnapshotRowConfiguration : IEntityTypeConfiguration<
 
         b.Property(r => r.SnapshotId).IsRequired();
         b.Property(r => r.WalletAddress).HasMaxLength(128).IsRequired();
-        b.Property(r => r.TokenCount).HasPrecision(28, 2).IsRequired();
+        b.Property(r => r.TokenCount).IsRequired();
         b.Property(r => r.InvestorId);
         b.Property(r => r.Share).HasPrecision(18, HolderSnapshot.ShareScale).IsRequired();
 

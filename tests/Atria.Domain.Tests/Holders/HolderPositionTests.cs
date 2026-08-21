@@ -13,7 +13,7 @@ public sealed class HolderPositionTests
     private static readonly DateTime T0 = new(2026, 7, 23, 10, 0, 0, DateTimeKind.Utc);
     private const string Wallet = "0x1111111111111111111111111111111111111111";
 
-    private static HolderPosition New(decimal tokens = 10)
+    private static HolderPosition New(long tokens = 10)
         => HolderPosition.Create(Guid.NewGuid(), Wallet, tokens, Guid.NewGuid(), true, HolderSource.OurRecords, T0);
 
     [Fact]

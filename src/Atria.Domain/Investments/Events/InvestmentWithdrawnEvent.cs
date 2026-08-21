@@ -10,6 +10,6 @@ public sealed record InvestmentWithdrawnEvent(
     Guid InvestmentId,
     Guid InvestorId,
     Guid PropertyId,
-    decimal TokenCount,
+    long TokenCount,
     decimal Amount,
     string Currency) : DomainEventBase;

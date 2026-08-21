@@ -14,7 +14,7 @@ internal sealed class WhitelistEntryConfiguration : IEntityTypeConfiguration<Whi
         b.Property(e => e.InvestmentId).IsRequired();
         b.Property(e => e.InvestorId).IsRequired();
         b.Property(e => e.PropertyId).IsRequired();
-        b.Property(e => e.TokenCount).HasPrecision(28, 2).IsRequired();
+        b.Property(e => e.TokenCount).IsRequired();
         b.Property(e => e.WalletAddress).HasMaxLength(128);
         b.Property(e => e.Status).HasConversion<int>().IsRequired();
         b.Property(e => e.RequestedAtUtc).IsRequired();

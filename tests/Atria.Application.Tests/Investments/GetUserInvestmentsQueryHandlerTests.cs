@@ -23,7 +23,7 @@ public sealed class GetUserInvestmentsQueryHandlerTests
         var investorId = Guid.NewGuid();
         var propertyId = Guid.NewGuid();
         _investments.GetActiveHoldingsByInvestorAsync(investorId, Arg.Any<CancellationToken>())
-            .Returns(new[] { (propertyId, "Villa Sol Nabiati", 120m, 12_000m, "USD", 5_000m) });
+            .Returns(new[] { (propertyId, "Villa Sol Nabiati", 120L, 12_000m, "USD", 5_000L) });
 
         var result = await CreateSut().Handle(new GetUserInvestmentsQuery(investorId), CancellationToken.None);
 
@@ -43,7 +43,7 @@ public sealed class GetUserInvestmentsQueryHandlerTests
     {
         var investorId = Guid.NewGuid();
         _investments.GetActiveHoldingsByInvestorAsync(investorId, Arg.Any<CancellationToken>())
-            .Returns(Array.Empty<(Guid, string, decimal, decimal, string, decimal)>());
+            .Returns(Array.Empty<(Guid, string, long, decimal, string, long)>());
 
         var result = await CreateSut().Handle(new GetUserInvestmentsQuery(investorId), CancellationToken.None);
 
@@ -56,7 +56,7 @@ public sealed class GetUserInvestmentsQueryHandlerTests
     {
         var investorId = Guid.NewGuid();
         _investments.GetActiveHoldingsByInvestorAsync(investorId, Arg.Any<CancellationToken>())
-            .Returns(new[] { (Guid.NewGuid(), "Broken", 10m, 100m, "USD", 0m) });
+            .Returns(new[] { (Guid.NewGuid(), "Broken", 10L, 100m, "USD", 0L) });
 
         var result = await CreateSut().Handle(new GetUserInvestmentsQuery(investorId), CancellationToken.None);
 

@@ -137,9 +137,9 @@ public sealed class BuildingPublicationFlowTests : IClassFixture<AtriaApiFactory
         var create = await adminClient.PostAsJsonAsync(PropertiesRoute, new
         {
             name,
-            totalValue = 83_447.5m,
-            tokenPrice = 1_450m,
-            totalTokens = 57.55m,
+            totalValue = 83_400m,
+            tokenPrice = 100m,
+            totalTokens = 834L,
             currency = "KGS",
             buildingId,
             unitType = "apartment",

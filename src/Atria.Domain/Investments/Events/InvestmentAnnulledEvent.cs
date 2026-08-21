@@ -14,6 +14,6 @@ public sealed record InvestmentAnnulledEvent(
     Guid InvestmentId,
     Guid InvestorId,
     Guid PropertyId,
-    decimal TokenCount,
+    long TokenCount,
     string Reason,
     bool WasActive) : DomainEventBase;
