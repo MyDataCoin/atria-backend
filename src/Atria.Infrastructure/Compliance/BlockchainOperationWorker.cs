@@ -375,7 +375,8 @@ public sealed class BlockchainOperationWorker : BackgroundService
             if (operation.Type is BlockchainOperationType.AllowlistAdd
                 or BlockchainOperationType.AllowlistRemove)
             {
-                operation.MarkConfirmed();
+                // The gateway already waited for the receipt, so the write is as deep as it gets.
+                operation.MarkConfirmed(_confirmationsRequired);
                 changed = true;
                 continue;
             }
@@ -422,13 +423,18 @@ public sealed class BlockchainOperationWorker : BackgroundService
 
             if (receipt.Confirmations < _confirmationsRequired)
             {
+                // Recorded, not just logged: the queue screen shows the depth so an operator can tell
+                // a run that is progressing from one that is wedged.
+                operation.ObserveConfirmations(receipt.Confirmations);
+                changed = true;
+
                 _logger.LogDebug(
                     "Operation {OperationId} has {Confirmations}/{Required} confirmations.",
                     operation.Id, receipt.Confirmations, _confirmationsRequired);
                 continue;
             }
 
-            operation.MarkConfirmed();
+            operation.MarkConfirmed(receipt.Confirmations);
             await ApplyToInvestmentAsync(context, operation, OnChainStatus.Confirmed, ct);
             changed = true;
 

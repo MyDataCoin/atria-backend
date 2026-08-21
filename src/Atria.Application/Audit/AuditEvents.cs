@@ -11,6 +11,7 @@ public static class AuditEntities
     public const string CriticalAction = "CriticalAction";
     public const string RegulatoryReport = "RegulatoryReport";
     public const string PayoutRun = "PayoutRun";
+    public const string BlockchainOperation = "BlockchainOperation";
 }
 
 /// <summary>
@@ -19,6 +20,7 @@ public static class AuditEntities
 /// </summary>
 public static class AuditEvents
 {
+    public const string BlockchainOperationRetried = "BlockchainOperationRetried";
     public const string BuildingCreated = "BuildingCreated";
     public const string BuildingUpdated = "BuildingUpdated";
     public const string BuildingDeleted = "BuildingDeleted";

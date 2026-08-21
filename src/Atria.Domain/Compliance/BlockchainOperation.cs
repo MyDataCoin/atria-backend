@@ -18,6 +18,17 @@ public sealed class BlockchainOperation : AggregateRoot
     public string? Error { get; private set; }
     public DateTime? ConfirmedAtUtc { get; private set; }
 
+    /// <summary>
+    /// Confirmations counted on the submitted transaction at the last reconciliation pass, or null
+    /// while nothing has been observed yet.
+    /// </summary>
+    /// <remarks>
+    /// Recorded because "Submitted" on its own tells an operator nothing about whether a run is
+    /// progressing or wedged: a transaction three blocks deep and one that never left the mempool
+    /// look identical. The count is what distinguishes them on the queue screen.
+    /// </remarks>
+    public long? Confirmations { get; private set; }
+
     // EF / factory only.
     private BlockchainOperation() { }
 
@@ -52,17 +63,33 @@ public sealed class BlockchainOperation : AggregateRoot
 
         Status = BlockchainOperationStatus.Submitted;
         TransactionRef = txRef;
+        // A resubmission starts counting again: the depth that was observed belonged to the previous
+        // transaction, and carrying it over would report the new one as further along than it is.
+        Confirmations = null;
         Error = null;
     }
 
+    /// <summary>
+    /// Records how deep the submitted transaction is without settling the operation. Called on every
+    /// reconciliation pass while the transaction is still short of the required depth.
+    /// </summary>
+    public void ObserveConfirmations(long confirmations)
+    {
+        if (confirmations < 0)
+            throw new DomainException("Confirmation count cannot be negative.");
+
+        Confirmations = confirmations;
+    }
+
     /// <summary>Marks the operation confirmed on chain.</summary>
-    public void MarkConfirmed()
+    public void MarkConfirmed(long confirmations)
     {
         if (Status is not BlockchainOperationStatus.Submitted)
             throw new InvalidStateTransitionException("Only a submitted operation can be confirmed.");
 
         Status = BlockchainOperationStatus.Confirmed;
         ConfirmedAtUtc = DateTime.UtcNow;
+        Confirmations = confirmations;
         Error = null;
     }
 
@@ -77,6 +104,25 @@ public sealed class BlockchainOperation : AggregateRoot
 
         Status = BlockchainOperationStatus.Failed;
         Error = error;
+    }
+
+    /// <summary>
+    /// Puts a failed operation back in the queue for another submission attempt.
+    /// </summary>
+    /// <remarks>
+    /// The attempt counter is deliberately NOT reset: it is the record of how many times this piece
+    /// of work has been tried, and zeroing it would hide an operation that keeps failing behind a
+    /// clean-looking row. The idempotency key stays too, so a retry cannot become a second mint.
+    /// </remarks>
+    public void Requeue()
+    {
+        if (Status is not BlockchainOperationStatus.Failed)
+            throw new InvalidStateTransitionException("Only a failed operation can be re-queued.");
+
+        Status = BlockchainOperationStatus.Created;
+        TransactionRef = null;
+        Confirmations = null;
+        Error = null;
     }
 
     /// <summary>Increments the retry counter before the next submission attempt.</summary>

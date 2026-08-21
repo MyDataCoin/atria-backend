@@ -19,8 +19,12 @@ internal sealed class BlockchainOperationConfiguration : IEntityTypeConfiguratio
         b.Property(o => o.TransactionRef).HasMaxLength(256);
         b.Property(o => o.Error).HasMaxLength(2048);
         b.Property(o => o.ConfirmedAtUtc);
+        b.Property(o => o.Confirmations);
 
         b.HasIndex(o => o.IdempotencyKey).IsUnique();
         b.HasIndex(o => o.Status);
+        // The queue screen lists newest first and filters by status; without this the operator's
+        // default view is a sequential scan that grows with every operation ever run.
+        b.HasIndex(o => new { o.Status, o.CreatedAtUtc });
     }
 }
