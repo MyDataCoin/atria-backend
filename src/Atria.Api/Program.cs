@@ -311,6 +311,10 @@ var app = builder.Build();
 //     Gated by Database:MigrateOnStartup / Database:SeedOnStartup; both OFF by default. ---
 await app.MigrateAndSeedAsync();
 
+// A key the platform signs with must never be an address an investor holds shares at — see
+// SigningKeySeparationExtensions. After the migrations above, so the profiles table is there.
+await app.EnsureSigningKeysAreNotInvestorWalletsAsync();
+
 // --- Middleware pipeline ---
 // Exception handling wraps everything; correlation id is set before errors are written
 // so the id appears in problem bodies and every log line.
