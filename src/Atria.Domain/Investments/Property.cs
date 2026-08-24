@@ -168,8 +168,9 @@ public sealed class Property : AggregateRoot
             throw new DomainException($"Minimum purchase must be at least {TokenAmount.Smallest} token.");
         if (minPurchaseTokens > totalTokens)
             throw new DomainException("Minimum purchase cannot exceed the whole issue.");
-        if (string.IsNullOrWhiteSpace(currency))
-            throw new DomainException("Currency is required.");
+        // The som, normalised, or a refusal — see Money. A wrong three-letter code would otherwise
+        // relabel every amount on the issue without anything downstream noticing.
+        var issueCurrency = Money.Require(currency);
 
         return new Property
         {
@@ -187,7 +188,7 @@ public sealed class Property : AggregateRoot
             TotalTokens = totalTokens,
             AvailableTokens = totalTokens, // full supply available at creation
             MinPurchaseTokens = minPurchaseTokens,
-            Currency = currency,
+            Currency = issueCurrency,
             Status = PropertyStatus.Draft // created as a draft; goes live via Publish()
         };
     }

@@ -28,7 +28,7 @@ public sealed class PropertyMediaTrackingTests
     {
         var dbName = $"media-{Guid.NewGuid()}";
 
-        var property = Property.Create("Test", null, null, 100_000m, 100m, 1000, "USD");
+        var property = Property.Create("Test", null, null, 100_000m, 100m, 1000, "KGS");
         await using (var seedDb = NewDb(dbName))
         {
             seedDb.Properties.Add(property);

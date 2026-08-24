@@ -10,7 +10,7 @@ namespace Atria.Application.Investments.Dtos;
 /// <param name="PropertyName">Denormalized property name (joined), so the client need not fetch the catalog.</param>
 /// <param name="TokenCount">How many tokens the investor holds in this property.</param>
 /// <param name="Amount">Invested amount in <paramref name="Currency"/> (as stored, not converted).</param>
-/// <param name="Currency">ISO currency code of the amount and of the property (for example <c>USD</c>).</param>
+/// <param name="Currency">Currency of the amount and of the property. Always <c>KGS</c>.</param>
 /// <param name="SharePercent">
 /// The investor's share of the property: <c>TokenCount / property.TotalTokens * 100</c>, computed server-side.
 /// </param>

@@ -10,7 +10,7 @@ public sealed class InvestmentStateTests
 {
     private static Investment NewReservedInvestment()
         => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), 10, "USD",
+            Guid.NewGuid(), Guid.NewGuid(), 10, "KGS",
             pricePerToken: 100m, reservedUntilUtc: DateTime.UtcNow.AddDays(3));
 
     [Fact]
@@ -21,13 +21,13 @@ public sealed class InvestmentStateTests
         var reservedUntil = DateTime.UtcNow.AddDays(3);
 
         var investment = InvestmentFactory.CreateForInvestor(
-            investorId, propertyId, 50, "USD", pricePerToken: 100m, reservedUntilUtc: reservedUntil);
+            investorId, propertyId, 50, "KGS", pricePerToken: 100m, reservedUntilUtc: reservedUntil);
 
         investment.Status.Should().Be(InvestmentStatus.Reserved);
         investment.OnChainStatus.Should().Be(OnChainStatus.None);
         investment.TokenCount.Should().Be(50);
         investment.Amount.Should().Be(5000m);
-        investment.Currency.Should().Be("USD");
+        investment.Currency.Should().Be("KGS");
         investment.PricePerToken.Should().Be(100m);
         investment.ReservedUntilUtc.Should().Be(reservedUntil);
         var created = investment.DomainEvents.OfType<InvestmentCreatedEvent>().Single();
@@ -43,7 +43,7 @@ public sealed class InvestmentStateTests
     public void Factory_WhenTokenCountNotPositive_ThrowsDomainException(long tokenCount)
     {
         var act = () => InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), tokenCount, "USD", 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), tokenCount, "KGS", 100m, DateTime.UtcNow.AddDays(3));
 
         act.Should().Throw<DomainException>().WithMessage("*Token count must be positive*");
     }
@@ -57,7 +57,7 @@ public sealed class InvestmentStateTests
         var tokenCount = TokenAmount.FromMoney(5_555m, 100m);
 
         var investment = InvestmentFactory.CreateForInvestor(
-            Guid.NewGuid(), Guid.NewGuid(), tokenCount, "TJS", 100m, DateTime.UtcNow.AddDays(3));
+            Guid.NewGuid(), Guid.NewGuid(), tokenCount, "KGS", 100m, DateTime.UtcNow.AddDays(3));
 
         investment.TokenCount.Should().Be(55);
         investment.Amount.Should().Be(5_500m);

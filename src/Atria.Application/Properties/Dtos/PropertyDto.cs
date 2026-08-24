@@ -12,7 +12,7 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="MinPurchaseTokens">Fewest tokens one application may be for.</param>
 /// <param name="MinPurchaseAmount"><paramref name="MinPurchaseTokens"/> × <paramref name="TokenPrice"/> — the smallest sum that buys in.</param>
 /// <param name="AreaPerTokenSqM">Area one token stands for (<paramref name="TotalAreaSqM"/> ÷ <paramref name="TotalTokens"/>), or <c>null</c> when the area is unknown. A derived equivalent for display — the token is a share of the issue, not a square metre.</param>
-/// <param name="Currency">3-letter ISO currency code of the token price (e.g. USD, KGS).</param>
+/// <param name="Currency">Currency of the token price. Always <c>KGS</c>.</param>
 /// <param name="Status">Lifecycle status, lowercase: <c>draft</c> | <c>coming_soon</c> | <c>open</c> | <c>completed</c>.</param>
 /// <param name="SalesPaused">Whether purchases are paused (blocks "buy" on the public site); orthogonal to status.</param>
 /// <param name="Address">Physical address; <c>null</c> when unset.</param>

@@ -12,7 +12,7 @@ namespace Atria.Domain.Tests.Investments;
 public sealed class PropertyReservationTests
 {
     private static Property NewProperty(long totalTokens = 100, long minPurchaseTokens = 1)
-        => Property.Create("Tower One", null, null, 1_000_000m, 100m, totalTokens, "USD",
+        => Property.Create("Tower One", null, null, 1_000_000m, 100m, totalTokens, "KGS",
             minPurchaseTokens: minPurchaseTokens);
 
     [Fact]

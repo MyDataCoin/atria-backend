@@ -1,3 +1,4 @@
+using Atria.Domain.Common;
 using System.ComponentModel.DataAnnotations;
 using Atria.Application.TravelRule;
 
@@ -24,7 +25,7 @@ public sealed class TravelRuleOptions : ITravelRuleSettings
 
     /// <summary>Currency the threshold is expressed in.</summary>
     [Required]
-    public string ThresholdCurrency { get; init; } = "KGS";
+    public string ThresholdCurrency { get; init; } = Money.Currency;
 
     /// <summary>Our own name as the reporting service provider.</summary>
     [Required]

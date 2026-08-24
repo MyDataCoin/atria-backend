@@ -225,8 +225,8 @@ immutable afterwards, so both are settled before deploying:
 
 - `TOKEN_MAX_SUPPLY` — the issue's `totalTokens`. A token is indivisible (`decimals() == 0`), so the
   issue is cut into enough shares that the unit price stays small against the minimum entry; the
-  sizing rule the platform uses is a token price of at most one percent of the minimum entry (at an
-  8 700 somoni entry: an 87 somoni token and a 100-token floor). Deploy with a cap below the issue
+  sizing rule the platform uses is a token price of at most one percent of the minimum entry (at a
+  10 000 KGS entry: a 100 KGS token and a 100-token floor). Deploy with a cap below the issue
   and its last shares can never be minted — which is why the binding below refuses that pairing.
 - `PROPERTY_ID` — the issue's `Property.Id`. The API hands over the exact word to deploy with —
 `GET /api/v1/properties/{id}/token-contract` → `propertyIdBytes32` (the guid left-aligned in the

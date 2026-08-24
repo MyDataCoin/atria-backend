@@ -23,7 +23,7 @@ public sealed class GetUserInvestmentsQueryHandlerTests
         var investorId = Guid.NewGuid();
         var propertyId = Guid.NewGuid();
         _investments.GetActiveHoldingsByInvestorAsync(investorId, Arg.Any<CancellationToken>())
-            .Returns(new[] { (propertyId, "Villa Sol Nabiati", 120L, 12_000m, "USD", 5_000L) });
+            .Returns(new[] { (propertyId, "Villa Sol Nabiati", 120L, 12_000m, "KGS", 5_000L) });
 
         var result = await CreateSut().Handle(new GetUserInvestmentsQuery(investorId), CancellationToken.None);
 
@@ -33,7 +33,7 @@ public sealed class GetUserInvestmentsQueryHandlerTests
         dto.PropertyName.Should().Be("Villa Sol Nabiati");
         dto.TokenCount.Should().Be(120);
         dto.Amount.Should().Be(12_000m);
-        dto.Currency.Should().Be("USD");
+        dto.Currency.Should().Be("KGS");
         dto.SharePercent.Should().Be(2.4m); // 120 / 5000 * 100
         dto.Status.Should().Be(InvestmentStatus.Active);
     }
@@ -56,7 +56,7 @@ public sealed class GetUserInvestmentsQueryHandlerTests
     {
         var investorId = Guid.NewGuid();
         _investments.GetActiveHoldingsByInvestorAsync(investorId, Arg.Any<CancellationToken>())
-            .Returns(new[] { (Guid.NewGuid(), "Broken", 10L, 100m, "USD", 0L) });
+            .Returns(new[] { (Guid.NewGuid(), "Broken", 10L, 100m, "KGS", 0L) });
 
         var result = await CreateSut().Handle(new GetUserInvestmentsQuery(investorId), CancellationToken.None);
 

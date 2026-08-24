@@ -22,7 +22,7 @@ public sealed class DealNotificationHandlersTests
 
     private Property StubProperty(string name = "Tower One")
     {
-        var property = Property.Create(name, null, null, 1_000_000m, 100m, 10_000, "USD");
+        var property = Property.Create(name, null, null, 1_000_000m, 100m, 10_000, "KGS");
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
         return property;
     }

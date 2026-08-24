@@ -32,7 +32,7 @@ public sealed class CreateDealTests
 
     private static Property OpenProperty()
     {
-        var property = Property.Create("Tower One", null, null, 1_000_000m, 100m, 10_000, "USD");
+        var property = Property.Create("Tower One", null, null, 1_000_000m, 100m, 10_000, "KGS");
         property.Publish(); // Open
         return property;
     }
@@ -60,7 +60,7 @@ public sealed class CreateDealTests
     public async Task Creating_a_deal_for_a_missing_or_non_open_property_is_rejected()
     {
         _currentUser.UserId.Returns(Guid.NewGuid());
-        var draft = Property.Create("Draft", null, null, 1_000m, 100m, 10, "USD"); // still Draft
+        var draft = Property.Create("Draft", null, null, 1_000m, 100m, 10, "KGS"); // still Draft
         _properties.GetByIdAsync(draft.Id, Arg.Any<CancellationToken>()).Returns(draft);
 
         var result = await CreateSut().Handle(new CreateDealCommand(draft.Id, 5m), CancellationToken.None);

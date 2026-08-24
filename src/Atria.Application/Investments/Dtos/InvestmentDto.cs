@@ -8,7 +8,7 @@ namespace Atria.Application.Investments.Dtos;
 /// <param name="InvestorId">The investor who applied. Carried so the operator queue can name them.</param>
 /// <param name="TokenCount">How many tokens the investor bought.</param>
 /// <param name="Amount">Invested amount in <paramref name="Currency"/>.</param>
-/// <param name="Currency">ISO currency code of the amount (for example <c>USD</c>).</param>
+/// <param name="Currency">Currency of the amount. Always <c>KGS</c>.</param>
 /// <param name="PricePerToken">Unit token price snapshot at the time the application was made.</param>
 /// <param name="Status">Current lifecycle status of the investment (serialized by name).</param>
 /// <param name="ReservedUntilUtc">

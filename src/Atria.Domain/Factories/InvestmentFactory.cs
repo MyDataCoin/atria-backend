@@ -22,15 +22,14 @@ public static class InvestmentFactory
     {
         if (tokenCount <= 0)
             throw new DomainException("Token count must be positive.");
-        if (string.IsNullOrWhiteSpace(currency))
-            throw new DomainException("Currency is required.");
+        var applicationCurrency = Money.Require(currency);
         if (pricePerToken <= 0)
             throw new DomainException("Price per token must be positive.");
 
         var amount = TokenAmount.CostOf(tokenCount, pricePerToken);
 
         var investment = Investment.CreateReserved(
-            investorId, propertyId, tokenCount, amount, currency, pricePerToken, reservedUntilUtc, referralToken);
+            investorId, propertyId, tokenCount, amount, applicationCurrency, pricePerToken, reservedUntilUtc, referralToken);
 
         investment.RaiseDomainEvent(new InvestmentCreatedEvent(
             investment.Id, investorId, propertyId, tokenCount, amount));

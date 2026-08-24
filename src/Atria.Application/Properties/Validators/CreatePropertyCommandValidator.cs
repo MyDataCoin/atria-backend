@@ -1,4 +1,5 @@
 using Atria.Application.Properties.Commands;
+using Atria.Domain.Common;
 using Atria.Domain.Investments;
 using FluentValidation;
 
@@ -15,7 +16,13 @@ public sealed class CreatePropertyCommandValidator : AbstractValidator<CreatePro
         RuleFor(x => x.TotalValue).GreaterThan(0);
         RuleFor(x => x.TokenPrice).GreaterThan(0);
         RuleFor(x => x.TotalTokens).GreaterThan(0);
-        RuleFor(x => x.Currency).NotEmpty().Length(3);
+        // Not merely "three letters": that check passes TJS as readily as KGS, and a wrong code
+        // relabels every amount on the issue instead of being rejected. Money is the single place
+        // that decides; this rule exists so the caller gets a 400 rather than a domain exception.
+        RuleFor(x => x.Currency)
+            .NotEmpty()
+            .Must(Money.IsSom)
+                .WithMessage($"The platform issues in {Money.Currency} ({Money.Symbol}) only.");
 
         // A minimum bigger than the issue would make the offering unbuyable, and one below a whole
         // token is not a minimum at all — the token does not divide.

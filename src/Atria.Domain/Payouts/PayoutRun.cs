@@ -105,8 +105,10 @@ public sealed class PayoutRun : AggregateRoot
         if (decimal.Round(declaredAmount, MinorUnitScale) != declaredAmount)
             throw new DomainException(
                 $"The declared amount must be given to {MinorUnitScale} decimal places.");
-        if (string.IsNullOrWhiteSpace(currency))
-            throw new DomainException("Currency is required.");
+        // Distributions are declared in som like everything else. This one arrives straight from the
+        // request body rather than from the issue, so it is the easiest place to denominate a run in
+        // a currency the platform never priced the shares in.
+        var runCurrency = Money.Require(currency);
         if (createdByUserId == Guid.Empty)
             throw new DomainException("CreatedByUserId is required.");
         if (snapshot.TotalTokens <= 0 || snapshot.Rows.Count == 0)
@@ -125,7 +127,7 @@ public sealed class PayoutRun : AggregateRoot
             Kind = kind,
             Method = method,
             DeclaredAmount = declaredAmount,
-            Currency = currency,
+            Currency = runCurrency,
             Status = PayoutRunStatus.Draft,
             TotalTokens = snapshot.TotalTokens,
             CreatedByUserId = createdByUserId,

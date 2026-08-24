@@ -69,7 +69,7 @@ public sealed class BlockchainOperationsQueueTests
     [Fact]
     public async Task A_row_names_the_issue_the_investor_and_the_shares_it_moves()
     {
-        var property = Property.Create("Borsan Residence, кв. 1", null, null, 83_400m, 100m, 834, "TJS");
+        var property = Property.Create("Borsan Residence, кв. 1", null, null, 83_400m, 100m, 834, "KGS");
         _properties.GetByIdAsync(PropertyId, Arg.Any<CancellationToken>()).Returns(property);
         GivenQueue(Allocation());
 

@@ -44,7 +44,7 @@ public sealed class CreateInvestmentSalesPausedTests
         _currentUser.UserId.Returns(investorId);
         _kyc.GetByUserIdAsync(investorId, Arg.Any<CancellationToken>()).Returns(ApprovedKyc(investorId));
 
-        var property = Property.Create("Tower One", null, null, 1_000_000m, 100m, 10_000, "USD");
+        var property = Property.Create("Tower One", null, null, 1_000_000m, 100m, 10_000, "KGS");
         property.Publish();     // Open
         property.PauseSales();  // ...but frozen
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);

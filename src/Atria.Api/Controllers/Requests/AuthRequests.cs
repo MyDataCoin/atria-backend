@@ -138,7 +138,7 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="TotalValue">Total monetary value of the property; must be greater than 0.</param>
 /// <param name="TokenPrice">Price of a single token; must be greater than 0.</param>
 /// <param name="TotalTokens">Total number of tokens to issue; a whole number greater than 0.</param>
-/// <param name="Currency">3-letter ISO currency code (e.g. USD, KGS).</param>
+/// <param name="Currency">Currency of the issue; must be <c>KGS</c> — the platform issues in Kyrgyzstani som only.</param>
 /// <param name="MinPurchaseTokens">Fewest tokens one application may be for; a whole number, at least 1 and at most <paramref name="TotalTokens"/>. Defaults to 1.</param>
 /// <param name="PropertyType">Kind of property (e.g. residential, commercial); optional.</param>
 /// <param name="City">City the property is in; optional.</param>

@@ -23,7 +23,7 @@ public sealed class QuoteInvestmentQueryHandlerTests
     {
         var property = Property.Create(
             "Borsan Residence, кв. 1", null, null, tokenPrice * totalTokens, tokenPrice, totalTokens,
-            "TJS", minPurchaseTokens: minPurchaseTokens);
+            "KGS", minPurchaseTokens: minPurchaseTokens);
 
         if (areaSqM is { } area)
             property.SetUnitDetails(totalAreaSqM: area);

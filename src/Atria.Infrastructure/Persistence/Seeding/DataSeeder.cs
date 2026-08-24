@@ -1,3 +1,4 @@
+using Atria.Domain.Common;
 using Atria.Domain.Investments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -34,27 +35,27 @@ public static class DataSeeder
             Property.Create(
                 "Bishkek Central Residence",
                 "Premium residential complex in the heart of Bishkek (Erkindik Blvd).",
-                "Erkindik Blvd 12, Bishkek", 50_000_000m, tokenPrice, 500_000, "KGS",
+                "Erkindik Blvd 12, Bishkek", 50_000_000m, tokenPrice, 500_000, Money.Currency,
                 minPurchaseTokens: minPurchase),
             Property.Create(
                 "Issyk-Kul Resort Villas",
                 "Beachfront resort villas on the northern shore of Issyk-Kul.",
-                "Cholpon-Ata, Issyk-Kul Region", 120_000_000m, tokenPrice, 1_200_000, "KGS",
+                "Cholpon-Ata, Issyk-Kul Region", 120_000_000m, tokenPrice, 1_200_000, Money.Currency,
                 minPurchaseTokens: minPurchase),
             Property.Create(
                 "Osh Commercial Plaza",
                 "Mixed-use commercial plaza in central Osh.",
-                "Kurmanjan Datka St 45, Osh", 80_000_000m, tokenPrice, 800_000, "KGS",
+                "Kurmanjan Datka St 45, Osh", 80_000_000m, tokenPrice, 800_000, Money.Currency,
                 minPurchaseTokens: minPurchase),
             Property.Create(
                 "Ala-Too Business Center",
                 "Class-A office tower near Ala-Too Square, Bishkek.",
-                "Chuy Ave 136, Bishkek", 200_000_000m, tokenPrice, 2_000_000, "KGS",
+                "Chuy Ave 136, Bishkek", 200_000_000m, tokenPrice, 2_000_000, Money.Currency,
                 minPurchaseTokens: minPurchase),
             Property.Create(
                 "Karakol Mountain Lodge",
                 "Boutique lodge serving the Karakol ski resort.",
-                "Karakol, Issyk-Kul Region", 35_000_000m, tokenPrice, 350_000, "KGS",
+                "Karakol, Issyk-Kul Region", 35_000_000m, tokenPrice, 350_000, Money.Currency,
                 minPurchaseTokens: minPurchase),
         };
 

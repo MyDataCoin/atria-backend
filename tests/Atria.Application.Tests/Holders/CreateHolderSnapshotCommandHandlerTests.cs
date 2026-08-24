@@ -31,7 +31,7 @@ public sealed class CreateHolderSnapshotCommandHandlerTests
     private const string WalletA = "0xaaaa000000000000000000000000000000000000";
     private const string WalletB = "0xbbbb000000000000000000000000000000000000";
 
-    private readonly Property _property = Property.Create("Tower One", null, null, 1_000_000m, 100m, 1_000, "USD");
+    private readonly Property _property = Property.Create("Tower One", null, null, 1_000_000m, 100m, 1_000, "KGS");
 
     public CreateHolderSnapshotCommandHandlerTests()
     {

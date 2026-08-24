@@ -100,7 +100,7 @@ public static class AuditNarrator
     };
 
     private static string Money(decimal amount)
-        => amount.ToString("0.##", CultureInfo.InvariantCulture) + " KGS";
+        => amount.ToString("0.##", CultureInfo.InvariantCulture) + " " + Domain.Common.Money.Currency;
 
     private static string Percent(decimal percent)
         => percent.ToString("0.##", CultureInfo.InvariantCulture);

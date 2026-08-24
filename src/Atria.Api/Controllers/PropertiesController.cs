@@ -79,7 +79,7 @@ public sealed class PropertiesController : ApiControllerBase
     /// <remarks>
     /// Registers a new property in the catalogue and returns its id. Requires the <b>Admin</b> role.
     /// <c>TotalValue</c>, <c>TokenPrice</c>, and <c>TotalTokens</c> must all be positive and <c>Currency</c>
-    /// must be a 3-letter ISO code (e.g. <c>USD</c>, <c>KGS</c>).
+    /// must be <c>KGS</c> — the platform issues in Kyrgyzstani som only.
     /// <para>
     /// To add a unit to a building, send <c>buildingId</c> plus the unit fields: <c>unitType</c>
     /// (<c>apartment</c> | <c>garage</c> | <c>parking_space</c> | <c>commercial</c> | <c>storage</c> |
