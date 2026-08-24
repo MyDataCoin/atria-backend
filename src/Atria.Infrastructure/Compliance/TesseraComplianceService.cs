@@ -86,7 +86,7 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
         return new AttestationIssueResult(did, wireTypes, anchorResult.TransactionRef);
     }
 
-    public async Task<bool> VerifyPresentationAsync(Guid investorId, string policyId, CancellationToken ct)
+    public async Task<bool> VerifyPresentationAsync(Guid investorId, CancellationToken ct)
     {
         var profile = await _profiles.GetByInvestorAsync(investorId, ct);
         if (profile is null)
@@ -95,16 +95,19 @@ public sealed class TesseraComplianceService : ITesseraComplianceService
         // NOTE: a real Tessera Verifier would validate the holder's verifiable
         // presentation (signatures, schema, freshness) against the policy. Here we
         // check the locally-held profile state against the configured policy.
-        var policyMatches = string.Equals(policyId, _options.PolicyId, StringComparison.Ordinal);
-
-        var verified = policyMatches
+        //
+        // What is checked is that a policy is CONFIGURED at all — not that a caller-supplied id
+        // equals ours. The previous comparison took an argument every caller left empty and matched
+        // it against the configured id, so verification failed for every investor regardless of
+        // their profile, and no mint was ever queued.
+        var verified = !string.IsNullOrWhiteSpace(_options.PolicyId)
                        && !profile.IsRevoked
                        && !string.IsNullOrWhiteSpace(profile.Did)
                        && !string.IsNullOrWhiteSpace(profile.AttestationsJson);
 
         _logger.LogInformation(
             "Presentation verification for investor {InvestorId} against policy {PolicyId}: {Verified}.",
-            investorId, policyId, verified);
+            investorId, _options.PolicyId, verified);
 
         return verified;
     }

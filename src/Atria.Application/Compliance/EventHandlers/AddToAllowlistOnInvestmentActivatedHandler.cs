@@ -62,7 +62,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
 
         // NOTE: the configured project policy id is resolved inside the service
         // implementation (TesseraOptions.PolicyId); the Application layer does not hold it.
-        var verified = await _tessera.VerifyPresentationAsync(investorId, string.Empty, ct);
+        var verified = await _tessera.VerifyPresentationAsync(investorId, ct);
         if (!verified)
         {
             _logger.LogWarning(

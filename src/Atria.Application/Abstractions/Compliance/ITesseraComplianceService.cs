@@ -21,8 +21,16 @@ public interface ITesseraComplianceService
         IReadOnlyCollection<AttestationType> attestations,
         CancellationToken ct);
 
-    /// <summary>Verify the investor's presentation against the project policy.</summary>
-    Task<bool> VerifyPresentationAsync(Guid investorId, string policyId, CancellationToken ct);
+    /// <summary>
+    /// Verify the investor's presentation against the project policy.
+    /// </summary>
+    /// <remarks>
+    /// The policy is NOT a parameter: it belongs to the implementation, which resolves it from
+    /// configuration. It used to be one, and every caller passed an empty string — so the service
+    /// compared that empty string against the configured id, never matched, and refused every
+    /// investor. An argument nobody can supply meaningfully is a promise the method cannot keep.
+    /// </remarks>
+    Task<bool> VerifyPresentationAsync(Guid investorId, CancellationToken ct);
 
     /// <param name="chainTag">Network whose allowlist to write to — the allowlist is per network.</param>
     Task AddToAllowlistAsync(string chainTag, string walletAddress, CancellationToken ct);

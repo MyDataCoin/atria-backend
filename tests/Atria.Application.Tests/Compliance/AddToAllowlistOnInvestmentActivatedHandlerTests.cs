@@ -27,8 +27,9 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandlerTests
     private const string Wallet = "0xaaaa000000000000000000000000000000000000";
 
     public AddToAllowlistOnInvestmentActivatedHandlerTests()
-        // Verification is asserted elsewhere; here it passes so the allowlist path is reachable.
-        => _tessera.VerifyPresentationAsync(InvestorId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+        // Verification passes by default so the allowlist path is reachable; the case where it
+        // refuses has its own test below.
+        => _tessera.VerifyPresentationAsync(InvestorId, Arg.Any<CancellationToken>())
             .Returns(true);
 
     private AddToAllowlistOnInvestmentActivatedHandler NewHandler() =>
@@ -98,6 +99,47 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandlerTests
         await _tessera.DidNotReceive().AddToAllowlistAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _queue.DidNotReceive().EnqueueAsync(
+            BlockchainOperationType.TokenAllocation, Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// Verification is what stands between an approved application and shares on chain, so its
+    /// refusal has to stop both writes. This path had no test, which is how a verification that
+    /// refused EVERY investor — an empty policy id compared against the configured one — went
+    /// unnoticed until a run produced an approved application and an empty queue.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_verification_does_nothing_on_chain()
+    {
+        var property = GivenIssueOn("bsc-testnet");
+        GivenWallet(Wallet);
+        _tessera.VerifyPresentationAsync(InvestorId, Arg.Any<CancellationToken>()).Returns(false);
+
+        await NewHandler().HandleAsync(ActivationFor(property), CancellationToken.None);
+
+        await _tessera.DidNotReceive().AddToAllowlistAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _queue.DidNotReceive().EnqueueAsync(
+            BlockchainOperationType.TokenAllocation, Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// The allowlist write and the allocation are one decision: queueing the mint while the address
+    /// is still not permitted leaves the contract to revert it.
+    /// </summary>
+    [Fact]
+    public async Task A_verified_investor_gets_both_operations_queued()
+    {
+        var property = GivenIssueOn("bsc-testnet");
+        GivenWallet(Wallet);
+
+        await NewHandler().HandleAsync(ActivationFor(property), CancellationToken.None);
+
+        await _tessera.Received(1).AddToAllowlistAsync(
+            "bsc-testnet", Wallet, Arg.Any<CancellationToken>());
+        await _queue.Received(1).EnqueueAsync(
             BlockchainOperationType.TokenAllocation, Arg.Any<string>(), Arg.Any<string>(),
             Arg.Any<CancellationToken>());
     }
