@@ -65,7 +65,7 @@ public sealed class Property : AggregateRoot
     /// <summary>
     /// Fewest shares one application may be for. The floor on entry: with a unit price small enough
     /// to make any sum expressible in whole tokens, this is what keeps a purchase from being a
-    /// handful of somoni. At least 1.
+    /// handful of som. At least 1.
     /// </summary>
     public long MinPurchaseTokens { get; private set; } = TokenAmount.Smallest;
 

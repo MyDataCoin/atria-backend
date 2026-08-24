@@ -7,6 +7,7 @@ using Atria.Domain.Common;
 using Atria.Domain.Compliance;
 using Atria.Domain.Investments;
 using Atria.Domain.Refunds;
+using Atria.Domain.Whitelist;
 
 namespace Atria.Application.Investments.Commands;
 
@@ -41,6 +42,7 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
     private readonly IHolderPositionRepository _positions;
     private readonly IRefundObligationRepository _refunds;
     private readonly IComplianceRepository _profiles;
+    private readonly IWhitelistEntryRepository _whitelist;
     private readonly IBlockchainOperationQueue _chain;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
@@ -53,6 +55,7 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
         IHolderPositionRepository positions,
         IRefundObligationRepository refunds,
         IComplianceRepository profiles,
+        IWhitelistEntryRepository whitelist,
         IBlockchainOperationQueue chain,
         ICurrentUserService currentUser,
         IDateTimeProvider clock,
@@ -64,6 +67,7 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
         _positions = positions;
         _refunds = refunds;
         _profiles = profiles;
+        _whitelist = whitelist;
         _chain = chain;
         _currentUser = currentUser;
         _clock = clock;
@@ -105,8 +109,11 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
         property.ReleaseTokens(investment.TokenCount);
         _properties.Update(property);
 
+        // The address the shares actually went to. The whitelist request snapshots it at mint time,
+        // so a profile whose wallet changed afterwards cannot send the burn to the wrong holder.
+        var entry = await _whitelist.GetByInvestmentAsync(investment.Id, ct);
         var profile = await _profiles.GetByInvestorAsync(investment.InvestorId, ct);
-        var wallet = investment.WalletAddress ?? profile?.WalletAddress;
+        var wallet = entry?.WalletAddress ?? investment.WalletAddress ?? profile?.WalletAddress;
 
         // What is owed back, at the price paid. A withdrawal unwinds the purchase; it does not
         // revalue it, so the holder is neither penalised nor enriched by the last two weeks.
@@ -120,8 +127,11 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
             await StopCountingInRegistryAsync(property.Id, wallet, investment.TokenCount, now, ct);
 
             // Only what actually reached the address needs burning. An application activated but
-            // never minted has nothing on chain to undo.
-            if (investment.OnChainStatus != OnChainStatus.None
+            // never minted has nothing on chain to undo. Either witness is enough: the platform's own
+            // allocation writes OnChainStatus, a batch handed to the exchange only marks the request
+            // Minted — reading just one of them leaves the other kind of mint un-burned.
+            if ((investment.OnChainStatus != OnChainStatus.None
+                 || entry?.Status == WhitelistStatus.Minted)
                 && !string.IsNullOrWhiteSpace(property.TokenContractAddress))
             {
                 var payload = JsonSerializer.Serialize(new

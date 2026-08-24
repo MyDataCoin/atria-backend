@@ -7,6 +7,7 @@ using Atria.Domain.Common;
 using Atria.Domain.Compliance;
 using Atria.Domain.Investments;
 using Atria.Domain.Refunds;
+using Atria.Domain.Whitelist;
 
 namespace Atria.Application.Investments.Commands;
 
@@ -47,6 +48,7 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
     private readonly IHolderPositionRepository _positions;
     private readonly IRefundObligationRepository _refunds;
     private readonly IComplianceRepository _profiles;
+    private readonly IWhitelistEntryRepository _whitelist;
     private readonly IBlockchainOperationQueue _chain;
     private readonly IDateTimeProvider _clock;
     private readonly IAuditWriter _audit;
@@ -58,6 +60,7 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
         IHolderPositionRepository positions,
         IRefundObligationRepository refunds,
         IComplianceRepository profiles,
+        IWhitelistEntryRepository whitelist,
         IBlockchainOperationQueue chain,
         IDateTimeProvider clock,
         IAuditWriter audit,
@@ -68,6 +71,7 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
         _positions = positions;
         _refunds = refunds;
         _profiles = profiles;
+        _whitelist = whitelist;
         _chain = chain;
         _clock = clock;
         _audit = audit;
@@ -107,8 +111,11 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
         property.ReleaseTokens(investment.TokenCount);
         _properties.Update(property);
 
+        // The address the shares actually went to. The whitelist request snapshots it at mint time,
+        // so a profile whose wallet changed afterwards cannot send the burn to the wrong holder.
+        var entry = await _whitelist.GetByInvestmentAsync(investment.Id, ct);
         var profile = await _profiles.GetByInvestorAsync(investment.InvestorId, ct);
-        var wallet = investment.WalletAddress ?? profile?.WalletAddress;
+        var wallet = entry?.WalletAddress ?? investment.WalletAddress ?? profile?.WalletAddress;
 
         if (wasActive)
         {
@@ -122,8 +129,11 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
             {
                 await StopCountingInRegistryAsync(property.Id, wallet, investment.TokenCount, ct);
 
-                // Only what actually reached the address needs burning.
-                if (investment.OnChainStatus != OnChainStatus.None
+                // Only what actually reached the address needs burning. Either witness is enough: the
+                // platform's own allocation writes OnChainStatus, a batch handed to the exchange only
+                // marks the request Minted — reading just one leaves the other kind of mint un-burned.
+                if ((investment.OnChainStatus != OnChainStatus.None
+                     || entry?.Status == WhitelistStatus.Minted)
                     && !string.IsNullOrWhiteSpace(property.TokenContractAddress))
                 {
                     var payload = JsonSerializer.Serialize(new

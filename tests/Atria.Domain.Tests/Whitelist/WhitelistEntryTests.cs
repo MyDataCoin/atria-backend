@@ -137,10 +137,50 @@ public sealed class WhitelistEntryTests
     }
 
     [Fact]
-    public void MarkMinted_RequiresTheRequestToHaveBeenBatched()
+    public void MarkMinted_WhenApprovedButNeverBatched_StillRecordsTheMint()
+    {
+        // The platform mints an approved application itself, so a request goes straight from
+        // Ready to Minted without ever being handed to the exchange.
+        var entry = NewEntry();
+        entry.MarkReady(DateTime.UtcNow);
+        var mintedAt = DateTime.UtcNow;
+
+        entry.MarkMinted(mintedAt);
+
+        entry.Status.Should().Be(WhitelistStatus.Minted);
+        entry.MintedAtUtc.Should().Be(mintedAt);
+        entry.IsMintable.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MarkMinted_WhenStillAwaitingApproval_Throws()
+    {
+        var entry = NewEntry();
+
+        var act = () => entry.MarkMinted(DateTime.UtcNow);
+
+        act.Should().Throw<InvalidStateTransitionException>();
+    }
+
+    [Fact]
+    public void MarkMinted_WhenAlreadyMinted_KeepsTheFirstMintAndDoesNotThrow()
     {
         var entry = NewEntry();
         entry.MarkReady(DateTime.UtcNow);
+        var mintedAt = DateTime.UtcNow;
+        entry.MarkMinted(mintedAt);
+
+        var act = () => entry.MarkMinted(mintedAt.AddHours(1));
+
+        act.Should().NotThrow();
+        entry.MintedAtUtc.Should().Be(mintedAt);
+    }
+
+    [Fact]
+    public void MarkMinted_WhenExcluded_Throws()
+    {
+        var entry = NewEntry();
+        entry.Exclude("заявка аннулирована");
 
         var act = () => entry.MarkMinted(DateTime.UtcNow);
 

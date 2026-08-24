@@ -141,12 +141,20 @@ public sealed class WhitelistEntry : AggregateRoot
         MintListId = null;
     }
 
-    /// <summary>Batched -> Minted: the batch was executed and the shares now exist on chain.</summary>
+    /// <summary>
+    /// Ready|Batched -> Minted: the shares now exist on chain. Reached from <see cref="WhitelistStatus.Ready"/>
+    /// because the platform mints an approved application itself — the request never has to pass through a
+    /// batch to become real. Batched is still accepted for a request that was handed to the exchange.
+    /// Idempotent for an already-minted request: a confirmation the platform sees twice must not throw,
+    /// or a retried allocation would fail after the shares were issued.
+    /// </summary>
     public void MarkMinted(DateTime mintedAtUtc)
     {
-        if (Status != WhitelistStatus.Batched)
+        if (Status == WhitelistStatus.Minted)
+            return;
+        if (Status is not (WhitelistStatus.Ready or WhitelistStatus.Batched))
             throw new InvalidStateTransitionException(
-                "Only a request handed over in a mint list can be marked minted.");
+                "Only a mintable request, or one handed over in a mint list, can be marked minted.");
 
         Status = WhitelistStatus.Minted;
         MintedAtUtc = mintedAtUtc;

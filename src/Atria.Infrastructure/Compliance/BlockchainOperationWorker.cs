@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Text.Json;
 using Atria.Application.Abstractions;
 using Atria.Domain.Investments;
+using Atria.Domain.Common;
 using Atria.Domain.Compliance;
+using Atria.Domain.Whitelist;
 using Atria.Infrastructure.Configuration;
 using Atria.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -105,8 +107,9 @@ public sealed class BlockchainOperationWorker : BackgroundService
 
                 await SubmitPendingAsync(context, signer, networks, allowlist, tokens, stoppingToken);
                 var receipts = scope.ServiceProvider.GetRequiredService<IChainReceiptReader>();
+                var clock = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
 
-                await ReconcileSubmittedAsync(context, networks, receipts, stoppingToken);
+                await ReconcileSubmittedAsync(context, networks, receipts, clock, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -355,7 +358,7 @@ public sealed class BlockchainOperationWorker : BackgroundService
     /// </remarks>
     private async Task ReconcileSubmittedAsync(
         AtriaDbContext context, IChainNetworkResolver networks, IChainReceiptReader receipts,
-        CancellationToken ct)
+        IDateTimeProvider clock, CancellationToken ct)
     {
         var submitted = await context.Set<BlockchainOperation>()
             .Where(o => o.Status == BlockchainOperationStatus.Submitted)
@@ -412,7 +415,7 @@ public sealed class BlockchainOperationWorker : BackgroundService
             if (!receipt.Succeeded)
             {
                 operation.MarkFailed($"Transaction {operation.TransactionRef} reverted in block {receipt.BlockNumber}.");
-                await ApplyToInvestmentAsync(context, operation, OnChainStatus.Failed, ct);
+                await ApplyToInvestmentAsync(context, operation, OnChainStatus.Failed, clock, ct);
                 changed = true;
 
                 _logger.LogError(
@@ -435,7 +438,7 @@ public sealed class BlockchainOperationWorker : BackgroundService
             }
 
             operation.MarkConfirmed(receipt.Confirmations);
-            await ApplyToInvestmentAsync(context, operation, OnChainStatus.Confirmed, ct);
+            await ApplyToInvestmentAsync(context, operation, OnChainStatus.Confirmed, clock, ct);
             changed = true;
 
             _logger.LogInformation(
@@ -452,7 +455,8 @@ public sealed class BlockchainOperationWorker : BackgroundService
     /// investor sees the real state of their allocation rather than the platform's intent.
     /// </summary>
     private async Task ApplyToInvestmentAsync(
-        AtriaDbContext context, BlockchainOperation operation, OnChainStatus status, CancellationToken ct)
+        AtriaDbContext context, BlockchainOperation operation, OnChainStatus status,
+        IDateTimeProvider clock, CancellationToken ct)
     {
         if (operation.Type != BlockchainOperationType.TokenAllocation)
             return;
@@ -492,6 +496,44 @@ public sealed class BlockchainOperationWorker : BackgroundService
         }
 
         investment.SetOnChainResult(operation.TransactionRef!, status);
+
+        if (status == OnChainStatus.Confirmed)
+            await MarkWhitelistEntryMintedAsync(context, investment.Id, clock, ct);
+    }
+
+    /// <summary>
+    /// Closes the whitelist request behind a confirmed allocation. The platform mints an approved
+    /// application itself, so the request must stop being mintable the moment the shares exist —
+    /// otherwise it stays <see cref="WhitelistStatus.Ready"/>, goes out to the exchange in the next
+    /// mint list, and the same shares are issued a second time.
+    /// </summary>
+    private async Task MarkWhitelistEntryMintedAsync(
+        AtriaDbContext context, Guid investmentId, IDateTimeProvider clock, CancellationToken ct)
+    {
+        var entry = await context.Set<WhitelistEntry>()
+            .FirstOrDefaultAsync(e => e.InvestmentId == investmentId, ct);
+
+        if (entry is null)
+        {
+            _logger.LogWarning(
+                "Investment {InvestmentId} was minted with no whitelist request to close.", investmentId);
+            return;
+        }
+
+        try
+        {
+            entry.MarkMinted(clock.UtcNow);
+        }
+        catch (InvalidStateTransitionException ex)
+        {
+            // Excluded: the application was annulled between queueing the mint and its confirmation.
+            // The shares exist anyway, so this needs an operator, not a retry.
+            _logger.LogError(
+                ex,
+                "Investment {InvestmentId} was minted while its whitelist request was {Status}; "
+                + "the shares exist on chain and the request cannot record them.",
+                investmentId, entry.Status);
+        }
     }
 
     /// <summary>The chain tag an operation targets, taken from its payload.</summary>
