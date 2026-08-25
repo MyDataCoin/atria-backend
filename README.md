@@ -294,3 +294,5 @@ simplest solution in the spirit of the document and note it).
   defaults marked with `// NOTE:` where the exact vendor payload should be confirmed.
 - **Config** — package versions are centrally pinned (`Directory.Packages.props`) on the
   .NET 9 line; framework-coupled families stay on `9.0.*`.
+
+мини фикс 
