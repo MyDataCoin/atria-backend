@@ -273,4 +273,63 @@ jobs:
             # Reclaim space from old image layers.
             docker image prune -f
 
+            # `up -d` returns as soon as the container is STARTED, not when the app is serving.
+            # Without this gate the job went green while the API crash-looped behind nginx and the
+            # public site showed its "failed to load" banner - a deploy that reports success while
+            # production is down is worse than one that fails. Poll the compose healthcheck (which
+            # already probes GET /health/live and matches the status line) until it turns healthy,
+            # and fail the deploy with the container logs when it does not.
+            #
+            # Budget: 180s. The healthcheck has start_period 20s + interval 30s x 3 retries, so a
+            # container that is genuinely bad is marked unhealthy well inside that window, and a
+            # slow first-run EF migration still has room to finish.
+            echo "Waiting for the API to become healthy..."
+            deadline=$(( $(date +%s) + 180 ))
+            while :; do
+              cid=$(docker compose -f docker-compose.yml ps -q api)
+              if [ -z "$cid" ]; then
+                echo "::error::The api container does not exist after \`compose up\`."
+                docker compose -f docker-compose.yml ps
+                exit 1
+              fi
+
+              state=$(docker inspect -f '{{.State.Status}}' "$cid")
+              health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid")
+              echo "  state=$state health=$health"
+
+              # Terminal failures — no point waiting out the rest of the budget.
+              case "$state:$health" in
+                *:healthy)
+                  echo "API is healthy."
+                  break
+                  ;;
+                exited:*|dead:*)
+                  echo "::error::The api container exited during deploy (state=$state)."
+                  docker compose -f docker-compose.yml logs --tail=200 api
+                  exit 1
+                  ;;
+                *:unhealthy)
+                  echo "::error::The api container is unhealthy - /health/live is not answering 200."
+                  docker compose -f docker-compose.yml logs --tail=200 api
+                  exit 1
+                  ;;
+                *:none)
+                  # No healthcheck defined on the image/service: fall back to the container simply
+                  # staying up, so this gate can never block a service that has no probe.
+                  if [ "$state" = "running" ]; then
+                    echo "::warning::The api service has no healthcheck; accepting state=running."
+                    break
+                  fi
+                  ;;
+              esac
+
+              if [ "$(date +%s)" -ge "$deadline" ]; then
+                echo "::error::Timed out after 180s waiting for the api container to become healthy (state=$state health=$health)."
+                docker compose -f docker-compose.yml logs --tail=200 api
+                exit 1
+              fi
+
+              sleep 5
+            done
+
             docker compose -f docker-compose.yml ps
