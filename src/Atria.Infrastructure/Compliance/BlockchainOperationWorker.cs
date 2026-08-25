@@ -171,6 +171,50 @@ public sealed class BlockchainOperationWorker : BackgroundService
         return result.TransactionRef;
     }
 
+    /// <summary>
+    /// Destroys shares an investor has given up — the other half of a withdrawal (§44), an
+    /// annulment, or an issue withdrawn from circulation.
+    /// </summary>
+    /// <remarks>
+    /// Until this existed, a TokenBurn fell through to the custody signer along with every unhandled
+    /// type, and on a test network there is no custody service to answer. The withdrawal itself
+    /// succeeded — pool restored, refund recorded, registry cleared — while the shares stayed on
+    /// chain. That gap is what lets the same shares be sold twice.
+    /// </remarks>
+    private static async Task<string> BurnAsync(
+        ITokenGateway tokens, BlockchainOperation operation,
+        (string ChainId, string? TokenContractAddress) target, CancellationToken ct)
+    {
+        using var payload = JsonDocument.Parse(operation.Payload);
+        var root = payload.RootElement;
+
+        var holder = root.TryGetProperty("holder", out var h) ? h.GetString() : null;
+        // Whole shares, as with a mint: a fractional payload is a bug upstream, and reading it as a
+        // decimal would destroy a number nobody authorised.
+        var amount = root.TryGetProperty("amount", out var a) && a.TryGetInt64(out var parsed)
+            ? parsed
+            : 0L;
+        var chain = root.TryGetProperty("chain", out var ch) ? ch.GetString() : null;
+        var reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null;
+
+        if (string.IsNullOrWhiteSpace(holder) || amount <= 0)
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} (TokenBurn) needs a holder address and a positive amount.");
+
+        if (string.IsNullOrWhiteSpace(target.TokenContractAddress))
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} targets an issue with no token contract recorded.");
+
+        if (string.IsNullOrWhiteSpace(chain))
+            throw new InvalidOperationException(
+                $"Operation {operation.Id} (TokenBurn) carries no chain tag.");
+
+        var result = await tokens.BurnAsync(
+            chain, target.TokenContractAddress, holder, amount, reason ?? "Withdrawn", ct);
+
+        return result.TransactionRef;
+    }
+
     /// <summary>Delivers the recorded collateral attestation into the issue's contract (§16).</summary>
     private static async Task<string> ReportCollateralAsync(
         ITokenGateway tokens, BlockchainOperation operation,
@@ -307,6 +351,11 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 {
                     var target = await ResolveTargetAsync(context, networks, operation, ct);
                     txRef = await ReportCollateralAsync(tokens, operation, target, ct);
+                }
+                else if (operation.Type == BlockchainOperationType.TokenBurn)
+                {
+                    var target = await ResolveTargetAsync(context, networks, operation, ct);
+                    txRef = await BurnAsync(tokens, operation, target, ct);
                 }
                 else
                 {

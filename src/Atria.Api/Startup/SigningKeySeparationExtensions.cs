@@ -50,6 +50,7 @@ public static class SigningKeySeparationExtensions
             ($"{EvmAnchorOptions.SectionName}:AgentPrivateKey", anchor.AgentPrivateKey),
             ($"{TokenSigningOptions.SectionName}:MinterPrivateKey", signing.MinterPrivateKey),
             ($"{TokenSigningOptions.SectionName}:OraclePrivateKey", signing.OraclePrivateKey),
+            ($"{TokenSigningOptions.SectionName}:CompliancePrivateKey", signing.CompliancePrivateKey),
         };
 
         var addresses = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

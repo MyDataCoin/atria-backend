@@ -29,6 +29,10 @@ public sealed partial class TokenSigningOptionsValidator : IValidateOptions<Toke
 
         Check(options.MinterPrivateKey, "MinterPrivateKey", "shares cannot be issued", failures);
         Check(options.OraclePrivateKey, "OraclePrivateKey", "collateral cannot be attested", failures);
+        // Without it a withdrawal half-completes: the pool is restored and the refund recorded while
+        // the shares stay on chain, so the same shares can be sold again. Better to refuse to start
+        // than to discover it when someone exercises their 14-day right.
+        Check(options.CompliancePrivateKey, "CompliancePrivateKey", "shares cannot be burned", failures);
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success

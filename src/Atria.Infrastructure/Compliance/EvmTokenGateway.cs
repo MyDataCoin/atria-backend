@@ -37,6 +37,7 @@ public sealed class EvmTokenGateway : ITokenGateway
     private readonly ILogger<EvmTokenGateway> _logger;
     private readonly ConcurrentDictionary<string, Web3> _clients = new();
     private readonly ConcurrentDictionary<string, Web3> _oracleClients = new();
+    private readonly ConcurrentDictionary<string, Web3> _complianceClients = new();
 
     public EvmTokenGateway(
         IChainNetworkResolver networks,
@@ -86,6 +87,58 @@ public sealed class EvmTokenGateway : ITokenGateway
                 + "not on the allowlist, or the issue's cap would be exceeded.");
 
         return new TokenWriteResult(receipt.TransactionHash, Confirmed: true);
+    }
+
+    public async Task<TokenWriteResult> BurnAsync(
+        string chainTag, string tokenContractAddress, string fromAddress, long amount, string reason,
+        CancellationToken ct)
+    {
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(amount), "Burn amount must be positive.");
+
+        var web3 = ComplianceClientFor(chainTag);
+        var handler = web3.Eth.GetContractTransactionHandler<BurnFunction>();
+
+        var burn = new BurnFunction
+        {
+            From = fromAddress,
+            Amount = TokenAmount.ToMinor(amount),
+            Reason = ReasonToBytes32(reason)
+        };
+
+        using var receiptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var receipt = await handler.SendRequestAndWaitForReceiptAsync(
+            tokenContractAddress, burn, receiptCts);
+
+        // Status 0 most often means the holder no longer has that many shares — they sold some on
+        // an exchange after buying. Reporting it as burned would leave the platform believing shares
+        // are gone while they sit in someone's wallet.
+        var succeeded = receipt.Status?.Value == 1;
+
+        _logger.Log(
+            succeeded ? LogLevel.Information : LogLevel.Error,
+            "Burn of {Amount} share(s) from {From} on {Contract} ({Chain}): tx {TxHash}, status {Status}.",
+            amount, fromAddress, tokenContractAddress, chainTag, receipt.TransactionHash,
+            succeeded ? "confirmed" : "REVERTED");
+
+        return new TokenWriteResult(receipt.TransactionHash, succeeded);
+    }
+
+    /// <summary>
+    /// Packs the reason into the contract's <c>bytes32</c>. Truncated at 32 bytes rather than
+    /// rejected: the reason is an audit note on chain, and losing the tail of a long one is a far
+    /// smaller problem than refusing to burn shares over it.
+    /// </summary>
+    private static byte[] ReasonToBytes32(string reason)
+    {
+        var buffer = new byte[32];
+        if (string.IsNullOrWhiteSpace(reason))
+            return buffer;
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(reason);
+        Array.Copy(bytes, buffer, Math.Min(bytes.Length, 32));
+
+        return buffer;
     }
 
     public async Task<TokenWriteResult> ReportCollateralAsync(
@@ -147,6 +200,27 @@ public sealed class EvmTokenGateway : ITokenGateway
         });
     }
 
+    private Web3 ComplianceClientFor(string chainTag)
+    {
+        var network = _networks.Resolve(chainTag)
+            ?? throw new InvalidOperationException(
+                $"Chain '{chainTag}' is not configured under Blockchain:Networks.");
+
+        return _complianceClients.GetOrAdd(network.Tag, _ =>
+        {
+            if (string.IsNullOrWhiteSpace(_options.CompliancePrivateKey))
+                throw new InvalidOperationException(
+                    "Blockchain:TokenSigning:CompliancePrivateKey is not set; shares cannot be burned, "
+                    + "so a withdrawal leaves them on chain while the platform counts them as returned.");
+
+            // A third account, not the minter's. The contract gates burn behind COMPLIANCE_ROLE
+            // precisely so the key that creates shares cannot destroy someone's property.
+            var web3 = new Web3(new Account(_options.CompliancePrivateKey, network.ChainId), network.RpcUrl);
+            web3.TransactionManager.UseLegacyAsDefault = true;
+            return web3;
+        });
+    }
+
     private Web3 ClientFor(string chainTag)
     {
         var network = _networks.Resolve(chainTag)
@@ -195,5 +269,19 @@ public sealed class EvmTokenGateway : ITokenGateway
 
         [Parameter("uint256", "amount", 2)]
         public BigInteger Amount { get; set; }
+    }
+
+    /// <summary>ABI binding for <c>burn(address,uint256,bytes32)</c> on the property token.</summary>
+    [Function("burn")]
+    private sealed class BurnFunction : FunctionMessage
+    {
+        [Parameter("address", "from", 1)]
+        public string From { get; set; } = null!;
+
+        [Parameter("uint256", "amount", 2)]
+        public BigInteger Amount { get; set; }
+
+        [Parameter("bytes32", "reason", 3)]
+        public byte[] Reason { get; set; } = null!;
     }
 }

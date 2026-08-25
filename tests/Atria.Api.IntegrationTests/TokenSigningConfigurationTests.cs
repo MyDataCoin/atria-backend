@@ -33,9 +33,29 @@ public sealed class TokenSigningConfigurationTests
         var outcome = Validate(new TokenSigningOptions { Mode = TokenSigningMode.OperationalKey });
 
         outcome.Succeeded.Should().BeFalse();
-        outcome.Failures.Should().HaveCount(2);
+        outcome.Failures.Should().HaveCount(3);
         outcome.Failures.Should().Contain(f => f.Contains("MinterPrivateKey"))
-            .And.Contain(f => f.Contains("OraclePrivateKey"));
+            .And.Contain(f => f.Contains("OraclePrivateKey"))
+            .And.Contain(f => f.Contains("CompliancePrivateKey"));
+    }
+
+    /// <summary>
+    /// Burning has its own key because the contract has its own role for it. Missing, it half-breaks
+    /// a withdrawal: the pool is restored and the refund recorded while the shares stay on chain, so
+    /// the same shares can be sold twice — and nothing says so until an investor exercises §44.
+    /// </summary>
+    [Fact]
+    public void The_operational_mode_requires_the_compliance_key_too()
+    {
+        var outcome = Validate(new TokenSigningOptions
+        {
+            Mode = TokenSigningMode.OperationalKey,
+            MinterPrivateKey = Key,
+            OraclePrivateKey = Key
+        });
+
+        outcome.Succeeded.Should().BeFalse();
+        outcome.Failures.Should().ContainSingle().Which.Should().Contain("CompliancePrivateKey");
     }
 
     /// <summary>
@@ -49,7 +69,8 @@ public sealed class TokenSigningConfigurationTests
         var outcome = Validate(new TokenSigningOptions
         {
             Mode = TokenSigningMode.OperationalKey,
-            MinterPrivateKey = Key
+            MinterPrivateKey = Key,
+            CompliancePrivateKey = Key
         });
 
         outcome.Succeeded.Should().BeFalse();
@@ -64,7 +85,8 @@ public sealed class TokenSigningConfigurationTests
         {
             Mode = TokenSigningMode.OperationalKey,
             MinterPrivateKey = "0xdeadbeef",
-            OraclePrivateKey = Key
+            OraclePrivateKey = Key,
+            CompliancePrivateKey = Key
         });
 
         outcome.Succeeded.Should().BeFalse();
@@ -77,6 +99,7 @@ public sealed class TokenSigningConfigurationTests
         {
             Mode = TokenSigningMode.OperationalKey,
             MinterPrivateKey = Key,
-            OraclePrivateKey = Key
+            OraclePrivateKey = Key,
+            CompliancePrivateKey = Key
         }).Succeeded.Should().BeTrue();
 }

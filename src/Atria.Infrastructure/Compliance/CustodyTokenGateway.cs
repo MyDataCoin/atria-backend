@@ -76,6 +76,64 @@ public sealed class CustodyTokenGateway : ITokenGateway
         return new TokenWriteResult(txRef, Confirmed: false);
     }
 
+    public async Task<TokenWriteResult> BurnAsync(
+        string chainTag, string tokenContractAddress, string fromAddress, long amount, string reason,
+        CancellationToken ct)
+    {
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(amount), "Burn amount must be positive.");
+
+        var network = _networks.Resolve(chainTag)
+            ?? throw new InvalidOperationException(
+                $"Chain '{chainTag}' is not configured under Blockchain:Networks.");
+
+        // burn(address,uint256,bytes32). Custody picks the compliance key by operation type, the
+        // same way it picks the oracle key for a collateral report: the contract gates burning
+        // behind a different role from minting, and this side must not blur that.
+        var callData = new FunctionCallEncoder().EncodeRequest(
+            sha3Signature: "158a1cc3",
+            parameters:
+            [
+                new Parameter("address", "from", 1),
+                new Parameter("uint256", "amount", 2),
+                new Parameter("bytes32", "reason", 3)
+            ],
+            values: [fromAddress, TokenAmount.ToMinor(amount), ReasonToBytes32(reason)]);
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            to = tokenContractAddress,
+            data = callData,
+            chainId = network.ChainId,
+            value = "0x0"
+        });
+
+        var result = await _signer.SignAndSubmitAsync(
+            new SigningRequest("TokenBurn", payload, network.ChainId.ToString(), tokenContractAddress),
+            ct);
+
+        var txRef = result.SubmissionReference ?? result.SignedPayload;
+
+        _logger.LogInformation(
+            "Submitted burn of {Amount} share(s) from {From} on {Contract} ({Chain}) to custody; ref {TxRef}.",
+            amount, fromAddress, tokenContractAddress, chainTag, txRef);
+
+        return new TokenWriteResult(txRef, Confirmed: false);
+    }
+
+    /// <summary>Packs the reason into the contract's <c>bytes32</c>, truncating at 32 bytes.</summary>
+    private static byte[] ReasonToBytes32(string reason)
+    {
+        var buffer = new byte[32];
+        if (string.IsNullOrWhiteSpace(reason))
+            return buffer;
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(reason);
+        Array.Copy(bytes, buffer, Math.Min(bytes.Length, 32));
+
+        return buffer;
+    }
+
     public async Task<TokenWriteResult> ReportCollateralAsync(
         string chainTag, string tokenContractAddress, byte[] dataHash, decimal valuation,
         DateTime valuedAtUtc, string uri, CancellationToken ct)

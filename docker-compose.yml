@@ -113,6 +113,9 @@ services:
       # the repository — they come from the server .env, next to the anchor agent key above.
       Blockchain__TokenSigning__MinterPrivateKey: ${BLOCKCHAIN_MINTER_PRIVATE_KEY:-${Blockchain__TokenSigning__MinterPrivateKey:-}}
       Blockchain__TokenSigning__OraclePrivateKey: ${BLOCKCHAIN_ORACLE_PRIVATE_KEY:-${Blockchain__TokenSigning__OraclePrivateKey:-}}
+      # COMPLIANCE_ROLE key — burns shares. A third key, not a spare minter: the contract gates
+      # burning behind its own role so the key that creates shares cannot destroy someone's property.
+      Blockchain__TokenSigning__CompliancePrivateKey: ${BLOCKCHAIN_COMPLIANCE_PRIVATE_KEY:-${Blockchain__TokenSigning__CompliancePrivateKey:-}}
       # Public media (property photos/documents): the API copies files to the media host over SCP
       # and stores an absolute URL served by that host's nginx. ONLY the credentials live here —
       # PublicBaseUrl, PublicBasePath, RemoteRoot, ScpHost and ScpPort are in appsettings.json.

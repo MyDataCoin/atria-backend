@@ -28,6 +28,20 @@ public interface ITokenGateway
         string chainTag, string tokenContractAddress, string toAddress, long amount, CancellationToken ct);
 
     /// <summary>
+    /// Destroys <paramref name="amount"/> shares held at <paramref name="fromAddress"/>, recording
+    /// why on chain.
+    /// </summary>
+    /// <remarks>
+    /// Signed by the COMPLIANCE role, never by the minter — the contract separates the two so the
+    /// key that can create shares cannot destroy someone's property. This is what closes the 14-day
+    /// right of withdrawal (§44): without it a withdrawal returns the shares to the pool in the
+    /// database while they still exist on chain, and the same shares can be sold twice.
+    /// </remarks>
+    Task<TokenWriteResult> BurnAsync(
+        string chainTag, string tokenContractAddress, string fromAddress, long amount, string reason,
+        CancellationToken ct);
+
+    /// <summary>
     /// Delivers verified collateral data into the contract (draft Decree, §16): the hash of the
     /// document package, the appraised value and when it was appraised.
     /// </summary>

@@ -31,6 +31,8 @@ public sealed class ContractSelectorTests
     [InlineData("mint(address,uint256)", "40c10f19")]
     // AtriaPropertyToken.reportCollateral(bytes32 dataHash, uint256 valuation, uint64 valuedAt, string uri)
     [InlineData("reportCollateral(bytes32,uint256,uint64,string)", "d2b3d0db")]
+    // AtriaPropertyToken.burn(address from, uint256 amount, bytes32 reason)
+    [InlineData("burn(address,uint256,bytes32)", "158a1cc3")]
     public void Selector_matches_the_signature_it_claims_to_encode(string signature, string expected)
     {
         var actual = Convert.ToHexString(
@@ -58,7 +60,7 @@ public sealed class ContractSelectorTests
             .Distinct()
             .ToArray();
 
-        var covered = new[] { "40C10F19", "D2B3D0DB" };
+        var covered = new[] { "40C10F19", "D2B3D0DB", "158A1CC3" };
 
         used.Should().BeSubsetOf(
             covered,

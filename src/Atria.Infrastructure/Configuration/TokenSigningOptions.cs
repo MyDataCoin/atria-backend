@@ -42,6 +42,17 @@ public sealed class TokenSigningOptions
     /// </summary>
     public string? OraclePrivateKey { get; init; }
 
+    /// <summary>
+    /// Compliance key, used only in the operational-key mode. Must hold <c>COMPLIANCE_ROLE</c>.
+    /// </summary>
+    /// <remarks>
+    /// A THIRD key, not a spare minter. The contract puts burning behind a different role from
+    /// minting on purpose: whoever can create shares must not be able to destroy someone's property.
+    /// This is the key behind the 14-day right of withdrawal (§44), redemption, and withdrawal from
+    /// circulation when an issue is declared invalid (§73).
+    /// </remarks>
+    public string? CompliancePrivateKey { get; init; }
+
     /// <summary>True when the operational-key path is selected but no key was supplied.</summary>
     [MemberNotNullWhen(false, nameof(MinterPrivateKey))]
     public bool IsMisconfigured
