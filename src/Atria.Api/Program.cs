@@ -108,6 +108,11 @@ builder.Services.AddCors(options =>
         .WithOrigins(corsOrigins)
         .AllowAnyHeader()
         .AllowAnyMethod()
+        // Retry-After is not one of the headers a browser hands to script by default, so a
+        // cross-origin caller could not read it — and the rate limiter sets it precisely so callers
+        // would not have to guess. Without this the dashboards back off blind and retry into the
+        // same closed window.
+        .WithExposedHeaders("Retry-After")
         .AllowCredentials()));
 
 // --- API versioning: default v1.0, URL segment reader, grouped explorer for Swagger. ---
