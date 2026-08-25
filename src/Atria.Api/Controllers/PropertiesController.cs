@@ -262,7 +262,8 @@ public sealed class PropertiesController : ApiControllerBase
     public async Task<IActionResult> SetTokenContract(
         Guid id, SetPropertyTokenContractRequest request, CancellationToken ct)
         => ToActionResult(await Sender.Send(new SetPropertyTokenContractCommand(
-            id, request.TokenContractAddress, request.TokenChain, request.IssuerWalletAddress), ct));
+            id, request.TokenContractAddress, request.TokenChain, request.IssuerWalletAddress,
+            request.DeploymentBlock), ct));
 
     /// <summary>Announces a property as "coming soon". Admin only.</summary>
     /// <remarks>

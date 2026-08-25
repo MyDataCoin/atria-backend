@@ -309,10 +309,13 @@ public sealed record SetPropertyCollateralRequest(
 /// <param name="TokenContractAddress">Address of the deployed permissioned token contract.</param>
 /// <param name="TokenChain">Tag of the network it is deployed on, e.g. <c>bsc-testnet</c>.</param>
 /// <param name="IssuerWalletAddress">Wallet the issuer holds the issue's own shares in.</param>
+/// <param name="DeploymentBlock">Block the contract was deployed in; lets the holder registry replay
+/// this issue's transfers from the contract's own start instead of the chain's.</param>
 public sealed record SetPropertyTokenContractRequest(
     string TokenContractAddress,
     string TokenChain,
-    string IssuerWalletAddress);
+    string IssuerWalletAddress,
+    long? DeploymentBlock = null);
 
 /// <summary>POST /regulatory-reports body. Records a filing obligation and its deadline.</summary>
 /// <param name="Kind">Which notification, sent by name.</param>

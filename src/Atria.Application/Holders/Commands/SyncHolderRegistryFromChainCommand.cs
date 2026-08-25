@@ -89,9 +89,17 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
         var cursor = await _cursors.FindByPropertyAsync(property.Id, ct);
         if (cursor is null)
         {
-            // First run replays from the start of the chain's history for this contract. Cheap here
-            // because the contract is young; a deployment block on the issue would narrow it further.
-            cursor = ChainSyncCursor.StartFor(property.Id, 0, now);
+            // The replay starts where the contract starts. Without the issue's deployment block it
+            // would start at block zero, which on a live chain is not "the beginning of this
+            // contract's history" but the beginning of everyone's: 127 million blocks, 25 000 windows
+            // of nothing, and a node that refuses the oldest ranges outright. Falling back to zero is
+            // still correct for a chain that is genuinely young — a local devnet — so it stays.
+            // Seeded one block BEFORE the deployment, because the cursor records what has been
+            // PROCESSED and nothing has been. Seeding it at the deployment block itself would skip
+            // that block on the first window — and that is the block holding the contract's creation
+            // and, typically, the first mint.
+            var start = property.TokenDeploymentBlock ?? 0;
+            cursor = ChainSyncCursor.StartFor(property.Id, Math.Max(start - 1, 0), now);
             await _cursors.AddAsync(cursor, ct);
         }
 

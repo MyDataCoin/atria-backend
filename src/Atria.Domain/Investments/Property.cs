@@ -92,6 +92,18 @@ public sealed class Property : AggregateRoot
     /// <summary>Issuer wallet that holds/mints the issuance. Null until set.</summary>
     public string? IssuerWalletAddress { get; private set; }
 
+    /// <summary>
+    /// Block the token contract was deployed in — where a replay of this issue's transfers starts.
+    /// Null when unknown, which is read as "from the beginning of the chain".
+    /// </summary>
+    /// <remarks>
+    /// Not a convenience. The registry replays <c>Transfer</c> events in windows, and without this
+    /// the first run starts at block zero: on a chain 127 million blocks deep that is 25 000 calls
+    /// through history where this contract did not exist, and the node refuses the oldest ranges
+    /// outright. The issue's own deployment block turns that into a single window.
+    /// </remarks>
+    public long? TokenDeploymentBlock { get; private set; }
+
     // --- Collateral (what backs the issue) and its state registration ---
 
     /// <summary>
@@ -327,7 +339,9 @@ public sealed class Property : AggregateRoot
     }
 
     /// <summary>Records this issuance's on-chain token contract, chain and issuer wallet.</summary>
-    public void SetTokenContract(string tokenContractAddress, string tokenChain, string issuerWalletAddress)
+    public void SetTokenContract(
+        string tokenContractAddress, string tokenChain, string issuerWalletAddress,
+        long? deploymentBlock = null)
     {
         if (string.IsNullOrWhiteSpace(tokenContractAddress))
             throw new DomainException("Token contract address is required.");
@@ -335,10 +349,13 @@ public sealed class Property : AggregateRoot
             throw new DomainException("Token chain is required.");
         if (string.IsNullOrWhiteSpace(issuerWalletAddress))
             throw new DomainException("Issuer wallet address is required.");
+        if (deploymentBlock is < 0)
+            throw new DomainException("Deployment block cannot be negative.");
 
         TokenContractAddress = tokenContractAddress;
         TokenChain = tokenChain;
         IssuerWalletAddress = issuerWalletAddress;
+        TokenDeploymentBlock = deploymentBlock;
     }
 
     /// <summary>

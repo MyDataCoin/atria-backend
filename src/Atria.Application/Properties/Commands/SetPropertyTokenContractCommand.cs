@@ -22,11 +22,16 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="TokenContractAddress">Address of the deployed permissioned token contract.</param>
 /// <param name="TokenChain">Tag of the network it is deployed on, e.g. <c>bsc-testnet</c>.</param>
 /// <param name="IssuerWalletAddress">Wallet the issuer holds the issue's own shares in.</param>
+/// <param name="DeploymentBlock">
+/// Block the contract was deployed in. Optional, but supplying it is what makes the holder registry
+/// syncable: without it the replay of this issue's transfers starts at block zero.
+/// </param>
 public sealed record SetPropertyTokenContractCommand(
     Guid PropertyId,
     string TokenContractAddress,
     string TokenChain,
-    string IssuerWalletAddress) : IRequest<Result>;
+    string IssuerWalletAddress,
+    long? DeploymentBlock = null) : IRequest<Result>;
 
 public sealed class SetPropertyTokenContractCommandHandler
     : IRequestHandler<SetPropertyTokenContractCommand, Result>
@@ -148,7 +153,7 @@ public sealed class SetPropertyTokenContractCommandHandler
 
         try
         {
-            property.SetTokenContract(contract, network.Tag, issuer);
+            property.SetTokenContract(contract, network.Tag, issuer, request.DeploymentBlock);
         }
         catch (DomainException ex)
         {
