@@ -111,10 +111,14 @@ public static class SigningKeySeparationExtensions
             return;
         }
 
-        throw new InvalidOperationException(
+        // Logged loudly, not thrown. A collision is serious — the platform would be transacting with
+        // a client's key — but refusing to boot takes the whole service down for every user over a
+        // configuration mistake that affects one key. It went down that way once; the alarm is the
+        // point, not the outage.
+        logger.LogCritical(
             "A signing key belongs to an investor's wallet, so the platform would be transacting "
-            + "with a client's key: " + string.Join("; ", collisions)
-            + ". Configure a dedicated service key for that role.");
+            + "with a client's key: {Collisions}. Configure a dedicated service key for that role.",
+            string.Join("; ", collisions));
     }
 
     /// <summary>

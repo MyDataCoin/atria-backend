@@ -33,30 +33,25 @@ public sealed class TokenSigningConfigurationTests
         var outcome = Validate(new TokenSigningOptions { Mode = TokenSigningMode.OperationalKey });
 
         outcome.Succeeded.Should().BeFalse();
-        outcome.Failures.Should().HaveCount(3);
+        outcome.Failures.Should().HaveCount(2);
         outcome.Failures.Should().Contain(f => f.Contains("MinterPrivateKey"))
-            .And.Contain(f => f.Contains("OraclePrivateKey"))
-            .And.Contain(f => f.Contains("CompliancePrivateKey"));
+            .And.Contain(f => f.Contains("OraclePrivateKey"));
     }
 
     /// <summary>
-    /// Burning has its own key because the contract has its own role for it. Missing, it half-breaks
-    /// a withdrawal: the pool is restored and the refund recorded while the shares stay on chain, so
-    /// the same shares can be sold twice — and nothing says so until an investor exercises §44.
+    /// The compliance key is NOT required to start, unlike the other two. Minting and attesting are
+    /// what the platform does to serve users; burning undoes a withdrawal. Refusing to boot without
+    /// it took production down over a capability nothing was using that minute — the outage was
+    /// worse than the gap. The gateway raises a clear error when a burn is actually attempted.
     /// </summary>
     [Fact]
-    public void The_operational_mode_requires_the_compliance_key_too()
-    {
-        var outcome = Validate(new TokenSigningOptions
+    public void A_missing_compliance_key_does_not_stop_the_start()
+        => Validate(new TokenSigningOptions
         {
             Mode = TokenSigningMode.OperationalKey,
             MinterPrivateKey = Key,
             OraclePrivateKey = Key
-        });
-
-        outcome.Succeeded.Should().BeFalse();
-        outcome.Failures.Should().ContainSingle().Which.Should().Contain("CompliancePrivateKey");
-    }
+        }).Succeeded.Should().BeTrue();
 
     /// <summary>
     /// The oracle key is checked as strictly as the minter key: an issue whose collateral cannot be
