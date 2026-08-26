@@ -42,6 +42,13 @@ public sealed class CreatePropertyCommandValidator : AbstractValidator<CreatePro
         RuleFor(x => x.UnitNumber).MaximumLength(32);
         RuleFor(x => x.FloorNumber).InclusiveBetween(-10, 500).When(x => x.FloorNumber is not null);
         RuleFor(x => x.RoomCount).InclusiveBetween(0, 100).When(x => x.RoomCount is not null);
+
+        // Where a garage / parking space sits in the car park. Strings on purpose: a section is "B"
+        // as often as "2" and a row is written "12А", so there is no numeric rule to apply — only a
+        // length. Each is independently optional; a car park may number spaces without rows.
+        RuleFor(x => x.Section).MaximumLength(Property.MaxParkingAddressPart);
+        RuleFor(x => x.Row).MaximumLength(Property.MaxParkingAddressPart);
+        RuleFor(x => x.Spot).MaximumLength(Property.MaxParkingAddressPart);
         RuleFor(x => x.TotalAreaSqM).GreaterThan(0).When(x => x.TotalAreaSqM is not null);
 
         RuleForEach(x => x.Rooms).ChildRules(room =>

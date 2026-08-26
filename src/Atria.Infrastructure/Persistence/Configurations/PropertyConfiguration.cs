@@ -26,6 +26,11 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.UnitNumber).HasMaxLength(32);
         b.Property(p => p.FloorNumber);
         b.Property(p => p.RoomCount);
+        // Where a garage / parking space sits in the car park. Strings: sections and rows carry
+        // letters ("B", "12А") as often as digits.
+        b.Property(p => p.Section).HasMaxLength(Property.MaxParkingAddressPart);
+        b.Property(p => p.Row).HasMaxLength(Property.MaxParkingAddressPart);
+        b.Property(p => p.Spot).HasMaxLength(Property.MaxParkingAddressPart);
         b.Property(p => p.TotalAreaSqM).HasPrecision(10, 2);
         b.HasOne<Building>()
             .WithMany()

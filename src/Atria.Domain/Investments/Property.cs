@@ -18,6 +18,9 @@ public sealed class Property : AggregateRoot
     /// <summary>Maximum photos a property may have.</summary>
     public const int MaxImages = 10;
 
+    /// <summary>Longest a section / row / spot designation may be.</summary>
+    public const int MaxParkingAddressPart = 32;
+
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
     public string? Address { get; private set; }
@@ -45,6 +48,21 @@ public sealed class Property : AggregateRoot
 
     /// <summary>Number of rooms the unit is sold as (2-, 3-, 4-комнатная). Null for a garage.</summary>
     public int? RoomCount { get; private set; }
+
+    // --- Where a garage / parking space sits inside the car park ---
+    //
+    // Strings, not numbers: a section is "B" as often as "2", and a row is written "12А". Parsing
+    // those into ints would either reject the address the admin actually has or silently drop the
+    // letter. All three are independently optional — a car park may number spaces without rows.
+
+    /// <summary>Car-park section the space is in (e.g. "B"). Null when unset.</summary>
+    public string? Section { get; private set; }
+
+    /// <summary>Row within the section (e.g. "12А"). Null when unset.</summary>
+    public string? Row { get; private set; }
+
+    /// <summary>The space's own number (e.g. "125"). Null when unset.</summary>
+    public string? Spot { get; private set; }
 
     /// <summary>Total floor area of the unit in square metres.</summary>
     public decimal? TotalAreaSqM { get; private set; }
@@ -260,6 +278,43 @@ public sealed class Property : AggregateRoot
         FloorNumber = floorNumber ?? FloorNumber;
         RoomCount = roomCount ?? RoomCount;
         TotalAreaSqM = totalAreaSqM ?? TotalAreaSqM;
+    }
+
+    /// <summary>
+    /// Records where a garage or parking space sits in the car park. All three are set together and
+    /// null CLEARS the field — deliberately unlike <see cref="SetUnitDetails"/>, where null means
+    /// "leave as is".
+    /// </summary>
+    /// <remarks>
+    /// The difference is what makes switching a unit's type behave. The admin form sends all three as
+    /// null once the type is no longer a garage or a parking space, and a section entered before that
+    /// switch has to disappear with it — under "null = leave as is" it would stay on the record and
+    /// an apartment would keep claiming a parking row. So this is an assignment of the whole address,
+    /// not a patch of its parts.
+    /// </remarks>
+    /// <param name="section">Car-park section, or null to clear it.</param>
+    /// <param name="row">Row within the section, or null to clear it.</param>
+    /// <param name="spot">The space's own number, or null to clear it.</param>
+    public void SetParkingAddress(string? section, string? row, string? spot)
+    {
+        // Blank is the same as absent: an admin who clears the input sends "", and storing that would
+        // make an empty section print as a value rather than as "not set".
+        Section = Normalize(section);
+        Row = Normalize(row);
+        Spot = Normalize(spot);
+
+        static string? Normalize(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var trimmed = value.Trim();
+            if (trimmed.Length > MaxParkingAddressPart)
+                throw new DomainException(
+                    $"Parking address part cannot exceed {MaxParkingAddressPart} characters.");
+
+            return trimmed;
+        }
     }
 
     /// <summary>

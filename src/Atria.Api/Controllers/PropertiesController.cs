@@ -104,7 +104,8 @@ public sealed class PropertiesController : ApiControllerBase
             request.TokenPrice, request.TotalTokens, request.Currency, request.MinPurchaseTokens,
             request.PropertyType, request.City, request.YearBuilt, request.Developer, request.Floors,
             request.BuildingId, request.UnitType, request.UnitNumber, request.FloorNumber,
-            request.RoomCount, request.TotalAreaSqM, request.Rooms), ct);
+            request.RoomCount, request.Section, request.Row, request.Spot,
+            request.TotalAreaSqM, request.Rooms), ct);
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
@@ -116,7 +117,11 @@ public sealed class PropertiesController : ApiControllerBase
     /// terms of a live offering. The unit fields (building, type, number, floor, area) and the
     /// <c>rooms</c> breakdown are editable; sending <c>rooms</c> replaces the whole list, <c>[]</c> clears
     /// it and omitting it leaves it alone. <c>buildingId</c> moves the unit into another building; send
-    /// the all-zero Guid to pull it out into a standalone issue. Responds with 404 when the property does not exist. The edit is
+    /// the all-zero Guid to pull it out into a standalone issue. The parking address
+    /// (<c>section</c>, <c>row</c>, <c>spot</c>) is the exception to "only the supplied fields change":
+    /// <c>null</c> there CLEARS the value, so switching a unit away from a garage / parking space
+    /// wipes an address that no longer applies instead of leaving it stuck on the record.
+    /// Responds with 404 when the property does not exist. The edit is
     /// recorded in the audit journal as <c>PropertyUpdated</c>.
     /// </remarks>
     /// <param name="id">The property's unique identifier.</param>
@@ -134,7 +139,8 @@ public sealed class PropertiesController : ApiControllerBase
             id, request.Name, request.Description, request.Address, request.PropertyType,
             request.City, request.YearBuilt, request.Developer, request.Floors,
             request.BuildingId, request.UnitType, request.UnitNumber, request.FloorNumber,
-            request.RoomCount, request.TotalAreaSqM, request.Rooms), ct));
+            request.RoomCount, request.Section, request.Row, request.Spot,
+            request.TotalAreaSqM, request.Rooms), ct));
 
     /// <summary>Annuls part of an issue that was never placed. Admin only.</summary>
     /// <remarks>

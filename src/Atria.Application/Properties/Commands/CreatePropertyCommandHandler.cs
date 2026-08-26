@@ -57,6 +57,7 @@ public sealed class CreatePropertyCommandHandler
         property.SetUnitDetails(
             PropertyDto.ParseUnitType(request.UnitType), request.UnitNumber, request.FloorNumber,
             request.RoomCount, request.TotalAreaSqM);
+        property.SetParkingAddress(request.Section, request.Row, request.Spot);
 
         if (request.Rooms is { Count: > 0 })
             property.ReplaceRooms(request.Rooms.Select(r => (r.Name, r.AreaSqM)));

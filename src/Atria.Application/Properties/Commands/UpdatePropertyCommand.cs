@@ -26,6 +26,9 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="UnitNumber">New flat / garage box number; <c>null</c> to leave unchanged.</param>
 /// <param name="FloorNumber">New floor the unit is on; <c>null</c> to leave unchanged.</param>
 /// <param name="RoomCount">New room count; <c>null</c> to leave unchanged.</param>
+/// <param name="Section">Car-park section; <c>null</c> CLEARS it — see <see cref="Property.SetParkingAddress"/>.</param>
+/// <param name="Row">Row within the section; <c>null</c> CLEARS it.</param>
+/// <param name="Spot">The parking space's own number; <c>null</c> CLEARS it.</param>
 /// <param name="TotalAreaSqM">New total area in m²; <c>null</c> to leave unchanged.</param>
 /// <param name="Rooms">
 /// Replaces the whole room breakdown when supplied; <c>null</c> leaves it untouched and an empty
@@ -46,6 +49,9 @@ public sealed record UpdatePropertyCommand(
     string? UnitNumber = null,
     int? FloorNumber = null,
     int? RoomCount = null,
+    string? Section = null,
+    string? Row = null,
+    string? Spot = null,
     decimal? TotalAreaSqM = null,
     IReadOnlyList<PropertyRoomInput>? Rooms = null) : IRequest<Result>;
 
@@ -105,6 +111,11 @@ public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropert
         property.SetUnitDetails(
             PropertyDto.ParseUnitType(request.UnitType), request.UnitNumber, request.FloorNumber,
             request.RoomCount, request.TotalAreaSqM);
+
+        // Deliberately NOT the "only non-null is applied" rule the line above follows: the admin form
+        // sends all three as null as soon as the unit stops being a garage or a parking space, and a
+        // section left over from before that switch has to go with it.
+        property.SetParkingAddress(request.Section, request.Row, request.Spot);
 
         // null = leave the breakdown alone; an empty list clears it.
         if (request.Rooms is not null)

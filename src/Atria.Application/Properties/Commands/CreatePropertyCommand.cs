@@ -14,6 +14,9 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="UnitNumber">Flat / garage box number inside the building.</param>
 /// <param name="FloorNumber">Floor the unit is on.</param>
 /// <param name="RoomCount">How many rooms the unit is sold as (2-, 3-, 4-комнатная).</param>
+/// <param name="Section">Car-park section a garage / parking space sits in (e.g. <c>B</c>); optional.</param>
+/// <param name="Row">Row within the section (e.g. <c>12А</c>); optional.</param>
+/// <param name="Spot">The parking space's own number (e.g. <c>125</c>); optional.</param>
 /// <param name="TotalAreaSqM">Total floor area of the unit in m².</param>
 /// <param name="Rooms">Room breakdown: name + area per row, in display order.</param>
 /// <param name="MinPurchaseTokens">Fewest tokens one application may be for. Defaults to a single token.</param>
@@ -36,5 +39,8 @@ public sealed record CreatePropertyCommand(
     string? UnitNumber = null,
     int? FloorNumber = null,
     int? RoomCount = null,
+    string? Section = null,
+    string? Row = null,
+    string? Spot = null,
     decimal? TotalAreaSqM = null,
     IReadOnlyList<PropertyRoomInput>? Rooms = null) : IRequest<Result<Guid>>;

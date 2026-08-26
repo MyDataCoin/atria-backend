@@ -28,6 +28,9 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="UnitNumber">Unit designation inside the building (flat / garage box number); <c>null</c> when unset.</param>
 /// <param name="FloorNumber">Floor the unit is on; <c>null</c> when unset.</param>
 /// <param name="RoomCount">How many rooms the unit is sold as (2-, 3-, 4-комнатная); <c>null</c> for a garage.</param>
+/// <param name="Section">Car-park section a garage / parking space sits in (e.g. <c>B</c>); <c>null</c> when unset.</param>
+/// <param name="Row">Row within the section (e.g. <c>12А</c>); <c>null</c> when unset.</param>
+/// <param name="Spot">The parking space's own number (e.g. <c>125</c>); <c>null</c> when unset.</param>
 /// <param name="TotalAreaSqM">Total floor area of the unit in m²; <c>null</c> when unset.</param>
 /// <param name="Rooms">Room breakdown (name + area), in the order the admin entered it.</param>
 /// <param name="RoomsAreaSqM">Sum of <paramref name="Rooms"/> areas. Compare with <paramref name="TotalAreaSqM"/> to flag a plan that does not add up — the server does not reject a mismatch.</param>
@@ -57,6 +60,9 @@ public sealed record PropertyDto(
     string? UnitNumber,
     int? FloorNumber,
     int? RoomCount,
+    string? Section,
+    string? Row,
+    string? Spot,
     decimal? TotalAreaSqM,
     IReadOnlyList<PropertyRoomDto> Rooms,
     decimal RoomsAreaSqM)
@@ -77,6 +83,7 @@ public sealed record PropertyDto(
             p.Images.Select(i => new PropertyImageDto(i.Id, i.Url)).ToList(),
             p.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList(),
             p.BuildingId, ToWireUnitType(p.UnitType), p.UnitNumber, p.FloorNumber, p.RoomCount,
+            p.Section, p.Row, p.Spot,
             p.TotalAreaSqM, rooms, rooms.Sum(r => r.AreaSqM));
     }
 

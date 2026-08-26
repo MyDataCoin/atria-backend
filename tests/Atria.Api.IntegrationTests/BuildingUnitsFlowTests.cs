@@ -294,6 +294,107 @@ public sealed class BuildingUnitsFlowTests : IClassFixture<AtriaApiFactory>
         (await anon.GetAsync(BuildingsRoute)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task ParkingSpace_KeepsItsSectionRowAndSpot_AcrossCreateReadAndUpdate()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+
+        var buildingId = await CreateBuildingAsync(admin);
+
+        // Парковочное место в подземном паркинге: этаж отрицательный, комнат нет вовсе — и то и
+        // другое нормально, а не ошибка валидации.
+        var spaceId = await CreateUnitAsync(admin, new
+        {
+            name = "Парковочное место P-125",
+            totalValue = 1_000_000m,
+            tokenPrice = 1_000m,
+            totalTokens = 1_000L,
+            minPurchaseTokens = 1L,
+            currency = "KGS",
+            buildingId,
+            unitType = "parking_space",
+            unitNumber = "P-125",
+            floorNumber = -1,
+            section = "B",
+            row = "12",
+            spot = "125",
+            roomCount = (int?)null,
+            totalAreaSqM = 15.2m,
+            rooms = Array.Empty<object>(),
+        });
+
+        // Перезагрузка списка: значения должны вернуться, а не превратиться в «—».
+        var space = await GetJsonAsync(admin, $"{PropertiesRoute}/{spaceId}");
+        space.GetProperty("unitType").GetString().Should().Be("parking_space");
+        space.GetProperty("floorNumber").GetInt32().Should().Be(-1, "подземный паркинг — это минус первый этаж");
+        space.GetProperty("section").GetString().Should().Be("B");
+        space.GetProperty("row").GetString().Should().Be("12");
+        space.GetProperty("spot").GetString().Should().Be("125");
+
+        // Те же поля приходят и внутри здания — карточка гаража берёт их отсюда.
+        var building = await GetJsonAsync(admin, $"{BuildingsRoute}/{buildingId}");
+        var unit = building.GetProperty("units").EnumerateArray()
+            .Single(u => u.GetProperty("id").GetString() == spaceId);
+        unit.GetProperty("section").GetString().Should().Be("B");
+        unit.GetProperty("row").GetString().Should().Be("12");
+        unit.GetProperty("spot").GetString().Should().Be("125");
+
+        // Секция бывает буквой, ряд — с буквой: строки, а не числа.
+        (await admin.PatchAsJsonAsync($"{PropertiesRoute}/{spaceId}", new
+        {
+            section = "Б",
+            row = "12А",
+            spot = "125",
+        })).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        space = await GetJsonAsync(admin, $"{PropertiesRoute}/{spaceId}");
+        space.GetProperty("section").GetString().Should().Be("Б");
+        space.GetProperty("row").GetString().Should().Be("12А");
+    }
+
+    [Fact]
+    public async Task SwitchingAwayFromAParkingSpace_ClearsTheParkingAddress()
+    {
+        var admin = _factory.CreateClient();
+        await AuthenticateAdminAsync(admin);
+
+        var buildingId = await CreateBuildingAsync(admin);
+        var unitId = await CreateUnitAsync(admin, new
+        {
+            name = "Парковочное место P-125",
+            totalValue = 1_000_000m,
+            tokenPrice = 1_000m,
+            totalTokens = 1_000L,
+            currency = "KGS",
+            buildingId,
+            unitType = "parking_space",
+            unitNumber = "P-125",
+            floorNumber = -1,
+            section = "B",
+            row = "12",
+            spot = "125",
+        });
+
+        // Админ передумал и сделал юнит квартирой. Форма шлёт три null — адрес паркинга должен
+        // стереться, а не залипнуть: квартира не стоит в ряду 12.
+        (await admin.PatchAsJsonAsync($"{PropertiesRoute}/{unitId}", new
+        {
+            unitType = "apartment",
+            roomCount = 3,
+            section = (string?)null,
+            row = (string?)null,
+            spot = (string?)null,
+        })).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var unit = await GetJsonAsync(admin, $"{PropertiesRoute}/{unitId}");
+        unit.GetProperty("unitType").GetString().Should().Be("apartment");
+        unit.GetProperty("roomCount").GetInt32().Should().Be(3);
+        unit.GetProperty("section").ValueKind.Should().Be(JsonValueKind.Null);
+        unit.GetProperty("row").ValueKind.Should().Be(JsonValueKind.Null);
+        unit.GetProperty("spot").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
     private static object MinimalUnit(string buildingId, string name) => new
     {
         name,

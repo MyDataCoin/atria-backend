@@ -93,6 +93,9 @@ public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercen
 /// <param name="UnitNumber">New flat / garage box number; <c>null</c> to leave unchanged.</param>
 /// <param name="FloorNumber">New floor the unit is on; <c>null</c> to leave unchanged.</param>
 /// <param name="RoomCount">New room count; <c>null</c> to leave unchanged.</param>
+/// <param name="Section">Car-park section; <c>null</c> CLEARS it, unlike the fields above.</param>
+/// <param name="Row">Row within the section; <c>null</c> CLEARS it.</param>
+/// <param name="Spot">The parking space's own number; <c>null</c> CLEARS it.</param>
 /// <param name="TotalAreaSqM">New total area in m²; <c>null</c> to leave unchanged.</param>
 /// <param name="Rooms">Replaces the whole room breakdown; <c>null</c> leaves it unchanged, <c>[]</c> clears it.</param>
 public sealed record UpdatePropertyRequest(
@@ -109,6 +112,9 @@ public sealed record UpdatePropertyRequest(
     string? UnitNumber = null,
     int? FloorNumber = null,
     int? RoomCount = null,
+    string? Section = null,
+    string? Row = null,
+    string? Spot = null,
     decimal? TotalAreaSqM = null,
     IReadOnlyList<PropertyRoomInput>? Rooms = null);
 
@@ -149,7 +155,10 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="UnitType">What the unit is: <c>apartment</c> | <c>garage</c> | <c>parking_space</c> | <c>commercial</c> | <c>storage</c> | <c>other</c>.</param>
 /// <param name="UnitNumber">Flat / garage box number inside the building; max 32 characters.</param>
 /// <param name="FloorNumber">Floor the unit is on.</param>
-/// <param name="RoomCount">How many rooms the unit is sold as (2-, 3-, 4-комнатная).</param>
+/// <param name="RoomCount">How many rooms the unit is sold as (2-, 3-, 4-комнатная). <c>null</c> is normal for a garage.</param>
+/// <param name="Section">Car-park section a garage / parking space sits in (e.g. <c>B</c>); optional, max 32 characters.</param>
+/// <param name="Row">Row within the section (e.g. <c>12А</c>); optional, max 32 characters.</param>
+/// <param name="Spot">The parking space's own number (e.g. <c>125</c>); optional, max 32 characters.</param>
 /// <param name="TotalAreaSqM">Total floor area of the unit in m²; must be greater than 0 when sent.</param>
 /// <param name="Rooms">Room breakdown, e.g. <c>[{ "name": "Кухня+Столовая", "areaSqM": 28.68 }]</c>.</param>
 public sealed record CreatePropertyRequest(
@@ -171,6 +180,9 @@ public sealed record CreatePropertyRequest(
     string? UnitNumber = null,
     int? FloorNumber = null,
     int? RoomCount = null,
+    string? Section = null,
+    string? Row = null,
+    string? Spot = null,
     decimal? TotalAreaSqM = null,
     IReadOnlyList<PropertyRoomInput>? Rooms = null);
 
