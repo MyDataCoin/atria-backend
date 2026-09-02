@@ -42,6 +42,14 @@ namespace Atria.Application.Properties.Commands;
 /// </param>
 /// <param name="EncumbranceCheckedAtUtc">When that check was made.</param>
 /// <param name="PayoutFrequency">New distribution frequency (<c>none</c>, <c>monthly</c>, …); <c>null</c> to leave unchanged.</param>
+/// <param name="UsableAreaSqM">Usable floor area in m²; must not exceed <paramref name="TotalAreaSqM"/>; <c>null</c> to leave unchanged.</param>
+/// <param name="DocumentedUse">Permitted use as written in the title documents; <c>null</c> to leave unchanged.</param>
+/// <param name="BuildingClass">Class of the object (e.g. <c>бизнес</c>); <c>null</c> to leave unchanged.</param>
+/// <param name="WallMaterial">Construction material; <c>null</c> to leave unchanged.</param>
+/// <param name="Heating">Heating arrangement; <c>null</c> to leave unchanged.</param>
+/// <param name="Elevator">Lifts, as described; <c>null</c> to leave unchanged.</param>
+/// <param name="Security">Security arrangement; <c>null</c> to leave unchanged.</param>
+/// <param name="Parking">Parking available with the object; <c>null</c> to leave unchanged.</param>
 /// <param name="Rooms">
 /// Replaces the whole room breakdown when supplied; <c>null</c> leaves it untouched and an empty
 /// list clears it.
@@ -74,7 +82,15 @@ public sealed record UpdatePropertyCommand(
     int? ReadinessPercent = null,
     bool? IsFreeOfEncumbrances = null,
     DateTime? EncumbranceCheckedAtUtc = null,
-    string? PayoutFrequency = null) : IRequest<Result>;
+    string? PayoutFrequency = null,
+    decimal? UsableAreaSqM = null,
+    string? DocumentedUse = null,
+    string? BuildingClass = null,
+    string? WallMaterial = null,
+    string? Heating = null,
+    string? Elevator = null,
+    string? Security = null,
+    string? Parking = null) : IRequest<Result>;
 
 public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropertyCommand, Result>
 {
@@ -141,6 +157,11 @@ public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropert
             request.PlannedCompletionDate, request.ReadinessPercent);
 
         property.SetPayoutFrequency(PropertyDto.ParsePayoutFrequency(request.PayoutFrequency));
+
+        property.SetCharacteristics(
+            request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
+            request.WallMaterial, request.Heating, request.Elevator, request.Security,
+            request.Parking);
 
         // Both halves or neither: recording a verdict without the date it was reached would put an
         // undated all-clear on the record, and an all-clear nobody can date is not one.

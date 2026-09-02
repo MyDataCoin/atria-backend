@@ -32,6 +32,17 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Row).HasMaxLength(Property.MaxParkingAddressPart);
         b.Property(p => p.Spot).HasMaxLength(Property.MaxParkingAddressPart);
         b.Property(p => p.TotalAreaSqM).HasPrecision(10, 2);
+        b.Property(p => p.UsableAreaSqM).HasPrecision(10, 2);
+
+        // Описательные характеристики карточки — «заполняется тем, что есть». Свободный текст:
+        // «монолит-кирпич» и «2 пассажирских, 1 грузовой» — реальные ответы, под enum их не свести.
+        b.Property(p => p.DocumentedUse).HasMaxLength(256);
+        b.Property(p => p.BuildingClass).HasMaxLength(64);
+        b.Property(p => p.WallMaterial).HasMaxLength(128);
+        b.Property(p => p.Heating).HasMaxLength(128);
+        b.Property(p => p.Elevator).HasMaxLength(128);
+        b.Property(p => p.Security).HasMaxLength(128);
+        b.Property(p => p.Parking).HasMaxLength(256);
 
         // Cadastre and land. Hectares kept in their own column with their own precision: a plot is
         // written to four decimals (0.7200 ha) where floor area is written to two.

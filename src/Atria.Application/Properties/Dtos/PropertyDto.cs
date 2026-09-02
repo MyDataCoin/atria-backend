@@ -32,6 +32,14 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="Row">Row within the section (e.g. <c>12А</c>); <c>null</c> when unset.</param>
 /// <param name="Spot">The parking space's own number (e.g. <c>125</c>); <c>null</c> when unset.</param>
 /// <param name="TotalAreaSqM">Total floor area of the unit in m²; <c>null</c> when unset.</param>
+/// <param name="UsableAreaSqM">Usable floor area in m² — occupiable space, without walls and common parts; <c>null</c> when unset.</param>
+/// <param name="DocumentedUse">Permitted use as written in the title documents; <c>null</c> when unset. Distinct from <paramref name="PropertyType"/>, which is the catalogue filter.</param>
+/// <param name="BuildingClass">Class of the object (e.g. <c>бизнес</c>); <c>null</c> when unset.</param>
+/// <param name="WallMaterial">Construction material; <c>null</c> when unset.</param>
+/// <param name="Heating">Heating arrangement; <c>null</c> when unset.</param>
+/// <param name="Elevator">Lifts, as described; <c>null</c> when unset.</param>
+/// <param name="Security">Security arrangement; <c>null</c> when unset.</param>
+/// <param name="Parking">Parking available with the object; <c>null</c> when unset.</param>
 /// <param name="LandAreaHectares">Area of the land plot in hectares; <c>null</c> when unset. Not floor area — <paramref name="AreaPerTokenSqM"/> is not derived from it.</param>
 /// <param name="LandPlotCode">The plot's identification code in the state cadastre (e.g. <c>1-04-13-0033-0135</c>); <c>null</c> when unset.</param>
 /// <param name="CadastralNumber">Cadastral number of the built object; <c>null</c> when there is none yet.</param>
@@ -84,6 +92,14 @@ public sealed record PropertyDto(
     string? Row,
     string? Spot,
     decimal? TotalAreaSqM,
+    decimal? UsableAreaSqM,
+    string? DocumentedUse,
+    string? BuildingClass,
+    string? WallMaterial,
+    string? Heating,
+    string? Elevator,
+    string? Security,
+    string? Parking,
     decimal? LandAreaHectares,
     string? LandPlotCode,
     string? CadastralNumber,
@@ -120,7 +136,9 @@ public sealed record PropertyDto(
             p.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList(),
             p.BuildingId, ToWireUnitType(p.UnitType), p.UnitNumber, p.FloorNumber, p.RoomCount,
             p.Section, p.Row, p.Spot,
-            p.TotalAreaSqM, p.LandAreaHectares, p.LandPlotCode, p.CadastralNumber,
+            p.TotalAreaSqM, p.UsableAreaSqM, p.DocumentedUse, p.BuildingClass, p.WallMaterial,
+            p.Heating, p.Elevator, p.Security, p.Parking,
+            p.LandAreaHectares, p.LandPlotCode, p.CadastralNumber,
             ToWireConstructionStage(p.ConstructionStage), p.PlannedCompletionDate,
             p.ReadinessPercent, p.IsFreeOfEncumbrances, p.EncumbranceCheckedAtUtc,
             p.PlacementOpensAtUtc, p.PlacementClosesAtUtc, p.TargetAmount,

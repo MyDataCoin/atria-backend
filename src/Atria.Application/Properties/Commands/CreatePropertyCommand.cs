@@ -27,6 +27,14 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="PlannedCompletionDate">Expected commissioning date.</param>
 /// <param name="ReadinessPercent">Reported construction readiness, 0–100.</param>
 /// <param name="PayoutFrequency">How often the issue distributes: <c>none</c> | <c>monthly</c> | <c>quarterly</c> | <c>annually</c>.</param>
+/// <param name="UsableAreaSqM">Usable floor area in m²; must not exceed <paramref name="TotalAreaSqM"/>.</param>
+/// <param name="DocumentedUse">Permitted use as written in the title documents.</param>
+/// <param name="BuildingClass">Class of the object (e.g. <c>бизнес</c>).</param>
+/// <param name="WallMaterial">Construction material.</param>
+/// <param name="Heating">Heating arrangement.</param>
+/// <param name="Elevator">Lifts, as described.</param>
+/// <param name="Security">Security arrangement.</param>
+/// <param name="Parking">Parking available with the object.</param>
 public sealed record CreatePropertyCommand(
     string Name,
     string? Description,
@@ -57,4 +65,12 @@ public sealed record CreatePropertyCommand(
     string? ConstructionStage = null,
     DateTime? PlannedCompletionDate = null,
     int? ReadinessPercent = null,
-    string? PayoutFrequency = null) : IRequest<Result<Guid>>;
+    string? PayoutFrequency = null,
+    decimal? UsableAreaSqM = null,
+    string? DocumentedUse = null,
+    string? BuildingClass = null,
+    string? WallMaterial = null,
+    string? Heating = null,
+    string? Elevator = null,
+    string? Security = null,
+    string? Parking = null) : IRequest<Result<Guid>>;

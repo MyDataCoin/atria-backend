@@ -68,6 +68,52 @@ public sealed class Property : AggregateRoot
     public decimal? TotalAreaSqM { get; private set; }
 
     /// <summary>
+    /// Usable floor area in square metres — what is actually occupiable, without walls, shafts and
+    /// common parts. Always at most <see cref="TotalAreaSqM"/>.
+    /// </summary>
+    /// <remarks>
+    /// Kept separate because the two numbers are separate facts on a technical passport and the
+    /// difference between them is what a buyer is told they do NOT get. Folding them into one field
+    /// would silently pick whichever the admin happened to type.
+    /// </remarks>
+    public decimal? UsableAreaSqM { get; private set; }
+
+    /// <summary>
+    /// Permitted use as written in the title documents (e.g. "жилое", "нежилое — офис"). Distinct
+    /// from <see cref="PropertyType"/>, which is the catalogue filter: what the documents allow and
+    /// how the object is marketed are not the same claim, and only one of them is legally binding.
+    /// </summary>
+    public string? DocumentedUse { get; private set; }
+
+    // --- Descriptive characteristics filled in with whatever is available ---
+    //
+    // All free text and all optional, exactly as the request document asks ("заполняется тем, что
+    // есть"). Deliberately not enums: "монолит-кирпич" and "центральное, свои теплосчётчики" are
+    // real answers, and a fixed list would force whoever fills the card to pick the nearest wrong one.
+
+    /// <summary>Class of the object (e.g. "бизнес", "комфорт"). Free text.</summary>
+    public string? BuildingClass { get; private set; }
+
+    /// <summary>Construction material (e.g. "монолит-кирпич"). Free text.</summary>
+    public string? WallMaterial { get; private set; }
+
+    /// <summary>Heating arrangement. Free text.</summary>
+    public string? Heating { get; private set; }
+
+    /// <summary>Lifts, as described. Free text — "2 пассажирских, 1 грузовой" is an answer.</summary>
+    public string? Elevator { get; private set; }
+
+    /// <summary>Security arrangement. Free text.</summary>
+    public string? Security { get; private set; }
+
+    /// <summary>
+    /// Parking available with the object, as described. Free text and unrelated to
+    /// <see cref="UnitType.ParkingSpace"/>: that is a parking space sold as its own issue, this is
+    /// "подземный паркинг на 120 мест" written on a building's card.
+    /// </summary>
+    public string? Parking { get; private set; }
+
+    /// <summary>
     /// Area of the land plot, in hectares. Deliberately NOT folded into
     /// <see cref="TotalAreaSqM"/>: that is sellable floor area, and <see cref="AreaPerTokenSqM"/>
     /// divides it across the issue. A plot's hectares are neither, and putting them in the same
@@ -389,6 +435,10 @@ public sealed class Property : AggregateRoot
             throw new DomainException("Room count cannot be negative.");
         if (totalAreaSqM is <= 0)
             throw new DomainException("Unit area must be positive.");
+        // The same rule as in SetCharacteristics, checked from this side too: editing the total area
+        // downwards would otherwise leave a unit whose usable area is larger than its floor.
+        if (totalAreaSqM is { } area && UsableAreaSqM is { } usable && usable > area)
+            throw new DomainException("Total area cannot be smaller than the usable area.");
 
         if (unitType is not null and not UnitType.Unspecified)
             UnitType = unitType.Value;
@@ -444,6 +494,41 @@ public sealed class Property : AggregateRoot
 
         PlacementClosesAtUtc = newClosesAtUtc;
         PlacementExtensionCount++;
+    }
+
+    /// <summary>
+    /// Records the descriptive characteristics of the object — class, material, heating, lift,
+    /// security, parking, the documented use and the usable area. Only non-null arguments are
+    /// applied, so a caller can PATCH a single field, and blank clears nothing (it reads as absent).
+    /// </summary>
+    /// <remarks>
+    /// The whole block is "fill in what you have": every field is optional and stays null until
+    /// someone has the answer. The one rule is that usable area cannot exceed the total — a unit
+    /// with more usable space than it has floor is a typo, not a fact.
+    /// </remarks>
+    public void SetCharacteristics(
+        decimal? usableAreaSqM = null, string? documentedUse = null, string? buildingClass = null,
+        string? wallMaterial = null, string? heating = null, string? elevator = null,
+        string? security = null, string? parking = null)
+    {
+        if (usableAreaSqM is <= 0)
+            throw new DomainException("Usable area must be positive.");
+
+        var usable = usableAreaSqM ?? UsableAreaSqM;
+        if (usable is { } u && TotalAreaSqM is { } total && u > total)
+            throw new DomainException("Usable area cannot exceed the total area.");
+
+        UsableAreaSqM = usable;
+        DocumentedUse = Trimmed(documentedUse) ?? DocumentedUse;
+        BuildingClass = Trimmed(buildingClass) ?? BuildingClass;
+        WallMaterial = Trimmed(wallMaterial) ?? WallMaterial;
+        Heating = Trimmed(heating) ?? Heating;
+        Elevator = Trimmed(elevator) ?? Elevator;
+        Security = Trimmed(security) ?? Security;
+        Parking = Trimmed(parking) ?? Parking;
+
+        static string? Trimmed(string? value)
+            => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     /// <summary>

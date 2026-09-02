@@ -108,6 +108,14 @@ public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercen
 /// <param name="IsFreeOfEncumbrances">Cadastre check result; applied only together with <paramref name="EncumbranceCheckedAtUtc"/>.</param>
 /// <param name="EncumbranceCheckedAtUtc">When that cadastre check was made.</param>
 /// <param name="PayoutFrequency">New distribution frequency (<c>none</c>, <c>monthly</c>, …); <c>null</c> to leave unchanged.</param>
+/// <param name="UsableAreaSqM">Usable floor area in m²; must not exceed the total area.</param>
+/// <param name="DocumentedUse">Permitted use as written in the title documents; <c>null</c> to leave unchanged.</param>
+/// <param name="BuildingClass">Class of the object; <c>null</c> to leave unchanged.</param>
+/// <param name="WallMaterial">Construction material; <c>null</c> to leave unchanged.</param>
+/// <param name="Heating">Heating arrangement; <c>null</c> to leave unchanged.</param>
+/// <param name="Elevator">Lifts, as described; <c>null</c> to leave unchanged.</param>
+/// <param name="Security">Security arrangement; <c>null</c> to leave unchanged.</param>
+/// <param name="Parking">Parking available with the object; <c>null</c> to leave unchanged.</param>
 public sealed record UpdatePropertyRequest(
     string? Name,
     string? Description,
@@ -135,7 +143,15 @@ public sealed record UpdatePropertyRequest(
     int? ReadinessPercent = null,
     bool? IsFreeOfEncumbrances = null,
     DateTime? EncumbranceCheckedAtUtc = null,
-    string? PayoutFrequency = null);
+    string? PayoutFrequency = null,
+    decimal? UsableAreaSqM = null,
+    string? DocumentedUse = null,
+    string? BuildingClass = null,
+    string? WallMaterial = null,
+    string? Heating = null,
+    string? Elevator = null,
+    string? Security = null,
+    string? Parking = null);
 
 /// <summary>POST /publications body. Creates and publishes a news-feed item.</summary>
 /// <param name="Type">Kind: <c>financial_report</c> | <c>news_release</c> | <c>valuation_audit</c> | <c>general_news</c>.</param>
@@ -187,6 +203,14 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="PlannedCompletionDate">Expected commissioning date; optional.</param>
 /// <param name="ReadinessPercent">Reported construction readiness, 0–100; optional.</param>
 /// <param name="PayoutFrequency">How often the issue distributes: <c>none</c> | <c>monthly</c> | <c>quarterly</c> | <c>annually</c>; optional.</param>
+/// <param name="UsableAreaSqM">Usable floor area in m²; must not exceed the total area.</param>
+/// <param name="DocumentedUse">Permitted use as written in the title documents; optional.</param>
+/// <param name="BuildingClass">Class of the object; optional.</param>
+/// <param name="WallMaterial">Construction material; optional.</param>
+/// <param name="Heating">Heating arrangement; optional.</param>
+/// <param name="Elevator">Lifts, as described; optional.</param>
+/// <param name="Security">Security arrangement; optional.</param>
+/// <param name="Parking">Parking available with the object; optional.</param>
 public sealed record CreatePropertyRequest(
     string Name,
     string? Description,
@@ -217,7 +241,15 @@ public sealed record CreatePropertyRequest(
     string? ConstructionStage = null,
     DateTime? PlannedCompletionDate = null,
     int? ReadinessPercent = null,
-    string? PayoutFrequency = null);
+    string? PayoutFrequency = null,
+    decimal? UsableAreaSqM = null,
+    string? DocumentedUse = null,
+    string? BuildingClass = null,
+    string? WallMaterial = null,
+    string? Heating = null,
+    string? Elevator = null,
+    string? Security = null,
+    string? Parking = null);
 
 /// <summary>POST /buildings body. Registers the building an admin then fills with units.</summary>
 /// <param name="Name">Display name (e.g. "ЖК Ала-Тоо, блок B").</param>
