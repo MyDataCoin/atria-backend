@@ -46,6 +46,9 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Elevator).HasMaxLength(128);
         b.Property(p => p.Security).HasMaxLength(128);
         b.Property(p => p.Parking).HasMaxLength(256);
+        // A paragraph about the district, not a label: longer than the other characteristics and
+        // shorter than the object's own description.
+        b.Property(p => p.LocationDescription).HasMaxLength(2048);
 
         // Cadastre and land. Hectares kept in their own column with their own precision: a plot is
         // written to four decimals (0.7200 ha) where floor area is written to two.

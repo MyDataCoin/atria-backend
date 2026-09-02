@@ -67,7 +67,7 @@ public sealed class CreatePropertyCommandHandler
         property.SetCharacteristics(
             request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
-            request.Parking);
+            request.Parking, request.LocationDescription);
 
         if (request.Rooms is { Count: > 0 })
             property.ReplaceRooms(request.Rooms.Select(r => (r.Name, r.AreaSqM)));

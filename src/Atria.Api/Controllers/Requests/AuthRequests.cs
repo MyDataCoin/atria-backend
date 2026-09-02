@@ -151,7 +151,8 @@ public sealed record UpdatePropertyRequest(
     string? Heating = null,
     string? Elevator = null,
     string? Security = null,
-    string? Parking = null);
+    string? Parking = null,
+    string? LocationDescription = null);
 
 /// <summary>POST /publications body. Creates and publishes a news-feed item.</summary>
 /// <param name="Type">Kind: <c>financial_report</c> | <c>news_release</c> | <c>valuation_audit</c> | <c>general_news</c>.</param>
@@ -211,6 +212,7 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="Elevator">Lifts, as described; optional.</param>
 /// <param name="Security">Security arrangement; optional.</param>
 /// <param name="Parking">Parking available with the object; optional.</param>
+/// <param name="LocationDescription">The neighbourhood: infrastructure, transport, what is around the object; optional.</param>
 public sealed record CreatePropertyRequest(
     string Name,
     string? Description,
@@ -249,7 +251,8 @@ public sealed record CreatePropertyRequest(
     string? Heating = null,
     string? Elevator = null,
     string? Security = null,
-    string? Parking = null);
+    string? Parking = null,
+    string? LocationDescription = null);
 
 /// <summary>POST /buildings body. Registers the building an admin then fills with units.</summary>
 /// <param name="Name">Display name (e.g. "ЖК Ала-Тоо, блок B").</param>

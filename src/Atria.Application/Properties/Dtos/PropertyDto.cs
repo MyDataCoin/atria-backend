@@ -40,6 +40,7 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="Elevator">Lifts, as described; <c>null</c> when unset.</param>
 /// <param name="Security">Security arrangement; <c>null</c> when unset.</param>
 /// <param name="Parking">Parking available with the object; <c>null</c> when unset.</param>
+/// <param name="LocationDescription">The neighbourhood — infrastructure, transport, surroundings; <c>null</c> when unset. Distinct from <paramref name="Description"/>, which is about the object itself.</param>
 /// <param name="OfferedAreaSqM">Area being placed in m² when the issue covers only part of the object; <c>null</c> when the whole unit is issued. Frozen once shares are placed.</param>
 /// <param name="LandAreaHectares">Area of the land plot in hectares; <c>null</c> when unset. Not floor area — <paramref name="AreaPerTokenSqM"/> is not derived from it.</param>
 /// <param name="LandPlotCode">The plot's identification code in the state cadastre (e.g. <c>1-04-13-0033-0135</c>); <c>null</c> when unset.</param>
@@ -101,6 +102,7 @@ public sealed record PropertyDto(
     string? Elevator,
     string? Security,
     string? Parking,
+    string? LocationDescription,
     decimal? OfferedAreaSqM,
     decimal? LandAreaHectares,
     string? LandPlotCode,
@@ -140,7 +142,7 @@ public sealed record PropertyDto(
             p.Section, p.Row, p.Spot,
             p.TotalAreaSqM, p.UsableAreaSqM, p.DocumentedUse, p.BuildingClass, p.WallMaterial,
             p.Heating, p.Elevator, p.Security, p.Parking,
-            p.OfferedAreaSqM, p.LandAreaHectares, p.LandPlotCode, p.CadastralNumber,
+            p.LocationDescription, p.OfferedAreaSqM, p.LandAreaHectares, p.LandPlotCode, p.CadastralNumber,
             ToWireConstructionStage(p.ConstructionStage), p.PlannedCompletionDate,
             p.ReadinessPercent, p.IsFreeOfEncumbrances, p.EncumbranceCheckedAtUtc,
             p.PlacementOpensAtUtc, p.PlacementClosesAtUtc, p.TargetAmount,

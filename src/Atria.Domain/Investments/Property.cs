@@ -114,6 +114,18 @@ public sealed class Property : AggregateRoot
     public string? Parking { get; private set; }
 
     /// <summary>
+    /// The neighbourhood the object sits in: infrastructure, transport, what is around it. Free text
+    /// and optional.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="Description"/>, which sells the object itself. What surrounds a
+    /// building is a different claim from what the building is, and for an issue on land under
+    /// design the surroundings are most of what there is to say — merging the two would bury it in
+    /// whatever the sales copy happened to be.
+    /// </remarks>
+    public string? LocationDescription { get; private set; }
+
+    /// <summary>
     /// The area actually being placed, in m² — what the issue is cut from when that is only part of
     /// the object. Null when the whole unit is issued, and <see cref="AreaPerTokenSqM"/> then falls
     /// back to <see cref="TotalAreaSqM"/>.
@@ -534,6 +546,7 @@ public sealed class Property : AggregateRoot
 
     /// <summary>
     /// Records the descriptive characteristics of the object — class, material, heating, lift,
+    /// security, parking and the neighbourhood it sits in.
     /// security, parking, the documented use and the usable area. Only non-null arguments are
     /// applied, so a caller can PATCH a single field, and blank clears nothing (it reads as absent).
     /// </summary>
@@ -545,7 +558,7 @@ public sealed class Property : AggregateRoot
     public void SetCharacteristics(
         decimal? usableAreaSqM = null, string? documentedUse = null, string? buildingClass = null,
         string? wallMaterial = null, string? heating = null, string? elevator = null,
-        string? security = null, string? parking = null)
+        string? security = null, string? parking = null, string? locationDescription = null)
     {
         if (usableAreaSqM is <= 0)
             throw new DomainException("Usable area must be positive.");
@@ -562,6 +575,7 @@ public sealed class Property : AggregateRoot
         Elevator = Trimmed(elevator) ?? Elevator;
         Security = Trimmed(security) ?? Security;
         Parking = Trimmed(parking) ?? Parking;
+        LocationDescription = Trimmed(locationDescription) ?? LocationDescription;
 
         static string? Trimmed(string? value)
             => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

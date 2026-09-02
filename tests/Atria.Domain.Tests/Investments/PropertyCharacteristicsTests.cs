@@ -57,6 +57,20 @@ public sealed class PropertyCharacteristicsTests
     }
 
     [Fact]
+    public void SetCharacteristics_recordsTheNeighbourhoodApartFromTheObjectsOwnDescription()
+    {
+        var unit = NewUnit();
+
+        unit.SetCharacteristics(
+            locationDescription: "Южная часть города со всеми прилегающими инфраструктурами");
+
+        unit.LocationDescription.Should()
+            .Be("Южная часть города со всеми прилегающими инфраструктурами");
+        // What surrounds the object is a separate claim from what the object is.
+        unit.Description.Should().BeNull();
+    }
+
+    [Fact]
     public void SetCharacteristics_patchesOneFieldAtATime()
     {
         var unit = NewUnit();

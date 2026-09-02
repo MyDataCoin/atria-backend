@@ -50,6 +50,7 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="Elevator">Lifts, as described; <c>null</c> to leave unchanged.</param>
 /// <param name="Security">Security arrangement; <c>null</c> to leave unchanged.</param>
 /// <param name="Parking">Parking available with the object; <c>null</c> to leave unchanged.</param>
+/// <param name="LocationDescription">The neighbourhood: infrastructure, transport, surroundings; <c>null</c> to leave unchanged.</param>
 /// <param name="Rooms">
 /// Replaces the whole room breakdown when supplied; <c>null</c> leaves it untouched and an empty
 /// list clears it.
@@ -90,7 +91,8 @@ public sealed record UpdatePropertyCommand(
     string? Heating = null,
     string? Elevator = null,
     string? Security = null,
-    string? Parking = null) : IRequest<Result>;
+    string? Parking = null,
+    string? LocationDescription = null) : IRequest<Result>;
 
 public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropertyCommand, Result>
 {
@@ -161,7 +163,7 @@ public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropert
         property.SetCharacteristics(
             request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
-            request.Parking);
+            request.Parking, request.LocationDescription);
 
         // Both halves or neither: recording a verdict without the date it was reached would put an
         // undated all-clear on the record, and an all-clear nobody can date is not one.

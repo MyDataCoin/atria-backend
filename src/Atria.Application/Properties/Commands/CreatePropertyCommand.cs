@@ -35,6 +35,7 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="Elevator">Lifts, as described.</param>
 /// <param name="Security">Security arrangement.</param>
 /// <param name="Parking">Parking available with the object.</param>
+/// <param name="LocationDescription">The neighbourhood: infrastructure, transport, what is around the object.</param>
 public sealed record CreatePropertyCommand(
     string Name,
     string? Description,
@@ -73,4 +74,5 @@ public sealed record CreatePropertyCommand(
     string? Heating = null,
     string? Elevator = null,
     string? Security = null,
-    string? Parking = null) : IRequest<Result<Guid>>;
+    string? Parking = null,
+    string? LocationDescription = null) : IRequest<Result<Guid>>;
