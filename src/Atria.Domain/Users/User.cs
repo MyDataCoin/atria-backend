@@ -102,8 +102,16 @@ public sealed class User : AggregateRoot
         string? fullName = null,
         bool mustResetPassword = false)
     {
-        if (role is not (Role.Admin or Role.Realtor or Role.SuperAdmin))
-            throw new DomainException("Service accounts must be Admin, Realtor or SuperAdmin.");
+        // Staff roles only, and the list is deliberately explicit rather than "anything but
+        // Investor": an investor account signs in by phone and OTP, and a password-holding row with
+        // an investor's role would be a second, weaker way into someone's holdings.
+        //
+        // Finance and Auditor are here because the management company's own people work in the
+        // platform — the accountant reports and the lawyer reads. Compliance and CollateralManager
+        // are not, only because nobody has asked for them yet.
+        if (role is not (Role.Admin or Role.Realtor or Role.SuperAdmin or Role.Finance or Role.Auditor))
+            throw new DomainException(
+                "Service accounts must be Admin, Realtor, SuperAdmin, Finance or Auditor.");
         if (string.IsNullOrWhiteSpace(username))
             throw new DomainException("Service account username is required.");
         if (string.IsNullOrWhiteSpace(passwordHash))

@@ -46,6 +46,12 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="RaisedAmount">Placed so far: shares taken out of supply, at the issue price.</param>
 /// <param name="IsTargetMet">Whether <paramref name="RaisedAmount"/> has reached <paramref name="TargetAmount"/>. Always <c>true</c> when there is no target.</param>
 /// <param name="PlacementExtensionCount">How many times the closing date has been pushed back.</param>
+/// <param name="PayoutFrequency">How often the issue distributes, lowercase: <c>none</c> | <c>monthly</c> | <c>quarterly</c> | <c>annually</c> | <c>unspecified</c>.</param>
+/// <param name="DistributesYet">
+/// Whether the issue pays anything out yet. <c>false</c> while it is not commissioned, whatever
+/// frequency was entered — public surfaces should read this and not <paramref name="PayoutFrequency"/>,
+/// so an object under construction does not advertise a payment it cannot make.
+/// </param>
 /// <param name="Rooms">Room breakdown (name + area), in the order the admin entered it.</param>
 /// <param name="RoomsAreaSqM">Sum of <paramref name="Rooms"/> areas. Compare with <paramref name="TotalAreaSqM"/> to flag a plan that does not add up — the server does not reject a mismatch.</param>
 public sealed record PropertyDto(
@@ -92,6 +98,8 @@ public sealed record PropertyDto(
     decimal RaisedAmount,
     bool IsTargetMet,
     int PlacementExtensionCount,
+    string PayoutFrequency,
+    bool DistributesYet,
     IReadOnlyList<PropertyRoomDto> Rooms,
     decimal RoomsAreaSqM)
 {
@@ -117,6 +125,7 @@ public sealed record PropertyDto(
             p.ReadinessPercent, p.IsFreeOfEncumbrances, p.EncumbranceCheckedAtUtc,
             p.PlacementOpensAtUtc, p.PlacementClosesAtUtc, p.TargetAmount,
             p.RaisedAmount, p.IsTargetMet, p.PlacementExtensionCount,
+            ToWirePayoutFrequency(p.PayoutFrequency), p.DistributesYet,
             rooms, rooms.Sum(r => r.AreaSqM));
     }
 
@@ -180,5 +189,29 @@ public sealed record PropertyDto(
         "under_construction" => Domain.Investments.ConstructionStage.UnderConstruction,
         "commissioned" => Domain.Investments.ConstructionStage.Commissioned,
         _ => Domain.Investments.ConstructionStage.Unspecified
+    };
+
+    /// <summary>Maps the payout frequency to its lowercase wire value.</summary>
+    public static string ToWirePayoutFrequency(PayoutFrequency frequency) => frequency switch
+    {
+        Domain.Investments.PayoutFrequency.None => "none",
+        Domain.Investments.PayoutFrequency.Monthly => "monthly",
+        Domain.Investments.PayoutFrequency.Quarterly => "quarterly",
+        Domain.Investments.PayoutFrequency.Annually => "annually",
+        _ => "unspecified"
+    };
+
+    /// <summary>
+    /// Parses the wire payout frequency. Unknown / absent values map to
+    /// <see cref="Domain.Investments.PayoutFrequency.Unspecified"/>, which
+    /// <see cref="Property.SetPayoutFrequency"/> treats as "leave as is".
+    /// </summary>
+    public static PayoutFrequency ParsePayoutFrequency(string? wire) => wire?.Trim().ToLowerInvariant() switch
+    {
+        "none" => Domain.Investments.PayoutFrequency.None,
+        "monthly" => Domain.Investments.PayoutFrequency.Monthly,
+        "quarterly" => Domain.Investments.PayoutFrequency.Quarterly,
+        "annually" => Domain.Investments.PayoutFrequency.Annually,
+        _ => Domain.Investments.PayoutFrequency.Unspecified
     };
 }

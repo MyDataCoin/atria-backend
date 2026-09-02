@@ -26,6 +26,7 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="ConstructionStage">How far along the object is: <c>land_only</c> | <c>design</c> | <c>under_construction</c> | <c>commissioned</c>.</param>
 /// <param name="PlannedCompletionDate">Expected commissioning date.</param>
 /// <param name="ReadinessPercent">Reported construction readiness, 0–100.</param>
+/// <param name="PayoutFrequency">How often the issue distributes: <c>none</c> | <c>monthly</c> | <c>quarterly</c> | <c>annually</c>.</param>
 public sealed record CreatePropertyCommand(
     string Name,
     string? Description,
@@ -55,4 +56,5 @@ public sealed record CreatePropertyCommand(
     string? CadastralNumber = null,
     string? ConstructionStage = null,
     DateTime? PlannedCompletionDate = null,
-    int? ReadinessPercent = null) : IRequest<Result<Guid>>;
+    int? ReadinessPercent = null,
+    string? PayoutFrequency = null) : IRequest<Result<Guid>>;

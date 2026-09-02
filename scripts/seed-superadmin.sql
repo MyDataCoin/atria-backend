@@ -1,4 +1,4 @@
--- Seed the credential-login accounts (SuperAdmin / Admin / Realtor).
+-- Seed the credential-login accounts (SuperAdmin / Admin / Realtor / Accountant / Lawyer).
 --
 -- Login is DB-only: each account is an ordinary users row with a username + BCrypt password hash
 -- (work factor 12, same as the app). They log in via POST /auth/admin/login (admin & super-admin)
@@ -9,6 +9,12 @@
 --     superadmin / superadmin   (Role 4 = SuperAdmin)
 --     admin      / admin        (Role 0 = Admin)
 --     realtor    / realtor      (Role 3 = Realtor)
+--     buhgalter  / buhgalter    (Role 5 = Finance)  -- бухгалтер УК
+--     yurist     / yurist       (Role 7 = Auditor)  -- юрист УК, read-only по деньгам
+--
+-- The management company's two staff accounts reuse existing roles rather than adding new ones:
+-- Finance already gates the operating periods and the payout run, and Auditor is read-only across
+-- the platform, which is exactly what a lawyer needs and exactly what they must not exceed.
 --
 -- EF maps columns in PascalCase (no snake_case), so they are quoted. Idempotent per username.
 --
@@ -36,5 +42,9 @@ VALUES
     (gen_random_uuid(), NULL, 'admin', 0, TRUE, FALSE, FALSE,
      '$2a$12$XWJV2dhQWahva8iEjr2dKu3lrDUCNFRb6vGqEI3uxyvV3O1eB0mmi', FALSE, NOW() AT TIME ZONE 'utc'),
     (gen_random_uuid(), NULL, 'realtor', 3, TRUE, FALSE, FALSE,
-     '$2a$12$9Ft3rwcoDlhT72geIZ/E1OvDRFtglw/pbaXaAMGaeWVfacujnLFzm', FALSE, NOW() AT TIME ZONE 'utc')
+     '$2a$12$9Ft3rwcoDlhT72geIZ/E1OvDRFtglw/pbaXaAMGaeWVfacujnLFzm', FALSE, NOW() AT TIME ZONE 'utc'),
+    (gen_random_uuid(), NULL, 'buhgalter', 5, TRUE, FALSE, FALSE,
+     '$2a$12$kIU2mbTiVq.1lscjKtEyueT.tm/2PJ1/n0W6vXaM9IIv/DicxXdB.', FALSE, NOW() AT TIME ZONE 'utc'),
+    (gen_random_uuid(), NULL, 'yurist', 7, TRUE, FALSE, FALSE,
+     '$2a$12$4Ix99Nc0vQnID9Ili7zABeOhamvu80EyGtjMjTOZOw2TxITYiBQ9.', FALSE, NOW() AT TIME ZONE 'utc')
 ON CONFLICT ("Username") DO NOTHING;

@@ -43,6 +43,8 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.ConstructionStage).HasConversion<int>().IsRequired();
         b.Property(p => p.PlannedCompletionDate);
         b.Property(p => p.ReadinessPercent);
+        // How often the issue distributes. `None` is a real answer for an object that does not earn.
+        b.Property(p => p.PayoutFrequency).HasConversion<int>().IsRequired();
 
         // Cadastre check for third-party encumbrances. Nullable bool on purpose: "clean" and
         // "nobody looked" have to stay distinguishable.

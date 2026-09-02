@@ -41,6 +41,7 @@ namespace Atria.Application.Properties.Commands;
 /// <paramref name="EncumbranceCheckedAtUtc"/> — a verdict with no date is not evidence.
 /// </param>
 /// <param name="EncumbranceCheckedAtUtc">When that check was made.</param>
+/// <param name="PayoutFrequency">New distribution frequency (<c>none</c>, <c>monthly</c>, …); <c>null</c> to leave unchanged.</param>
 /// <param name="Rooms">
 /// Replaces the whole room breakdown when supplied; <c>null</c> leaves it untouched and an empty
 /// list clears it.
@@ -72,7 +73,8 @@ public sealed record UpdatePropertyCommand(
     DateTime? PlannedCompletionDate = null,
     int? ReadinessPercent = null,
     bool? IsFreeOfEncumbrances = null,
-    DateTime? EncumbranceCheckedAtUtc = null) : IRequest<Result>;
+    DateTime? EncumbranceCheckedAtUtc = null,
+    string? PayoutFrequency = null) : IRequest<Result>;
 
 public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropertyCommand, Result>
 {
@@ -137,6 +139,8 @@ public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropert
         property.SetConstructionProgress(
             PropertyDto.ParseConstructionStage(request.ConstructionStage),
             request.PlannedCompletionDate, request.ReadinessPercent);
+
+        property.SetPayoutFrequency(PropertyDto.ParsePayoutFrequency(request.PayoutFrequency));
 
         // Both halves or neither: recording a verdict without the date it was reached would put an
         // undated all-clear on the record, and an all-clear nobody can date is not one.

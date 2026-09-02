@@ -63,6 +63,7 @@ public sealed class CreatePropertyCommandHandler
         property.SetConstructionProgress(
             PropertyDto.ParseConstructionStage(request.ConstructionStage),
             request.PlannedCompletionDate, request.ReadinessPercent);
+        property.SetPayoutFrequency(PropertyDto.ParsePayoutFrequency(request.PayoutFrequency));
 
         if (request.Rooms is { Count: > 0 })
             property.ReplaceRooms(request.Rooms.Select(r => (r.Name, r.AreaSqM)));

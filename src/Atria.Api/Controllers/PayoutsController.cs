@@ -17,9 +17,13 @@ namespace Atria.Api.Controllers;
 /// <param name="DeclaredAmount">The total being distributed.</param>
 /// <param name="Currency">Currency of the declared amount.</param>
 /// <param name="Note">What this distribution is, for the audit trail.</param>
+/// <param name="OperatingPeriodId">
+/// The confirmed operating period the money comes from. Required for a <c>Dividend</c>; rejected for
+/// a <c>CapitalReturn</c>, which is not paid out of operating income.
+/// </param>
 public sealed record CreatePayoutRunRequest(
     Guid SnapshotId, PayoutKind Kind, PayoutMethod Method, decimal DeclaredAmount, string Currency,
-    string? Note);
+    string? Note, Guid? OperatingPeriodId = null);
 
 /// <summary>Body of a settlement record.</summary>
 /// <param name="SettlementReference">Bank payment order number, or the transaction hash.</param>
@@ -73,7 +77,7 @@ public sealed class PayoutsController : ApiControllerBase
         => ToActionResult(await Sender.Send(
             new CreatePayoutRunCommand(
                 request.SnapshotId, request.Kind, request.Method, request.DeclaredAmount,
-                request.Currency, request.Note),
+                request.Currency, request.Note, request.OperatingPeriodId),
             ct));
 
     /// <summary>Distributions on one issue, newest cut first. Admin or Auditor.</summary>

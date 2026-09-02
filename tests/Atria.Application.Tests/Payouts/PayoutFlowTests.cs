@@ -6,6 +6,7 @@ using Atria.Application.Payouts.Queries;
 using Atria.Domain.Governance;
 using Atria.Domain.Holders;
 using Atria.Domain.Investments;
+using Atria.Domain.Operations;
 using Atria.Domain.Payouts;
 using FluentAssertions;
 using NSubstitute;
@@ -32,6 +33,9 @@ public sealed class PayoutFlowTests
     private readonly Guid _operator = Guid.NewGuid();
     private readonly Guid _investorA = Guid.NewGuid();
     private readonly Guid _investorB = Guid.NewGuid();
+    private readonly Guid _reporter = Guid.NewGuid();
+    private readonly IOperatingPeriodRepository _periods = Substitute.For<IOperatingPeriodRepository>();
+    private OperatingPeriod _period = null!;
 
     public PayoutFlowTests()
     {
@@ -51,11 +55,19 @@ public sealed class PayoutFlowTests
 
         _snapshots.GetWithRowsAsync(snapshot.Id, Arg.Any<CancellationToken>()).Returns(snapshot);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
+
+        // A dividend is now declared FROM a confirmed period, so every register these tests build
+        // comes with one that comfortably covers the amounts they distribute.
+        _period = OperatingPeriod.Report(
+            property.Id, Cut.AddMonths(-3), Cut, 200_000m, 50_000m, "KGS", _reporter, null);
+        _period.Confirm(_operator, Now);
+        _periods.GetByIdAsync(_period.Id, Arg.Any<CancellationToken>()).Returns(_period);
+
         return snapshot;
     }
 
     private CreatePayoutRunCommandHandler NewCreateHandler()
-        => new(_runs, _snapshots, _properties, _currentUser, _audit, _uow);
+        => new(_runs, _snapshots, _properties, _periods, _currentUser, _audit, _uow);
 
     private PayoutSettlementHandlers NewSettlementHandlers()
         => new(_runs, _clock, _audit, _uow);
@@ -76,7 +88,7 @@ public sealed class PayoutFlowTests
         var result = await NewCreateHandler().Handle(
             new CreatePayoutRunCommand(
                 snapshot.Id, PayoutKind.Dividend, PayoutMethod.BankTransfer, 10_000m, "KGS",
-                "Дивиденды за II квартал"),
+                "Дивиденды за II квартал", _period.Id),
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -95,7 +107,7 @@ public sealed class PayoutFlowTests
 
         await NewCreateHandler().Handle(
             new CreatePayoutRunCommand(
-                snapshot.Id, PayoutKind.Dividend, PayoutMethod.Wallet, 10_000m, "KGS", null),
+                snapshot.Id, PayoutKind.Dividend, PayoutMethod.Wallet, 10_000m, "KGS", null, _period.Id),
             CancellationToken.None);
 
         Captured().Status.Should().Be(PayoutRunStatus.Draft);
@@ -115,7 +127,7 @@ public sealed class PayoutFlowTests
 
         var result = await NewCreateHandler().Handle(
             new CreatePayoutRunCommand(
-                snapshot.Id, PayoutKind.Dividend, PayoutMethod.Wallet, 10_000m, "KGS", null),
+                snapshot.Id, PayoutKind.Dividend, PayoutMethod.Wallet, 10_000m, "KGS", null, _period.Id),
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
@@ -130,7 +142,7 @@ public sealed class PayoutFlowTests
 
         var result = await NewCreateHandler().Handle(
             new CreatePayoutRunCommand(
-                snapshot.Id, PayoutKind.Dividend, PayoutMethod.Wallet, 10_000m, "KGS", null),
+                snapshot.Id, PayoutKind.Dividend, PayoutMethod.Wallet, 10_000m, "KGS", null, _period.Id),
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();

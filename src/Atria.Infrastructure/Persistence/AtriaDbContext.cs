@@ -20,6 +20,7 @@ using Atria.Domain.Regulatory;
 using Atria.Domain.Realtors;
 using Atria.Domain.Refunds;
 using Atria.Domain.Support;
+using Atria.Domain.Operations;
 using Atria.Domain.Payouts;
 using Atria.Domain.Tax;
 using Atria.Domain.TravelRule;
@@ -69,6 +70,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<RefundObligation> RefundObligations => Set<RefundObligation>();
     public DbSet<TaxStatement> TaxStatements => Set<TaxStatement>();
     public DbSet<PayoutRun> PayoutRuns => Set<PayoutRun>();
+    public DbSet<OperatingPeriod> OperatingPeriods => Set<OperatingPeriod>();
     public DbSet<TravelRuleMessage> TravelRuleMessages => Set<TravelRuleMessage>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

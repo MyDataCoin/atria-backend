@@ -42,15 +42,22 @@ public sealed class GetAuditLogQueryHandler
 
     public async Task<Result<PagedResult<AuditLogDto>>> Handle(GetAuditLogQuery request, CancellationToken ct)
     {
-        // Role-based authorization: only Admin or Compliance may read the audit trail.
+        // Role-based authorization, enforced here as well as on the controller: the journal names
+        // who did what, and a single missing attribute should not be all that stands between it and
+        // an unauthorised reader.
         if (!_currentUser.IsAuthenticated)
             return Result.Failure<PagedResult<AuditLogDto>>(
                 Error.Unauthorized("Audit.Unauthorized", "Authentication is required."));
 
+        // Auditor reads it too — watching what everyone else did is the role's whole purpose, and
+        // the query only ever reads. Finance is deliberately NOT here: an accountant works from the
+        // figures, not from everyone else's actions.
         if (!_currentUser.IsInRole(Role.Admin) && !_currentUser.IsInRole(Role.Compliance)
-            && !_currentUser.IsInRole(Role.SuperAdmin))
+            && !_currentUser.IsInRole(Role.SuperAdmin) && !_currentUser.IsInRole(Role.Auditor))
             return Result.Failure<PagedResult<AuditLogDto>>(
-                Error.Forbidden("Audit.Forbidden", "Only Admin, Compliance or SuperAdmin may read the audit log."));
+                Error.Forbidden(
+                    "Audit.Forbidden",
+                    "Only Admin, Compliance, SuperAdmin or Auditor may read the audit log."));
 
         AuditSeverity? severity = null;
         if (!string.IsNullOrWhiteSpace(request.Severity))

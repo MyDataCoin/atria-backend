@@ -121,10 +121,20 @@ public class AtriaApiFactory : WebApplicationFactory<Program>
     public const string SuperAdminUsername = "superadmin";
     public const string SuperAdminPassword = "superadmin-test-password";
 
+    // The management company's two staff accounts, on the roles they reuse: the accountant reports
+    // and the platform confirms, which is what lets a test exercise the "two different people" rule
+    // that operating periods enforce.
+    public const string AccountantUsername = "buhgalter";
+    public const string AccountantPassword = "buhgalter-test-password";
+    public const string LawyerUsername = "yurist";
+    public const string LawyerPassword = "yurist-test-password";
+
     // Fixed ids so suites that assert on the token subject keep working.
     private static readonly Guid AdminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid RealtorId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid SuperAdminId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private static readonly Guid AccountantId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+    private static readonly Guid LawyerId = Guid.Parse("77777777-7777-7777-7777-777777777777");
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
@@ -137,7 +147,7 @@ public class AtriaApiFactory : WebApplicationFactory<Program>
     // check-then-insert on the unique username can't race.
     private static readonly object SeedLock = new();
 
-    /// <summary>Seeds the admin/realtor/super-admin credential rows once (idempotent, thread-safe).</summary>
+    /// <summary>Seeds the staff credential rows once (idempotent, thread-safe).</summary>
     private static void SeedCredentialAccounts(IServiceProvider services)
     {
         lock (SeedLock)
@@ -155,6 +165,8 @@ public class AtriaApiFactory : WebApplicationFactory<Program>
             Ensure(AdminUsername, Atria.Domain.Users.Role.Admin, AdminPassword, AdminId);
             Ensure(RealtorUsername, Atria.Domain.Users.Role.Realtor, RealtorPassword, RealtorId);
             Ensure(SuperAdminUsername, Atria.Domain.Users.Role.SuperAdmin, SuperAdminPassword, SuperAdminId);
+            Ensure(AccountantUsername, Atria.Domain.Users.Role.Finance, AccountantPassword, AccountantId);
+            Ensure(LawyerUsername, Atria.Domain.Users.Role.Auditor, LawyerPassword, LawyerId);
             db.SaveChanges();
         }
     }

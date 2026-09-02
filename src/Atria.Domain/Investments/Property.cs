@@ -98,6 +98,26 @@ public sealed class Property : AggregateRoot
     /// <summary>Reported construction readiness, 0–100. Null when not reported.</summary>
     public int? ReadinessPercent { get; private set; }
 
+    /// <summary>
+    /// How often the issue distributes to holders. <see cref="PayoutFrequency.None"/> is a real
+    /// answer, not a missing one: an object under construction earns nothing and distributes nothing.
+    /// </summary>
+    /// <remarks>
+    /// Stating this is a disclosure question, not a scheduling one. The management company answered
+    /// "ежемесячно" for an object that is a design on paper; showing that on the offering page
+    /// promises investors a payment the issue cannot make. <see cref="DistributesYet"/> is what the
+    /// public surfaces should read.
+    /// </remarks>
+    public PayoutFrequency PayoutFrequency { get; private set; } = PayoutFrequency.Unspecified;
+
+    /// <summary>
+    /// Whether the issue pays anything out at all yet. False while it is not commissioned, whatever
+    /// frequency was entered — an object that does not earn cannot distribute on any schedule.
+    /// </summary>
+    public bool DistributesYet
+        => PayoutFrequency is not (PayoutFrequency.Unspecified or PayoutFrequency.None)
+           && ConstructionStage is ConstructionStage.Unspecified or ConstructionStage.Commissioned;
+
     // --- Cadastre encumbrance check ---
     //
     // Two fields rather than one flag. "No encumbrances" and "nobody has looked" are different
@@ -468,6 +488,16 @@ public sealed class Property : AggregateRoot
 
         PlannedCompletionDate = plannedCompletionDate ?? PlannedCompletionDate;
         ReadinessPercent = readinessPercent ?? ReadinessPercent;
+    }
+
+    /// <summary>
+    /// States how often the issue distributes to holders. <see cref="PayoutFrequency.Unspecified"/>
+    /// is treated as "leave as is".
+    /// </summary>
+    public void SetPayoutFrequency(PayoutFrequency frequency)
+    {
+        if (frequency is not PayoutFrequency.Unspecified)
+            PayoutFrequency = frequency;
     }
 
     /// <summary>

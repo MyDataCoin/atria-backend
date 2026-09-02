@@ -152,6 +152,7 @@ public static class DependencyInjection
         services.AddScoped<IRegulatoryReportRepository, RegulatoryReportRepository>();
         services.AddScoped<IRefundObligationRepository, RefundObligationRepository>();
         services.AddScoped<IPayoutRunRepository, PayoutRunRepository>();
+        services.AddScoped<IOperatingPeriodRepository, OperatingPeriodRepository>();
         services.AddScoped<ITravelRuleRepository, TravelRuleRepository>();
         // Travel rule: the obligation is assembled and queued regardless of whether a counterparty
         // has been chosen, so the reporter is always live and only delivery is stubbed out.

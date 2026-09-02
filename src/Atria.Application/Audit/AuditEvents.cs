@@ -50,6 +50,9 @@ public static class AuditEvents
     public const string PlacementOpened = "PlacementOpened";
     public const string PlacementClosed = "PlacementClosed";
     public const string PlacementNotSubscribed = "PlacementNotSubscribed";
+    public const string OperatingPeriodReported = "OperatingPeriodReported";
+    public const string OperatingPeriodRevised = "OperatingPeriodRevised";
+    public const string OperatingPeriodConfirmed = "OperatingPeriodConfirmed";
     public const string InvestmentWithdrawn = "InvestmentWithdrawn";
     public const string InvestmentAnnulled = "InvestmentAnnulled";
     public const string PayoutRunCreated = "PayoutRunCreated";

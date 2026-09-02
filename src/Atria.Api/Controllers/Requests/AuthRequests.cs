@@ -106,6 +106,7 @@ public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercen
 /// <param name="ReadinessPercent">New reported readiness, 0–100; <c>null</c> to leave unchanged.</param>
 /// <param name="IsFreeOfEncumbrances">Cadastre check result; applied only together with <paramref name="EncumbranceCheckedAtUtc"/>.</param>
 /// <param name="EncumbranceCheckedAtUtc">When that cadastre check was made.</param>
+/// <param name="PayoutFrequency">New distribution frequency (<c>none</c>, <c>monthly</c>, …); <c>null</c> to leave unchanged.</param>
 public sealed record UpdatePropertyRequest(
     string? Name,
     string? Description,
@@ -132,7 +133,8 @@ public sealed record UpdatePropertyRequest(
     DateTime? PlannedCompletionDate = null,
     int? ReadinessPercent = null,
     bool? IsFreeOfEncumbrances = null,
-    DateTime? EncumbranceCheckedAtUtc = null);
+    DateTime? EncumbranceCheckedAtUtc = null,
+    string? PayoutFrequency = null);
 
 /// <summary>POST /publications body. Creates and publishes a news-feed item.</summary>
 /// <param name="Type">Kind: <c>financial_report</c> | <c>news_release</c> | <c>valuation_audit</c> | <c>general_news</c>.</param>
@@ -183,6 +185,7 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="ConstructionStage">How far along the object is: <c>land_only</c> | <c>design</c> | <c>under_construction</c> | <c>commissioned</c>; optional.</param>
 /// <param name="PlannedCompletionDate">Expected commissioning date; optional.</param>
 /// <param name="ReadinessPercent">Reported construction readiness, 0–100; optional.</param>
+/// <param name="PayoutFrequency">How often the issue distributes: <c>none</c> | <c>monthly</c> | <c>quarterly</c> | <c>annually</c>; optional.</param>
 public sealed record CreatePropertyRequest(
     string Name,
     string? Description,
@@ -212,7 +215,8 @@ public sealed record CreatePropertyRequest(
     string? CadastralNumber = null,
     string? ConstructionStage = null,
     DateTime? PlannedCompletionDate = null,
-    int? ReadinessPercent = null);
+    int? ReadinessPercent = null,
+    string? PayoutFrequency = null);
 
 /// <summary>POST /buildings body. Registers the building an admin then fills with units.</summary>
 /// <param name="Name">Display name (e.g. "ЖК Ала-Тоо, блок B").</param>

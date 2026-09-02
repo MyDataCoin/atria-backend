@@ -9,10 +9,16 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Atria.Api.Controllers;
 
-/// <summary>Read-only audit trail, filterable by entity. Admin / Compliance only.</summary>
+/// <summary>Read-only audit trail, filterable by entity. Staff oversight roles only.</summary>
+/// <remarks>
+/// The Auditor role reads it too. The journal is the record of who did what, which is the thing an
+/// auditor's account exists to look at — and the endpoint only ever reads, so widening it grants no
+/// power to change anything. It is deliberately still closed to Finance: an accountant works from
+/// the figures, not from everyone else's actions.
+/// </remarks>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/audit")]
-[Authorize(Roles = "Admin,Compliance,SuperAdmin")]
+[Authorize(Roles = "Admin,Compliance,SuperAdmin,Auditor")]
 public sealed class AdminAuditController : ApiControllerBase
 {
     public AdminAuditController(ISender sender) : base(sender) { }
