@@ -22,6 +22,12 @@ internal sealed class PropertyImageConfiguration : IEntityTypeConfiguration<Prop
         b.Property(i => i.PropertyId).IsRequired();
         b.Property(i => i.Url).HasMaxLength(1024).IsRequired();
 
+        // What the image is. Existing rows default to Photo (0), which is what they were — the
+        // objects they belong to are built.
+        b.Property(i => i.Kind).HasConversion<int>().IsRequired();
+        b.Property(i => i.Caption).HasMaxLength(PropertyImage.MaxCaption);
+        b.Property(i => i.SortOrder).IsRequired();
+
         b.HasIndex(i => i.PropertyId);
     }
 }

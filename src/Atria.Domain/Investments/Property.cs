@@ -283,7 +283,10 @@ public sealed class Property : AggregateRoot
     public bool SalesPaused { get; private set; }
 
     private readonly List<PropertyImage> _images = new();
-    public IReadOnlyCollection<PropertyImage> Images => _images.AsReadOnly();
+
+    /// <summary>The gallery, in display order. The first image is the cover.</summary>
+    public IReadOnlyCollection<PropertyImage> Images
+        => _images.OrderBy(i => i.SortOrder).ToList().AsReadOnly();
 
     private readonly List<PropertyDocument> _documents = new();
     public IReadOnlyCollection<PropertyDocument> Documents => _documents.AsReadOnly();
@@ -712,17 +715,50 @@ public sealed class Property : AggregateRoot
     public void SetCollateralManager(Guid? userId)
         => CollateralManagerUserId = userId == Guid.Empty ? null : userId;
 
-    /// <summary>Adds a photo (max <see cref="MaxImages"/>). Returns the created child.</summary>
-    public PropertyImage AddImage(string url)
+    /// <summary>
+    /// Adds an image (max <see cref="MaxImages"/>), appended at the end of the gallery. Returns the
+    /// created child.
+    /// </summary>
+    /// <remarks>
+    /// The kind is not decoration: a render of an unbuilt object shown as a photograph misleads the
+    /// person deciding whether to invest. See <see cref="PropertyImageKind"/>.
+    /// </remarks>
+    public PropertyImage AddImage(
+        string url, PropertyImageKind kind = PropertyImageKind.Photo, string? caption = null)
     {
         if (string.IsNullOrWhiteSpace(url))
             throw new DomainException("Image URL is required.");
         if (_images.Count >= MaxImages)
             throw new DomainException($"A property can have at most {MaxImages} images.");
 
-        var image = PropertyImage.Create(Id, url);
+        // Appended after the current last position rather than at _images.Count: a gallery whose
+        // middle image was removed has a gap, and counting would hand the newcomer a position that
+        // is already taken.
+        var next = _images.Count == 0 ? 0 : _images.Max(i => i.SortOrder) + 1;
+
+        var image = PropertyImage.Create(Id, url, kind, caption, next);
         _images.Add(image);
         return image;
+    }
+
+    /// <summary>
+    /// Reorders the gallery to <paramref name="imageIds"/>. The first id becomes the cover.
+    /// </summary>
+    /// <remarks>
+    /// The whole order is given at once and must name every image exactly once. A partial reorder
+    /// would leave the unnamed images at positions the named ones now also claim, and which of them
+    /// ended up as the cover would come down to how the list happened to be sorted afterwards.
+    /// </remarks>
+    public void ReorderImages(IReadOnlyList<Guid> imageIds)
+    {
+        ArgumentNullException.ThrowIfNull(imageIds);
+
+        if (imageIds.Count != _images.Count || imageIds.Distinct().Count() != imageIds.Count
+            || imageIds.Any(id => _images.All(i => i.Id != id)))
+            throw new DomainException("The new order must list every image of this property exactly once.");
+
+        for (var position = 0; position < imageIds.Count; position++)
+            _images.Single(i => i.Id == imageIds[position]).MoveTo(position);
     }
 
     /// <summary>Removes a photo by id; returns the removed child (with its URL) or null if not found.</summary>

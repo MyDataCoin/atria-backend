@@ -388,6 +388,10 @@ public sealed record AnnulTokensRequest(long TokenCount, string Reason);
 /// <param name="Reason">The ground on which the issue is declared invalid; required and journalled.</param>
 public sealed record InvalidateIssueRequest(string Reason);
 
+/// <summary>PUT /properties/{id}/images/order body. Sets the gallery order; the first id is the cover.</summary>
+/// <param name="ImageIds">Every image of the property, exactly once, in display order.</param>
+public sealed record ReorderPropertyImagesRequest(IReadOnlyList<Guid> ImageIds);
+
 /// <summary>POST /properties/{id}/placement body. Sets the placement window and the sum to raise.</summary>
 /// <param name="OpensAtUtc">When the placement should open; <c>null</c> to leave unchanged.</param>
 /// <param name="ClosesAtUtc">When it should close; <c>null</c> to leave unchanged. Must be after the opening.</param>

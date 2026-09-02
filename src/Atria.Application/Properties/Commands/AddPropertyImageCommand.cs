@@ -1,17 +1,26 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Application.Properties.Dtos;
+using Atria.Domain.Common;
 using Atria.Domain.Investments;
 
 namespace Atria.Application.Properties.Commands;
 
-/// <summary>Uploads a photo for a property (Admin). Enforced max is <see cref="Property.MaxImages"/>.</summary>
+/// <summary>Uploads an image for a property (Admin). Enforced max is <see cref="Property.MaxImages"/>.</summary>
+/// <param name="Kind">
+/// What the image is: <c>photo</c> | <c>render</c> | <c>floor_plan</c> | <c>site_plan</c>. Absent or
+/// unrecognised means a photo. A render of an unbuilt object has to say so — see
+/// <see cref="PropertyImageKind"/>.
+/// </param>
+/// <param name="Caption">Optional caption shown under the image.</param>
 public sealed record AddPropertyImageCommand(
     Guid PropertyId,
     Stream Content,
     string FileName,
     string ContentType,
-    long SizeBytes) : IRequest<Result<PropertyImageDto>>;
+    long SizeBytes,
+    string? Kind = null,
+    string? Caption = null) : IRequest<Result<PropertyImageDto>>;
 
 /// <summary>
 /// Loads the property, checks the image limit BEFORE writing bytes (so a rejected upload never
@@ -47,13 +56,23 @@ public sealed class AddPropertyImageCommandHandler
                 "property.image_limit", $"A property can have at most {Property.MaxImages} images."));
 
         var url = await _storage.SaveAsync(request.Content, request.FileName, request.ContentType, Category, ct);
-        var image = property.AddImage(url);
+
+        PropertyImage image;
+        try
+        {
+            image = property.AddImage(
+                url, PropertyImageDto.ParseKind(request.Kind), request.Caption);
+        }
+        catch (DomainException ex)
+        {
+            return Result.Failure<PropertyImageDto>(Error.Validation("property.image_invalid", ex.Message));
+        }
 
         // property is tracked (loaded via GetByIdAsync) — the change tracker INSERTs the new child.
         // Do NOT call Update(): it marks the whole graph Modified, turning the INSERT into an UPDATE
         // of a non-existent row (0 rows affected -> DbUpdateConcurrencyException).
         await _unitOfWork.SaveChangesAsync(ct);
 
-        return Result.Success(new PropertyImageDto(image.Id, image.Url));
+        return Result.Success(PropertyImageDto.From(image));
     }
 }

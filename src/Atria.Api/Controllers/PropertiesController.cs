@@ -471,14 +471,24 @@ public sealed class PropertiesController : ApiControllerBase
         return ToActionResult(result);
     }
 
-    /// <summary>Uploads a photo for a property (max 3). Admin only. Returns the image id + public URL.</summary>
+    /// <summary>Uploads an image for a property (max 10). Admin only. Returns the image id + public URL.</summary>
     /// <remarks>
     /// <c>multipart/form-data</c> with a single <c>file</c> part (JPEG/PNG/WebP, ≤ 10 MB). The file is
     /// stored on the backend under a UUID name and served statically; only its URL is persisted. A property
-    /// may hold at most 10 photos (<c>409</c> beyond that).
+    /// may hold at most 10 images (<c>409</c> beyond that).
+    /// <para>
+    /// Two optional form fields travel with the file. <c>kind</c> says what the image is —
+    /// <c>photo</c> (the default), <c>render</c>, <c>floor_plan</c> or <c>site_plan</c> — and a
+    /// <c>render</c> is shown labelled as a visualisation, because it is a picture of something that
+    /// does not exist yet. <c>caption</c> is free text displayed under the image.
+    /// </para>
+    /// Images are appended to the end of the gallery; use <c>PUT /properties/{id}/images/order</c> to
+    /// choose which one is the cover.
     /// </remarks>
     /// <param name="id">The property's id.</param>
     /// <param name="file">The image file part.</param>
+    /// <param name="kind">What the image is; defaults to <c>photo</c>.</param>
+    /// <param name="caption">Optional caption.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("{id:guid}/images")]
     [Authorize(Roles = "Admin")]
@@ -489,13 +499,40 @@ public sealed class PropertiesController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> UploadImage(Guid id, IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadImage(
+        Guid id,
+        IFormFile file,
+        [FromForm] string? kind,
+        [FromForm] string? caption,
+        CancellationToken ct)
     {
         await using var stream = file.OpenReadStream();
         var result = await Sender.Send(
-            new AddPropertyImageCommand(id, stream, file.FileName, file.ContentType, file.Length), ct);
+            new AddPropertyImageCommand(
+                id, stream, file.FileName, file.ContentType, file.Length, kind, caption), ct);
         return ToActionResult(result);
     }
+
+    /// <summary>Sets the gallery order of a property's images. Admin only.</summary>
+    /// <remarks>
+    /// The first id becomes the cover. The body must list every image of the property exactly once —
+    /// a partial order would leave the unnamed images fighting the named ones for the same positions,
+    /// and which one ended up on the card would be luck. <c>400</c> when it does not.
+    /// </remarks>
+    /// <param name="id">The property's id.</param>
+    /// <param name="request">The image ids, in display order.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPut("{id:guid}/images/order")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReorderImages(
+        Guid id, ReorderPropertyImagesRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(
+            new ReorderPropertyImagesCommand(id, request.ImageIds ?? []), ct));
 
     /// <summary>Deletes a property photo. Admin only.</summary>
     /// <param name="id">The property's id.</param>
