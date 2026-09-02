@@ -19,6 +19,11 @@ internal sealed class PropertyDocumentConfiguration : IEntityTypeConfiguration<P
         b.Property(d => d.Url).HasMaxLength(1024).IsRequired();
         b.Property(d => d.FileName).HasMaxLength(512).IsRequired();
         b.Property(d => d.ContentType).HasMaxLength(256).IsRequired();
+        b.Property(d => d.Category).HasConversion<int>().IsRequired();
+        b.Property(d => d.Title).HasMaxLength(PropertyDocument.MaxTitle);
+
+        // DisplayName is computed from Title and FileName — read it, never store it.
+        b.Ignore(d => d.DisplayName);
 
         b.HasIndex(d => d.PropertyId);
     }

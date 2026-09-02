@@ -906,12 +906,20 @@ public sealed class Property : AggregateRoot
     }
 
     /// <summary>Adds a document. Returns the created child.</summary>
-    public PropertyDocument AddDocument(string url, string fileName, string contentType)
+    /// <param name="url">Public URL of the stored file.</param>
+    /// <param name="fileName">Name of the uploaded file.</param>
+    /// <param name="contentType">MIME type of the file.</param>
+    /// <param name="category">What the document is; <see cref="PropertyDocumentCategory.Unspecified"/> when not stated.</param>
+    /// <param name="title">What to call it in a list; falls back to <paramref name="fileName"/>.</param>
+    public PropertyDocument AddDocument(
+        string url, string fileName, string contentType,
+        PropertyDocumentCategory category = PropertyDocumentCategory.Unspecified,
+        string? title = null)
     {
         if (string.IsNullOrWhiteSpace(url))
             throw new DomainException("Document URL is required.");
 
-        var document = PropertyDocument.Create(Id, url, fileName, contentType);
+        var document = PropertyDocument.Create(Id, url, fileName, contentType, category, title);
         _documents.Add(document);
         return document;
     }

@@ -43,7 +43,46 @@ public sealed record PropertyImageDto(Guid Id, string Url, string Kind, string? 
 /// <param name="Url">Public URL of the document (served statically).</param>
 /// <param name="FileName">Original uploaded file name.</param>
 /// <param name="ContentType">MIME content type of the document.</param>
-public sealed record PropertyDocumentDto(Guid Id, string Url, string FileName, string ContentType);
+/// <param name="Category">What the document is, lowercase: <c>legal</c> | <c>technical_passport</c> | <c>valuation</c> | <c>collateral</c> | <c>construction_schedule</c> | <c>layout</c> | <c>unspecified</c>.</param>
+/// <param name="Title">What to call it in a list; <c>null</c> when it was never given a name.</param>
+/// <param name="DisplayName"><paramref name="Title"/>, or <paramref name="FileName"/> when there is none. What a list should render.</param>
+public sealed record PropertyDocumentDto(
+    Guid Id, string Url, string FileName, string ContentType,
+    string Category, string? Title, string DisplayName)
+{
+    /// <summary>Maps a document to its read model.</summary>
+    public static PropertyDocumentDto From(Domain.Investments.PropertyDocument d)
+        => new(d.Id, d.Url, d.FileName, d.ContentType, ToWireCategory(d.Category), d.Title, d.DisplayName);
+
+    /// <summary>Maps the document category to its lowercase wire value.</summary>
+    public static string ToWireCategory(Domain.Investments.PropertyDocumentCategory category) => category switch
+    {
+        Domain.Investments.PropertyDocumentCategory.Legal => "legal",
+        Domain.Investments.PropertyDocumentCategory.TechnicalPassport => "technical_passport",
+        Domain.Investments.PropertyDocumentCategory.Valuation => "valuation",
+        Domain.Investments.PropertyDocumentCategory.Collateral => "collateral",
+        Domain.Investments.PropertyDocumentCategory.ConstructionSchedule => "construction_schedule",
+        Domain.Investments.PropertyDocumentCategory.Layout => "layout",
+        _ => "unspecified"
+    };
+
+    /// <summary>
+    /// Parses the wire category. Unknown / absent values map to
+    /// <see cref="Domain.Investments.PropertyDocumentCategory.Unspecified"/> — an unrecognised label
+    /// must not lose the upload, only its filing.
+    /// </summary>
+    public static Domain.Investments.PropertyDocumentCategory ParseCategory(string? wire)
+        => wire?.Trim().ToLowerInvariant() switch
+        {
+            "legal" => Domain.Investments.PropertyDocumentCategory.Legal,
+            "technical_passport" => Domain.Investments.PropertyDocumentCategory.TechnicalPassport,
+            "valuation" => Domain.Investments.PropertyDocumentCategory.Valuation,
+            "collateral" => Domain.Investments.PropertyDocumentCategory.Collateral,
+            "construction_schedule" => Domain.Investments.PropertyDocumentCategory.ConstructionSchedule,
+            "layout" => Domain.Investments.PropertyDocumentCategory.Layout,
+            _ => Domain.Investments.PropertyDocumentCategory.Unspecified
+        };
+}
 
 /// <summary>One line of a unit's room breakdown — "Кухня+Столовая — 28,68 м²".</summary>
 /// <param name="Id">The room row's unique identifier.</param>

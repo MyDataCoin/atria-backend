@@ -137,7 +137,7 @@ public sealed record PropertyDto(
             p.AreaPerTokenSqM, p.Currency, ToWireStatus(p.Status), p.SalesPaused,
             p.Address, p.PropertyType, p.City, p.YearBuilt, p.Developer, p.Floors,
             p.Images.Select(PropertyImageDto.From).ToList(),
-            p.Documents.Select(d => new PropertyDocumentDto(d.Id, d.Url, d.FileName, d.ContentType)).ToList(),
+            p.Documents.Select(PropertyDocumentDto.From).ToList(),
             p.BuildingId, ToWireUnitType(p.UnitType), p.UnitNumber, p.FloorNumber, p.RoomCount,
             p.Section, p.Row, p.Spot,
             p.TotalAreaSqM, p.UsableAreaSqM, p.DocumentedUse, p.BuildingClass, p.WallMaterial,

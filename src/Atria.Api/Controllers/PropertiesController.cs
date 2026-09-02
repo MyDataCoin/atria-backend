@@ -561,6 +561,10 @@ public sealed class PropertiesController : ApiControllerBase
     /// </remarks>
     /// <param name="id">The property's id.</param>
     /// <param name="file">The document file part.</param>
+    /// <param name="category">What the document is: <c>legal</c>, <c>technical_passport</c>,
+    /// <c>valuation</c>, <c>collateral</c>, <c>construction_schedule</c> or <c>layout</c>. Optional;
+    /// an unrecognised value files the document as unspecified rather than rejecting the upload.</param>
+    /// <param name="title">What to call it in a list; falls back to the file name.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("{id:guid}/documents")]
     [Authorize(Roles = "Admin")]
@@ -570,11 +574,14 @@ public sealed class PropertiesController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UploadDocument(Guid id, IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadDocument(
+        Guid id, IFormFile file, [FromForm] string? category, [FromForm] string? title,
+        CancellationToken ct)
     {
         await using var stream = file.OpenReadStream();
         var result = await Sender.Send(
-            new AddPropertyDocumentCommand(id, stream, file.FileName, file.ContentType, file.Length), ct);
+            new AddPropertyDocumentCommand(
+                id, stream, file.FileName, file.ContentType, file.Length, category, title), ct);
         return ToActionResult(result);
     }
 
