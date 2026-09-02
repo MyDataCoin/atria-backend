@@ -114,6 +114,19 @@ public sealed class Property : AggregateRoot
     public string? Parking { get; private set; }
 
     /// <summary>
+    /// The area actually being placed, in m² — what the issue is cut from when that is only part of
+    /// the object. Null when the whole unit is issued, and <see cref="AreaPerTokenSqM"/> then falls
+    /// back to <see cref="TotalAreaSqM"/>.
+    /// </summary>
+    /// <remarks>
+    /// Neither the floor area nor the plot: a 0.72 ha plot can place 10 000 m² of the building
+    /// designed on it, which is larger than the plot and unrelated to any floor area that exists
+    /// yet. Kept as its own field so a share reports the metres it actually stands for, rather than
+    /// dividing an area the issue was never cut from.
+    /// </remarks>
+    public decimal? OfferedAreaSqM { get; private set; }
+
+    /// <summary>
     /// Area of the land plot, in hectares. Deliberately NOT folded into
     /// <see cref="TotalAreaSqM"/>: that is sellable floor area, and <see cref="AreaPerTokenSqM"/>
     /// divides it across the issue. A plot's hectares are neither, and putting them in the same
@@ -205,11 +218,16 @@ public sealed class Property : AggregateRoot
     public decimal MinPurchaseAmount => TokenAmount.CostOf(MinPurchaseTokens, TokenPrice);
 
     /// <summary>
-    /// Area one share stands for, or null when the unit's area is unknown. An equivalent shown
+    /// Area one share stands for, or null when there is no area to divide. An equivalent shown
     /// beside a holding, never the unit of issue itself.
     /// </summary>
+    /// <remarks>
+    /// Divides <see cref="OfferedAreaSqM"/> when the issue covers only part of the object, and
+    /// <see cref="TotalAreaSqM"/> otherwise. Dividing the total when only a part is placed would
+    /// overstate every share by the ratio between them.
+    /// </remarks>
     public decimal? AreaPerTokenSqM
-        => TotalAreaSqM is { } area && TotalTokens > 0 ? area / TotalTokens : null;
+        => (OfferedAreaSqM ?? TotalAreaSqM) is { } area && TotalTokens > 0 ? area / TotalTokens : null;
 
     public string Currency { get; private set; } = null!;
 
@@ -450,20 +468,37 @@ public sealed class Property : AggregateRoot
     }
 
     /// <summary>
-    /// Sets the placement window and the sum it is trying to raise. Only non-null arguments are
-    /// applied, so a caller can PATCH one of them.
+    /// Sets the placement window, the sum it is trying to raise and the area being placed. Only
+    /// non-null arguments are applied, so a caller can PATCH one of them.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The window is validated as a whole, against what is already stored: a closing date that lands
     /// before the opening date is refused however it is assembled — in one call or by a later PATCH
     /// of a single field. An inverted window would otherwise be openable and closeable at the same
     /// instant, and which of the two the sweep applied would depend on the order it ran its checks.
+    /// </para>
+    /// <para>
+    /// <paramref name="offeredAreaSqM"/> is frozen once the first share is placed — see the check
+    /// below for why. The window and the target stay editable: extending a placement is an
+    /// explicit, counted operation and changing what a share IS is not the same as changing when
+    /// it stops being sold.
+    /// </para>
     /// </remarks>
     public void SchedulePlacement(
-        DateTime? opensAtUtc = null, DateTime? closesAtUtc = null, decimal? targetAmount = null)
+        DateTime? opensAtUtc = null, DateTime? closesAtUtc = null, decimal? targetAmount = null,
+        decimal? offeredAreaSqM = null)
     {
         if (targetAmount is <= 0)
             throw new DomainException("The placement target must be positive.");
+        if (offeredAreaSqM is <= 0)
+            throw new DomainException("The offered area must be positive.");
+
+        // The metres a share stands for cannot move once shares are out: an investor who bought
+        // 1 m² per share would silently be holding 0.5 m² per share afterwards. Before the first
+        // placement it is still a draft parameter and may be corrected freely.
+        if (offeredAreaSqM is { } offered && offered != OfferedAreaSqM && AvailableTokens < TotalTokens)
+            throw new DomainException("The offered area cannot change once shares have been placed.");
 
         var opens = opensAtUtc ?? PlacementOpensAtUtc;
         var closes = closesAtUtc ?? PlacementClosesAtUtc;
@@ -474,6 +509,7 @@ public sealed class Property : AggregateRoot
         PlacementOpensAtUtc = opens;
         PlacementClosesAtUtc = closes;
         TargetAmount = targetAmount ?? TargetAmount;
+        OfferedAreaSqM = offeredAreaSqM ?? OfferedAreaSqM;
     }
 
     /// <summary>

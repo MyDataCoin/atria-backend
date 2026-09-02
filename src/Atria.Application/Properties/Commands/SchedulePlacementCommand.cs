@@ -15,11 +15,16 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="OpensAtUtc">When the placement should open; <c>null</c> to leave unchanged.</param>
 /// <param name="ClosesAtUtc">When it should close; <c>null</c> to leave unchanged.</param>
 /// <param name="TargetAmount">The sum to raise by the closing date; <c>null</c> to leave unchanged.</param>
+/// <param name="OfferedAreaSqM">
+/// The area being placed, in m², when the issue covers only part of the object; <c>null</c> to leave
+/// unchanged. Refused once shares have been placed — it is what a share stands for.
+/// </param>
 public sealed record SchedulePlacementCommand(
     Guid PropertyId,
     DateTime? OpensAtUtc,
     DateTime? ClosesAtUtc,
-    decimal? TargetAmount) : IRequest<Result>;
+    decimal? TargetAmount,
+    decimal? OfferedAreaSqM = null) : IRequest<Result>;
 
 /// <summary>
 /// Writes the window onto the issue. Setting it is all this does — the dates are acted on by the
@@ -57,7 +62,8 @@ public sealed class SchedulePlacementCommandHandler : IRequestHandler<SchedulePl
 
         try
         {
-            property.SchedulePlacement(request.OpensAtUtc, request.ClosesAtUtc, request.TargetAmount);
+            property.SchedulePlacement(
+                request.OpensAtUtc, request.ClosesAtUtc, request.TargetAmount, request.OfferedAreaSqM);
         }
         catch (DomainException ex)
         {
@@ -68,7 +74,8 @@ public sealed class SchedulePlacementCommandHandler : IRequestHandler<SchedulePl
             AuditEntities.Property, property.Id, AuditEvents.PlacementScheduled,
             $"Размещение объекта «{property.Name}»: "
             + $"открытие {Format(property.PlacementOpensAtUtc)}, закрытие {Format(property.PlacementClosesAtUtc)}, "
-            + $"цель {(property.TargetAmount is { } t ? $"{t:0.##} {property.Currency}" : "не задана")}",
+            + $"цель {(property.TargetAmount is { } t ? $"{t:0.##} {property.Currency}" : "не задана")}"
+            + (property.OfferedAreaSqM is { } a ? $", выпускается {a:0.##} м²" : string.Empty),
             AuditSeverity.Success, ct);
 
         await _uow.SaveChangesAsync(ct);

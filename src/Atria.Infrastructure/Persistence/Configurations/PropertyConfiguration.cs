@@ -33,6 +33,9 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Spot).HasMaxLength(Property.MaxParkingAddressPart);
         b.Property(p => p.TotalAreaSqM).HasPrecision(10, 2);
         b.Property(p => p.UsableAreaSqM).HasPrecision(10, 2);
+        // Placed area — same precision as the floor areas it is measured against, though it is
+        // neither of them: an issue may place more metres than the object has floor today.
+        b.Property(p => p.OfferedAreaSqM).HasPrecision(10, 2);
 
         // Описательные характеристики карточки — «заполняется тем, что есть». Свободный текст:
         // «монолит-кирпич» и «2 пассажирских, 1 грузовой» — реальные ответы, под enum их не свести.

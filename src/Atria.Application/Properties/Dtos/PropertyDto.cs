@@ -11,7 +11,7 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="TotalTokens">Total number of tokens the property was issued with.</param>
 /// <param name="MinPurchaseTokens">Fewest tokens one application may be for.</param>
 /// <param name="MinPurchaseAmount"><paramref name="MinPurchaseTokens"/> × <paramref name="TokenPrice"/> — the smallest sum that buys in.</param>
-/// <param name="AreaPerTokenSqM">Area one token stands for (<paramref name="TotalAreaSqM"/> ÷ <paramref name="TotalTokens"/>), or <c>null</c> when the area is unknown. A derived equivalent for display — the token is a share of the issue, not a square metre.</param>
+/// <param name="AreaPerTokenSqM">Area one token stands for (<paramref name="OfferedAreaSqM"/> ÷ <paramref name="TotalTokens"/>, falling back to <paramref name="TotalAreaSqM"/>), or <c>null</c> when there is no area to divide. A derived equivalent for display — the token is a share of the issue, not a square metre.</param>
 /// <param name="Currency">Currency of the token price. Always <c>KGS</c>.</param>
 /// <param name="Status">Lifecycle status, lowercase: <c>draft</c> | <c>coming_soon</c> | <c>open</c> | <c>completed</c>.</param>
 /// <param name="SalesPaused">Whether purchases are paused (blocks "buy" on the public site); orthogonal to status.</param>
@@ -40,6 +40,7 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="Elevator">Lifts, as described; <c>null</c> when unset.</param>
 /// <param name="Security">Security arrangement; <c>null</c> when unset.</param>
 /// <param name="Parking">Parking available with the object; <c>null</c> when unset.</param>
+/// <param name="OfferedAreaSqM">Area being placed in m² when the issue covers only part of the object; <c>null</c> when the whole unit is issued. Frozen once shares are placed.</param>
 /// <param name="LandAreaHectares">Area of the land plot in hectares; <c>null</c> when unset. Not floor area — <paramref name="AreaPerTokenSqM"/> is not derived from it.</param>
 /// <param name="LandPlotCode">The plot's identification code in the state cadastre (e.g. <c>1-04-13-0033-0135</c>); <c>null</c> when unset.</param>
 /// <param name="CadastralNumber">Cadastral number of the built object; <c>null</c> when there is none yet.</param>
@@ -100,6 +101,7 @@ public sealed record PropertyDto(
     string? Elevator,
     string? Security,
     string? Parking,
+    decimal? OfferedAreaSqM,
     decimal? LandAreaHectares,
     string? LandPlotCode,
     string? CadastralNumber,
@@ -138,7 +140,7 @@ public sealed record PropertyDto(
             p.Section, p.Row, p.Spot,
             p.TotalAreaSqM, p.UsableAreaSqM, p.DocumentedUse, p.BuildingClass, p.WallMaterial,
             p.Heating, p.Elevator, p.Security, p.Parking,
-            p.LandAreaHectares, p.LandPlotCode, p.CadastralNumber,
+            p.OfferedAreaSqM, p.LandAreaHectares, p.LandPlotCode, p.CadastralNumber,
             ToWireConstructionStage(p.ConstructionStage), p.PlannedCompletionDate,
             p.ReadinessPercent, p.IsFreeOfEncumbrances, p.EncumbranceCheckedAtUtc,
             p.PlacementOpensAtUtc, p.PlacementClosesAtUtc, p.TargetAmount,

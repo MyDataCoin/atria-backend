@@ -428,10 +428,12 @@ public sealed record ReorderPropertyImagesRequest(IReadOnlyList<Guid> ImageIds);
 /// <param name="OpensAtUtc">When the placement should open; <c>null</c> to leave unchanged.</param>
 /// <param name="ClosesAtUtc">When it should close; <c>null</c> to leave unchanged. Must be after the opening.</param>
 /// <param name="TargetAmount">The sum to raise by the closing date; <c>null</c> to leave unchanged.</param>
+/// <param name="OfferedAreaSqM">Area being placed in m² when only part of the object is issued; <c>null</c> to leave unchanged. Refused once shares have been placed.</param>
 public sealed record SchedulePlacementRequest(
     DateTime? OpensAtUtc,
     DateTime? ClosesAtUtc,
-    decimal? TargetAmount);
+    decimal? TargetAmount,
+    decimal? OfferedAreaSqM = null);
 
 /// <summary>POST /properties/{id}/placement/extend body.</summary>
 /// <param name="NewClosesAtUtc">The new closing date; must be later than the current one.</param>

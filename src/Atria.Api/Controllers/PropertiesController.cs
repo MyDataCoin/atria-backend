@@ -220,7 +220,8 @@ public sealed class PropertiesController : ApiControllerBase
     public async Task<IActionResult> SchedulePlacement(
         Guid id, SchedulePlacementRequest request, CancellationToken ct)
         => ToActionResult(await Sender.Send(new SchedulePlacementCommand(
-            id, request.OpensAtUtc, request.ClosesAtUtc, request.TargetAmount), ct));
+            id, request.OpensAtUtc, request.ClosesAtUtc, request.TargetAmount,
+            request.OfferedAreaSqM), ct));
 
     /// <summary>Pushes a placement's closing date back. Admin only.</summary>
     /// <remarks>
