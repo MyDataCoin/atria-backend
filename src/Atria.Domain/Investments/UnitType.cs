@@ -24,6 +24,13 @@ public enum UnitType
     /// <summary>A storage room / basement unit.</summary>
     Storage = 5,
 
+    /// <summary>
+    /// A land plot. Not a unit of a building at all — the issue is the plot itself, sold before
+    /// (or instead of) anything standing on it. Its area is <see cref="Property.LandAreaHectares"/>,
+    /// not the floor area every other kind uses.
+    /// </summary>
+    LandPlot = 6,
+
     /// <summary>Anything else the admin needs to sell.</summary>
     Other = 99
 }

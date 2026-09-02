@@ -30,6 +30,17 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="Row">Row within the section; <c>null</c> CLEARS it.</param>
 /// <param name="Spot">The parking space's own number; <c>null</c> CLEARS it.</param>
 /// <param name="TotalAreaSqM">New total area in m²; <c>null</c> to leave unchanged.</param>
+/// <param name="LandAreaHectares">New land plot area in hectares; <c>null</c> to leave unchanged.</param>
+/// <param name="LandPlotCode">New cadastre identification code for the plot; <c>null</c> to leave unchanged.</param>
+/// <param name="CadastralNumber">New cadastral number of the built object; <c>null</c> to leave unchanged.</param>
+/// <param name="ConstructionStage">New construction stage (<c>land_only</c>, <c>design</c>, …); <c>null</c> to leave unchanged.</param>
+/// <param name="PlannedCompletionDate">New expected commissioning date; <c>null</c> to leave unchanged.</param>
+/// <param name="ReadinessPercent">New reported readiness, 0–100; <c>null</c> to leave unchanged.</param>
+/// <param name="IsFreeOfEncumbrances">
+/// Result of a cadastre check for encumbrances and arrests. Applied only together with
+/// <paramref name="EncumbranceCheckedAtUtc"/> — a verdict with no date is not evidence.
+/// </param>
+/// <param name="EncumbranceCheckedAtUtc">When that check was made.</param>
 /// <param name="Rooms">
 /// Replaces the whole room breakdown when supplied; <c>null</c> leaves it untouched and an empty
 /// list clears it.
@@ -53,7 +64,15 @@ public sealed record UpdatePropertyCommand(
     string? Row = null,
     string? Spot = null,
     decimal? TotalAreaSqM = null,
-    IReadOnlyList<PropertyRoomInput>? Rooms = null) : IRequest<Result>;
+    IReadOnlyList<PropertyRoomInput>? Rooms = null,
+    decimal? LandAreaHectares = null,
+    string? LandPlotCode = null,
+    string? CadastralNumber = null,
+    string? ConstructionStage = null,
+    DateTime? PlannedCompletionDate = null,
+    int? ReadinessPercent = null,
+    bool? IsFreeOfEncumbrances = null,
+    DateTime? EncumbranceCheckedAtUtc = null) : IRequest<Result>;
 
 public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropertyCommand, Result>
 {
@@ -111,6 +130,18 @@ public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropert
         property.SetUnitDetails(
             PropertyDto.ParseUnitType(request.UnitType), request.UnitNumber, request.FloorNumber,
             request.RoomCount, request.TotalAreaSqM);
+
+        property.SetCadastralDetails(
+            request.LandPlotCode, request.CadastralNumber, request.LandAreaHectares);
+
+        property.SetConstructionProgress(
+            PropertyDto.ParseConstructionStage(request.ConstructionStage),
+            request.PlannedCompletionDate, request.ReadinessPercent);
+
+        // Both halves or neither: recording a verdict without the date it was reached would put an
+        // undated all-clear on the record, and an all-clear nobody can date is not one.
+        if (request.IsFreeOfEncumbrances is { } isFree && request.EncumbranceCheckedAtUtc is { } checkedAt)
+            property.RecordEncumbranceCheck(isFree, checkedAt);
 
         // Deliberately NOT the "only non-null is applied" rule the line above follows: the admin form
         // sends all three as null as soon as the unit stops being a garage or a parking space, and a

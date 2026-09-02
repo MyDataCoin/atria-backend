@@ -67,6 +67,54 @@ public sealed class Property : AggregateRoot
     /// <summary>Total floor area of the unit in square metres.</summary>
     public decimal? TotalAreaSqM { get; private set; }
 
+    /// <summary>
+    /// Area of the land plot, in hectares. Deliberately NOT folded into
+    /// <see cref="TotalAreaSqM"/>: that is sellable floor area, and <see cref="AreaPerTokenSqM"/>
+    /// divides it across the issue. A plot's hectares are neither, and putting them in the same
+    /// field would make a share of a 0.72 ha plot report as 0.72 m² spread over the whole issue.
+    /// </summary>
+    public decimal? LandAreaHectares { get; private set; }
+
+    // --- Cadastre ---
+
+    /// <summary>
+    /// The plot's identification code in the state cadastre (e.g. "1-04-13-0033-0135"). Kept apart
+    /// from <see cref="CadastralNumber"/>: a plot has an identification code, a built object gets a
+    /// cadastral number, and an issue on land under design has only the former.
+    /// </summary>
+    public string? LandPlotCode { get; private set; }
+
+    /// <summary>Cadastral number of the built object, once there is one to have.</summary>
+    public string? CadastralNumber { get; private set; }
+
+    // --- Construction readiness (orthogonal to the placement lifecycle) ---
+
+    /// <summary>How far along the physical object is. <see cref="ConstructionStage.Unspecified"/> until stated.</summary>
+    public ConstructionStage ConstructionStage { get; private set; } = ConstructionStage.Unspecified;
+
+    /// <summary>When the object is expected to be commissioned. Null while there is no schedule.</summary>
+    public DateTime? PlannedCompletionDate { get; private set; }
+
+    /// <summary>Reported construction readiness, 0–100. Null when not reported.</summary>
+    public int? ReadinessPercent { get; private set; }
+
+    // --- Cadastre encumbrance check ---
+    //
+    // Two fields rather than one flag. "No encumbrances" and "nobody has looked" are different
+    // answers, and a lone bool cannot tell them apart: false would mean both. The date is what makes
+    // the answer evidence — an all-clear from two years ago says nothing about today.
+
+    /// <summary>
+    /// What the cadastre check found: true when the asset is free of encumbrances and arrests, false
+    /// when something was found, null when no check has been recorded. Distinct from
+    /// <see cref="EncumbranceRegistrationNumber"/>, which records the pledge WE register in favour of
+    /// the issue — this is about third-party claims that would stop the issue existing at all.
+    /// </summary>
+    public bool? IsFreeOfEncumbrances { get; private set; }
+
+    /// <summary>When the cadastre check behind <see cref="IsFreeOfEncumbrances"/> was made.</summary>
+    public DateTime? EncumbranceCheckedAtUtc { get; private set; }
+
     public decimal TotalValue { get; private set; }
     public decimal TokenPrice { get; private set; }
 
@@ -278,6 +326,64 @@ public sealed class Property : AggregateRoot
         FloorNumber = floorNumber ?? FloorNumber;
         RoomCount = roomCount ?? RoomCount;
         TotalAreaSqM = totalAreaSqM ?? TotalAreaSqM;
+    }
+
+    /// <summary>
+    /// Records what the plot is, in the cadastre's terms: its identification code, the built
+    /// object's cadastral number, and the plot area in hectares. Only non-null arguments are
+    /// applied, so a caller can PATCH a single field.
+    /// </summary>
+    /// <remarks>
+    /// The area is hectares and stays hectares — see <see cref="LandAreaHectares"/> for why it is
+    /// not merged into <see cref="TotalAreaSqM"/>.
+    /// </remarks>
+    public void SetCadastralDetails(
+        string? landPlotCode = null, string? cadastralNumber = null, decimal? landAreaHectares = null)
+    {
+        if (landAreaHectares is <= 0)
+            throw new DomainException("Land area must be positive.");
+
+        LandPlotCode = Trimmed(landPlotCode) ?? LandPlotCode;
+        CadastralNumber = Trimmed(cadastralNumber) ?? CadastralNumber;
+        LandAreaHectares = landAreaHectares ?? LandAreaHectares;
+
+        static string? Trimmed(string? value)
+            => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    /// <summary>
+    /// Records how far along the physical object is: stage, expected commissioning date and reported
+    /// readiness. Only non-null arguments are applied. <paramref name="stage"/> of
+    /// <see cref="ConstructionStage.Unspecified"/> is treated as "leave as is".
+    /// </summary>
+    /// <remarks>
+    /// Nothing here touches <see cref="Status"/>. A placement can open while the site is a design on
+    /// paper and close long before the object is commissioned; tying the two would make one of those
+    /// impossible to express.
+    /// </remarks>
+    public void SetConstructionProgress(
+        ConstructionStage? stage = null, DateTime? plannedCompletionDate = null,
+        int? readinessPercent = null)
+    {
+        if (readinessPercent is < 0 or > 100)
+            throw new DomainException("Readiness must be between 0 and 100 percent.");
+
+        if (stage is not null and not ConstructionStage.Unspecified)
+            ConstructionStage = stage.Value;
+
+        PlannedCompletionDate = plannedCompletionDate ?? PlannedCompletionDate;
+        ReadinessPercent = readinessPercent ?? ReadinessPercent;
+    }
+
+    /// <summary>
+    /// Records the outcome of a cadastre check for encumbrances and arrests: what was found, and
+    /// when it was looked at. Both go together — a verdict with no date is not evidence of anything,
+    /// and an all-clear does not stay true on its own.
+    /// </summary>
+    public void RecordEncumbranceCheck(bool isFree, DateTime checkedAtUtc)
+    {
+        IsFreeOfEncumbrances = isFree;
+        EncumbranceCheckedAtUtc = checkedAtUtc;
     }
 
     /// <summary>

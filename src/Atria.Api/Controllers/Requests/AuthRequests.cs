@@ -98,6 +98,14 @@ public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercen
 /// <param name="Spot">The parking space's own number; <c>null</c> CLEARS it.</param>
 /// <param name="TotalAreaSqM">New total area in m²; <c>null</c> to leave unchanged.</param>
 /// <param name="Rooms">Replaces the whole room breakdown; <c>null</c> leaves it unchanged, <c>[]</c> clears it.</param>
+/// <param name="LandAreaHectares">New land plot area in hectares; <c>null</c> to leave unchanged.</param>
+/// <param name="LandPlotCode">New cadastre identification code for the plot; <c>null</c> to leave unchanged.</param>
+/// <param name="CadastralNumber">New cadastral number of the built object; <c>null</c> to leave unchanged.</param>
+/// <param name="ConstructionStage">New construction stage (<c>land_only</c>, <c>design</c>, …); <c>null</c> to leave unchanged.</param>
+/// <param name="PlannedCompletionDate">New expected commissioning date; <c>null</c> to leave unchanged.</param>
+/// <param name="ReadinessPercent">New reported readiness, 0–100; <c>null</c> to leave unchanged.</param>
+/// <param name="IsFreeOfEncumbrances">Cadastre check result; applied only together with <paramref name="EncumbranceCheckedAtUtc"/>.</param>
+/// <param name="EncumbranceCheckedAtUtc">When that cadastre check was made.</param>
 public sealed record UpdatePropertyRequest(
     string? Name,
     string? Description,
@@ -116,7 +124,15 @@ public sealed record UpdatePropertyRequest(
     string? Row = null,
     string? Spot = null,
     decimal? TotalAreaSqM = null,
-    IReadOnlyList<PropertyRoomInput>? Rooms = null);
+    IReadOnlyList<PropertyRoomInput>? Rooms = null,
+    decimal? LandAreaHectares = null,
+    string? LandPlotCode = null,
+    string? CadastralNumber = null,
+    string? ConstructionStage = null,
+    DateTime? PlannedCompletionDate = null,
+    int? ReadinessPercent = null,
+    bool? IsFreeOfEncumbrances = null,
+    DateTime? EncumbranceCheckedAtUtc = null);
 
 /// <summary>POST /publications body. Creates and publishes a news-feed item.</summary>
 /// <param name="Type">Kind: <c>financial_report</c> | <c>news_release</c> | <c>valuation_audit</c> | <c>general_news</c>.</param>
@@ -152,7 +168,7 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="Developer">Developer / builder name; optional.</param>
 /// <param name="Floors">Number of storeys; optional.</param>
 /// <param name="BuildingId">Building to register this unit in; omit for a standalone issue.</param>
-/// <param name="UnitType">What the unit is: <c>apartment</c> | <c>garage</c> | <c>parking_space</c> | <c>commercial</c> | <c>storage</c> | <c>other</c>.</param>
+/// <param name="UnitType">What the unit is: <c>apartment</c> | <c>garage</c> | <c>parking_space</c> | <c>commercial</c> | <c>storage</c> | <c>land_plot</c> | <c>other</c>.</param>
 /// <param name="UnitNumber">Flat / garage box number inside the building; max 32 characters.</param>
 /// <param name="FloorNumber">Floor the unit is on.</param>
 /// <param name="RoomCount">How many rooms the unit is sold as (2-, 3-, 4-комнатная). <c>null</c> is normal for a garage.</param>
@@ -161,6 +177,12 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="Spot">The parking space's own number (e.g. <c>125</c>); optional, max 32 characters.</param>
 /// <param name="TotalAreaSqM">Total floor area of the unit in m²; must be greater than 0 when sent.</param>
 /// <param name="Rooms">Room breakdown, e.g. <c>[{ "name": "Кухня+Столовая", "areaSqM": 28.68 }]</c>.</param>
+/// <param name="LandAreaHectares">Area of the land plot in hectares; must be greater than 0 when sent. Not floor area.</param>
+/// <param name="LandPlotCode">The plot's identification code in the state cadastre (e.g. <c>1-04-13-0033-0135</c>); optional.</param>
+/// <param name="CadastralNumber">Cadastral number of the built object, when there is one; optional.</param>
+/// <param name="ConstructionStage">How far along the object is: <c>land_only</c> | <c>design</c> | <c>under_construction</c> | <c>commissioned</c>; optional.</param>
+/// <param name="PlannedCompletionDate">Expected commissioning date; optional.</param>
+/// <param name="ReadinessPercent">Reported construction readiness, 0–100; optional.</param>
 public sealed record CreatePropertyRequest(
     string Name,
     string? Description,
@@ -184,7 +206,13 @@ public sealed record CreatePropertyRequest(
     string? Row = null,
     string? Spot = null,
     decimal? TotalAreaSqM = null,
-    IReadOnlyList<PropertyRoomInput>? Rooms = null);
+    IReadOnlyList<PropertyRoomInput>? Rooms = null,
+    decimal? LandAreaHectares = null,
+    string? LandPlotCode = null,
+    string? CadastralNumber = null,
+    string? ConstructionStage = null,
+    DateTime? PlannedCompletionDate = null,
+    int? ReadinessPercent = null);
 
 /// <summary>POST /buildings body. Registers the building an admin then fills with units.</summary>
 /// <param name="Name">Display name (e.g. "ЖК Ала-Тоо, блок B").</param>

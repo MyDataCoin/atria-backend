@@ -32,6 +32,22 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Row).HasMaxLength(Property.MaxParkingAddressPart);
         b.Property(p => p.Spot).HasMaxLength(Property.MaxParkingAddressPart);
         b.Property(p => p.TotalAreaSqM).HasPrecision(10, 2);
+
+        // Cadastre and land. Hectares kept in their own column with their own precision: a plot is
+        // written to four decimals (0.7200 ha) where floor area is written to two.
+        b.Property(p => p.LandPlotCode).HasMaxLength(64);
+        b.Property(p => p.CadastralNumber).HasMaxLength(64);
+        b.Property(p => p.LandAreaHectares).HasPrecision(12, 4);
+
+        // Construction readiness — orthogonal to Status, which tracks the placement.
+        b.Property(p => p.ConstructionStage).HasConversion<int>().IsRequired();
+        b.Property(p => p.PlannedCompletionDate);
+        b.Property(p => p.ReadinessPercent);
+
+        // Cadastre check for third-party encumbrances. Nullable bool on purpose: "clean" and
+        // "nobody looked" have to stay distinguishable.
+        b.Property(p => p.IsFreeOfEncumbrances);
+        b.Property(p => p.EncumbranceCheckedAtUtc);
         b.HasOne<Building>()
             .WithMany()
             .HasForeignKey(p => p.BuildingId)
