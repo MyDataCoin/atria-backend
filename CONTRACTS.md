@@ -91,18 +91,50 @@ sealed class Building : AggregateRoot   // groups the units sold inside it; issu
 sealed class Property : AggregateRoot   // THE unit of issuance: standalone, or one unit of a Building
   string Name; string? Description; string? Address; decimal TotalValue; decimal TokenPrice;
   long TotalTokens; long AvailableTokens; long MinPurchaseTokens; string Currency;
-  decimal MinPurchaseAmount; decimal? AreaPerTokenSqM;   // derived: min × price, area ÷ supply
+  decimal MinPurchaseAmount;                          // derived: min × price
+  decimal? AreaPerTokenSqM;   // derived: (OfferedAreaSqM ?? TotalAreaSqM) ÷ supply; null when neither
   PropertyStatus Status; bool SalesPaused;
   Guid? BuildingId; UnitType UnitType; string? UnitNumber; int? FloorNumber;
   int? RoomCount; decimal? TotalAreaSqM; IReadOnlyCollection<PropertyRoom> Rooms;
+  decimal? UsableAreaSqM;     // ≤ TotalAreaSqM, enforced from both sides
+  decimal? OfferedAreaSqM;    // the area actually placed when the issue is part of the object; frozen once sold
+  decimal? LandAreaHectares;  // the PLOT: neither floor area nor divided across the issue
+  string? DocumentedUse;      // permitted use per the title documents; NOT PropertyType (catalogue filter)
+  string? BuildingClass; string? WallMaterial; string? Heating; string? Elevator;
+  string? Security; string? Parking;                  // free text: a fixed list forces the nearest wrong answer
+  string? LocationDescription;                        // the neighbourhood, apart from Description (the object)
+  string? LandPlotCode; string? CadastralNumber;      // plot has a code, a built object gets a number
+  ConstructionStage ConstructionStage; DateTime? PlannedCompletionDate; int? ReadinessPercent;
+  bool? IsFreeOfEncumbrances; DateTime? EncumbranceCheckedAtUtc;  // null = nobody looked ≠ "nothing found"
+  DateTime? PlacementOpensAtUtc; DateTime? PlacementClosesAtUtc; decimal? TargetAmount;
+  int PlacementExtensionCount; decimal RaisedAmount; bool IsTargetMet;   // derived from supply × price
+  PayoutFrequency PayoutFrequency; bool DistributesYet;  // false until commissioned, whatever was entered
+  IReadOnlyCollection<PropertyImage> Images; IReadOnlyCollection<PropertyDocument> Documents;
   static Property Create(string name, string? description, string? address, decimal totalValue,
                          decimal tokenPrice, long totalTokens, string currency, ...descriptive optionals,
                          long minPurchaseTokens = TokenAmount.Smallest);
   void AssignToBuilding(Guid? buildingId);            // Guid.Empty == null == standalone
   void SetUnitDetails(UnitType?, string? unitNumber, int? floorNumber, int? roomCount, decimal? totalAreaSqM);
+  void SetCharacteristics(decimal? usableAreaSqM, string? documentedUse, ...free-text optionals,
+                          string? locationDescription);         // only non-null args applied
+  void SetCadastralDetails(string? landPlotCode, string? cadastralNumber, decimal? landAreaHectares);
+  void SetConstructionProgress(ConstructionStage, DateTime? plannedCompletion, int? readinessPercent);
+  void RecordEncumbranceCheck(bool isFree, DateTime checkedAtUtc);   // both halves or neither
+  void SchedulePlacement(DateTime? opens, DateTime? closes, decimal? target, decimal? offeredAreaSqM);
+  void ExtendPlacement(DateTime newClosesAtUtc);      // counted: 4 extensions ≠ 1
   void ReplaceRooms(IEnumerable<(string Name, decimal AreaSqM)> rooms);  // whole-list swap; [] clears
+  PropertyDocument AddDocument(string url, string fileName, string contentType,
+                               PropertyDocumentCategory category, string? title);
   void ReserveTokens(long count);   // holds tokens for a new application; throws if count > AvailableTokens
   void ReleaseTokens(long count);   // returns tokens to the pool on reject/cancel/expiry
+sealed class PropertyDocument : Entity   // the paperwork an owner attaches
+  Guid PropertyId; string Url; string FileName; string ContentType;
+  PropertyDocumentCategory Category;  // legal | technical_passport | valuation | collateral | construction_schedule | layout
+  string? Title; string DisplayName;  // Title, falling back to FileName — the scanner's name is not the reader's
+sealed class PropertyImage : Entity
+  Guid PropertyId; string Url; PropertyImageKind Kind; string? Caption; int SortOrder;
+  // Kind travels with the image: a render shown as a photograph is a picture of a building that
+  // does not exist, shown to someone deciding whether to fund it. SortOrder[0] is the cover.
 sealed class Investment : AggregateRoot
   // No payment on the platform: an application reserves tokens up front, an operator approves it.
   Guid InvestorId; Guid PropertyId; long TokenCount; decimal Amount; string Currency; decimal PricePerToken;
