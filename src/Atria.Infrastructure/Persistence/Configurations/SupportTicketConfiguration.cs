@@ -16,6 +16,9 @@ internal sealed class SupportTicketConfiguration : IEntityTypeConfiguration<Supp
         b.Property(t => t.Subject).HasMaxLength(SupportTicket.MaxSubjectLength).IsRequired();
         b.Property(t => t.Category).HasMaxLength(64).IsRequired();
         b.Property(t => t.Status).HasConversion<int>().IsRequired();
+        // Nullable and deliberately NOT a foreign key: a ticket about an object outlives the issue
+        // it names, and a question should not become undeletable-property or vanish with one.
+        b.Property(t => t.PropertyId);
 
         // Message thread mapped via the backing field, owned by the ticket aggregate.
         b.HasMany(t => t.Messages)
@@ -28,5 +31,7 @@ internal sealed class SupportTicketConfiguration : IEntityTypeConfiguration<Supp
 
         b.HasIndex(t => t.InvestorId);
         b.HasIndex(t => t.Status);
+        // The desk filters by object to route a question to whoever knows that object.
+        b.HasIndex(t => t.PropertyId);
     }
 }

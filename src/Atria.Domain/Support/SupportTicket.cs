@@ -29,6 +29,18 @@ public sealed class SupportTicket : AggregateRoot
     /// <summary>Free-form category label chosen on the client (localized display text).</summary>
     public string Category { get; private set; } = null!;
 
+    /// <summary>
+    /// The issue the question is about, when it is about one; null for a question about the platform
+    /// itself (payments, documents, the account).
+    /// </summary>
+    /// <remarks>
+    /// What routes a ticket to whoever actually knows the answer: the management company staffs one
+    /// person per object, and a question about a specific building reaching a desk that has never
+    /// seen it is the failure this field exists to prevent. Deliberately nullable — forcing every
+    /// ticket to name an object would push "I cannot log in" onto some property's owner.
+    /// </remarks>
+    public Guid? PropertyId { get; private set; }
+
     // Persisted status enum; the current state is derived from it on demand (EF-friendly).
     public TicketStatus Status { get; private set; }
 
@@ -40,7 +52,8 @@ public sealed class SupportTicket : AggregateRoot
 
     /// <summary>Opens a new ticket (Open) for a client (investor or realtor), seeded with their first message.</summary>
     public static SupportTicket Open(
-        Guid investorId, string subject, string category, string body, Role authorRole = Role.Investor)
+        Guid investorId, string subject, string category, string body, Role authorRole = Role.Investor,
+        Guid? propertyId = null)
     {
         if (investorId == Guid.Empty)
             throw new DomainException("Investor is required to open a ticket.");
@@ -58,6 +71,8 @@ public sealed class SupportTicket : AggregateRoot
             AuthorRole = authorRole,
             Subject = subject,
             Category = category,
+            // Guid.Empty is "no object" arriving through a sloppy caller, not a real id.
+            PropertyId = propertyId == Guid.Empty ? null : propertyId,
             Status = TicketStatus.Open
         };
 

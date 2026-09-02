@@ -7,7 +7,15 @@ using Role = Atria.Domain.Users.Role;
 namespace Atria.Application.Support.Commands;
 
 /// <summary>Opens a new support ticket for the current investor, seeded with a first message.</summary>
-public sealed record CreateTicketCommand(string Subject, string Category, string Body)
+/// <param name="Subject">Ticket subject.</param>
+/// <param name="Category">Free-form category label chosen on the client.</param>
+/// <param name="Body">The opening message.</param>
+/// <param name="PropertyId">
+/// The issue the question is about; <c>null</c> for a question about the platform itself. What the
+/// desk routes on — see <see cref="SupportTicket.PropertyId"/>.
+/// </param>
+public sealed record CreateTicketCommand(
+    string Subject, string Category, string Body, Guid? PropertyId = null)
     : IRequest<Result<TicketDto>>;
 
 /// <summary>
@@ -45,7 +53,8 @@ public sealed class CreateTicketCommandHandler
         var authorRole = _currentUser.Role == Role.Realtor ? Role.Realtor : Role.Investor;
 
         var ticket = SupportTicket.Open(
-            investorId.Value, request.Subject, request.Category, request.Body, authorRole);
+            investorId.Value, request.Subject, request.Category, request.Body, authorRole,
+            request.PropertyId);
 
         await _tickets.AddAsync(ticket, ct);
 

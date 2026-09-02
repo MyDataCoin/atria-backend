@@ -13,6 +13,7 @@ namespace Atria.Application.Support.Dtos;
 /// (Admin views only; <c>null</c> for the owner's own view). For a realtor ticket the requester is
 /// anonymous — <see cref="Investor"/> carries no personal name.</param>
 /// <param name="Investor">Who opened it (Admin views only); <c>null</c> for the owner's own view.</param>
+/// <param name="PropertyId">The issue the question is about; <c>null</c> when it is about the platform itself. What the desk routes on.</param>
 /// <param name="Messages">The message thread (oldest first); <c>null</c> on the list route.</param>
 public sealed record TicketDto(
     Guid Id,
@@ -23,6 +24,7 @@ public sealed record TicketDto(
     DateTime UpdatedAtUtc,
     string? RequesterRole,
     TicketInvestorDto? Investor,
+    Guid? PropertyId,
     IReadOnlyList<TicketMessageDto>? Messages)
 {
     /// <summary>Maps a domain ticket to its wire shape. Pass <paramref name="investor"/> for Admin views and
@@ -41,6 +43,7 @@ public sealed record TicketDto(
             t.UpdatedAtUtc ?? t.CreatedAtUtc,
             investor?.Role, // requester role mirrors the admin-only author block
             investor,
+            t.PropertyId,
             includeMessages
                 ? t.Messages.OrderBy(m => m.CreatedAtUtc)
                     .Select(m => TicketMessageDto.From(

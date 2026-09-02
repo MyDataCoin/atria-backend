@@ -302,7 +302,8 @@ public sealed record UploadDocumentRequest(IFormFile File, DocumentType Type);
 /// <param name="Subject">Short subject line; required, max 120 characters.</param>
 /// <param name="Category">Category label chosen on the client (e.g. <c>KYC</c>, <c>Платежи</c>).</param>
 /// <param name="Body">The opening message text; required.</param>
-public sealed record CreateTicketRequest(string Subject, string Category, string Body);
+public sealed record CreateTicketRequest(
+    string Subject, string Category, string Body, Guid? PropertyId = null);
 
 /// <summary>POST /support/tickets/{id}/messages body. The author is derived from the caller's role.</summary>
 /// <param name="Body">The reply text; required.</param>

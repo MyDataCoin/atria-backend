@@ -9,4 +9,5 @@ namespace Atria.Application.Support.Queries;
 /// sees all. The optional <paramref name="Status"/> filter (open|pending|closed) is an admin extra.
 /// Message threads are omitted on this route.
 /// </summary>
-public sealed record GetTicketsQuery(string? Status) : IRequest<Result<IReadOnlyList<TicketDto>>>;
+public sealed record GetTicketsQuery(string? Status, Guid? PropertyId = null)
+    : IRequest<Result<IReadOnlyList<TicketDto>>>;

@@ -46,6 +46,12 @@ public sealed class GetTicketsQueryHandler
                 tickets.Select(t => t.InvestorId).Distinct().ToList(), ct)
             : new Dictionary<Guid, string?>();
 
+        // Routing by object: the desk narrows to the issue whose specialist is answering. Applied
+        // after the fetch — the filter is a desk convenience over a list already scoped by role,
+        // not a second authorization boundary.
+        if (request.PropertyId is { } propertyId)
+            tickets = tickets.Where(t => t.PropertyId == propertyId).ToList();
+
         IReadOnlyList<TicketDto> dtos = tickets
             .Select(t => TicketDto.From(t, investor: InvestorFor(isAdmin, t, names)))
             .ToList();

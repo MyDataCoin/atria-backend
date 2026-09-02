@@ -31,15 +31,18 @@ public sealed class SupportController : ApiControllerBase
     /// Message threads are omitted from this list; fetch a ticket by id for the full thread.
     /// </remarks>
     /// <param name="status">Optional status filter: open, pending, or closed.</param>
+    /// <param name="propertyId">Optional filter to questions about one issue — how the desk routes
+    /// a ticket to whoever knows that object.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpGet]
     [Authorize(Roles = "Investor,Realtor,Admin")]
     [ProducesResponseType<IReadOnlyList<TicketDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetTickets([FromQuery] string? status, CancellationToken ct)
+    public async Task<IActionResult> GetTickets(
+        [FromQuery] string? status, [FromQuery] Guid? propertyId, CancellationToken ct)
     {
-        var result = await Sender.Send(new GetTicketsQuery(status), ct);
+        var result = await Sender.Send(new GetTicketsQuery(status, propertyId), ct);
         return ToActionResult(result);
     }
 
@@ -78,7 +81,8 @@ public sealed class SupportController : ApiControllerBase
     public async Task<IActionResult> Create(CreateTicketRequest request, CancellationToken ct)
     {
         var result = await Sender.Send(
-            new CreateTicketCommand(request.Subject, request.Category, request.Body), ct);
+            new CreateTicketCommand(
+                request.Subject, request.Category, request.Body, request.PropertyId), ct);
         return ToCreatedResult(result, nameof(GetById),
             new { id = result.IsSuccess ? result.Value.Id : Guid.Empty });
     }
