@@ -19,12 +19,13 @@ public sealed class AdminsController : ApiControllerBase
 {
     public AdminsController(ISender sender) : base(sender) { }
 
-    /// <summary>Lists the staff (Admin / SuperAdmin) accounts a super admin can manage.</summary>
+    /// <summary>Lists the staff accounts a super admin can manage.</summary>
     /// <remarks>
     /// Requires the <c>SuperAdmin</c> role. Returns one row per credential-login staff account —
-    /// its <c>users.id</c> (the target for <c>/users/{id}/ban</c> and <c>/password/*</c>), username
-    /// and blocked flag. FullName/Email are not stored for staff accounts and come back <c>null</c>.
-    /// Empty list when there are none, not a 404.
+    /// its <c>users.id</c> (the target for <c>/users/{id}/ban</c> and <c>/password/*</c>), username,
+    /// <c>role</c> and blocked flag. Covers Admin and SuperAdmin as well as the management company's
+    /// own people: <c>Finance</c> (accountant) and <c>Auditor</c> (lawyer). Email is not stored for
+    /// staff accounts and comes back <c>null</c>. Empty list when there are none, not a 404.
     /// </remarks>
     /// <param name="ct">Cancellation token.</param>
     /// <response code="200">The staff accounts list (possibly empty).</response>
@@ -37,16 +38,22 @@ public sealed class AdminsController : ApiControllerBase
     public async Task<IActionResult> GetAdmins(CancellationToken ct)
         => ToActionResult(await Sender.Send(new GetAdminsQuery(), ct));
 
-    /// <summary>Creates a staff (admin) account with a one-time password.</summary>
+    /// <summary>Creates a staff account with a one-time password.</summary>
     /// <remarks>
     /// Requires the <c>SuperAdmin</c> role. The account is created with the username, full name and
     /// password given here and is flagged to change that password on first sign-in — the super admin
-    /// hands the password over once, and it stops working as soon as the admin replaces it via
+    /// hands the password over once, and it stops working as soon as the account replaces it via
     /// <c>POST /auth/password/change</c>. The password must already satisfy the strength policy
     /// (six or more characters with upper and lower case, a digit and a special character).
+    /// <para>
+    /// <c>role</c> chooses what is created: <c>Admin</c> (the default), <c>Finance</c> for the
+    /// management company's accountant, or <c>Auditor</c> for its lawyer. Any other role is a 400 —
+    /// a second super admin, or an investor row carrying a password, is not something a form field
+    /// should be able to produce.
+    /// </para>
     /// <c>409</c> when the username is taken.
     /// </remarks>
-    /// <param name="request">Username, full name and the one-time password.</param>
+    /// <param name="request">Username, full name, the one-time password and the role.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <response code="200">The account was created.</response>
     /// <response code="400">The request failed validation (missing fields or a weak password).</response>
@@ -61,5 +68,6 @@ public sealed class AdminsController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateAdmin(RegisterAdminRequest request, CancellationToken ct)
         => ToActionResult(await Sender.Send(
-            new RegisterAdminCommand(request.Username, request.FullName, request.Password), ct));
+            new RegisterAdminCommand(
+                request.Username, request.FullName, request.Password, request.Role), ct));
 }

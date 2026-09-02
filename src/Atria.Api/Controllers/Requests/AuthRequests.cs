@@ -1,4 +1,5 @@
 using Atria.Application.Properties.Dtos;
+using Atria.Domain.Users;
 using Atria.Domain.Consents;
 using Atria.Domain.Documents;
 using Atria.Domain.Governance;
@@ -283,11 +284,16 @@ public sealed record BanUserRequest(string? Reason = null);
 /// <param name="NewPassword">An explicit new password to set; when null/empty a temporary one is generated.</param>
 public sealed record ResetPasswordRequest(string? NewPassword = null);
 
-/// <summary>POST /admins body. Creates a staff (admin) account (super admin only).</summary>
+/// <summary>POST /admins body. Creates a staff account (super admin only).</summary>
 /// <param name="Username">Login name; must be unique.</param>
 /// <param name="FullName">Full name shown in the panel header.</param>
-/// <param name="Password">The one-time password handed to the admin; must be changed on first sign-in.</param>
-public sealed record RegisterAdminRequest(string Username, string FullName, string Password);
+/// <param name="Password">The one-time password handed over; must be changed on first sign-in.</param>
+/// <param name="Role">
+/// Which staff account to create: <c>Admin</c> (the default when omitted), <c>Finance</c> for an
+/// accountant, or <c>Auditor</c> for a lawyer. Anything else is rejected with 400.
+/// </param>
+public sealed record RegisterAdminRequest(
+    string Username, string FullName, string Password, Role Role = Role.Admin);
 
 /// <summary>POST /auth/password/change body. Changes the signed-in account's own password.</summary>
 /// <param name="CurrentPassword">The password just used to sign in.</param>

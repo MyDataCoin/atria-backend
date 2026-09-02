@@ -40,7 +40,12 @@ public sealed class UserRepository : Repository<User>, IUserRepository
 
     public async Task<IReadOnlyList<User>> GetStaffAsync(CancellationToken ct)
         => await Set.AsNoTracking()
-            .Where(u => (u.Role == Role.Admin || u.Role == Role.SuperAdmin) && u.DeletedAtUtc == null)
+            // Every credential-login staff role the super admin manages. Finance and Auditor are
+            // the management company's own people (accountant and lawyer); leaving them out would
+            // create accounts the panel that created them could not then see, ban or reset.
+            .Where(u => (u.Role == Role.Admin || u.Role == Role.SuperAdmin
+                         || u.Role == Role.Finance || u.Role == Role.Auditor)
+                        && u.DeletedAtUtc == null)
             .OrderByDescending(u => u.CreatedAtUtc)
             .ToListAsync(ct);
 }

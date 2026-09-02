@@ -11,9 +11,15 @@ namespace Atria.Application.Users.Dtos;
 /// <param name="Username">Login name.</param>
 /// <param name="Email">Contact email; <c>null</c> (not stored for staff accounts).</param>
 /// <param name="Blocked">Whether the account is banned by a super admin.</param>
+/// <param name="Role">
+/// The account's role, as its literal name: <c>Admin</c>, <c>SuperAdmin</c>, <c>Finance</c>
+/// (the accountant) or <c>Auditor</c> (the lawyer). Without it the list cannot tell an
+/// administrator from an accountant, and every row would read as "admin".
+/// </param>
 public sealed record AdminDto(
     Guid Id,
     string? FullName,
     string? Username,
     string? Email,
-    bool Blocked);
+    bool Blocked,
+    string Role);

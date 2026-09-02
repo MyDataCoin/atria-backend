@@ -4,12 +4,12 @@ using Atria.Application.Users.Dtos;
 
 namespace Atria.Application.Users.Queries;
 
-/// <summary>Lists staff (Admin/SuperAdmin) accounts for the super-admin "Admins" tab. SuperAdmin only.</summary>
+/// <summary>Lists staff credential accounts for the super-admin "Admins" tab. SuperAdmin only.</summary>
 public sealed record GetAdminsQuery : IRequest<Result<IReadOnlyList<AdminDto>>>;
 
 /// <summary>
-/// Projects the staff accounts (Admin + SuperAdmin) into the admins list: id (the ban/password
-/// target), username and blocked flag. No staff account yields an empty list (a success, never a 404).
+/// Projects the staff accounts into the admins list: id (the ban/password target), username, role
+/// and blocked flag. No staff account yields an empty list (a success, never a 404).
 /// </summary>
 public sealed class GetAdminsQueryHandler
     : IRequestHandler<GetAdminsQuery, Result<IReadOnlyList<AdminDto>>>
@@ -23,7 +23,8 @@ public sealed class GetAdminsQueryHandler
         var staff = await _users.GetStaffAsync(ct);
 
         IReadOnlyList<AdminDto> dtos = staff
-            .Select(u => new AdminDto(u.Id, u.FullName, u.Username, Email: null, u.IsBanned))
+            .Select(u => new AdminDto(
+                u.Id, u.FullName, u.Username, Email: null, u.IsBanned, u.Role.ToString()))
             .ToList();
 
         return Result.Success(dtos);

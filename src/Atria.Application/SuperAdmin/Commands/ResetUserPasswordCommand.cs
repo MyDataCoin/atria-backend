@@ -47,9 +47,11 @@ public sealed class ResetUserPasswordCommandHandler
             return Result.Failure<ResetPasswordResultDto>(
                 Error.NotFound("user.not_found", "User not found."));
 
-        if (user.Role is not (Role.Admin or Role.Realtor or Role.SuperAdmin))
+        // User.HasPassword is the one list of credential-login roles — see it for why this is not
+        // spelled out here.
+        if (!user.HasPassword)
             return Result.Failure<ResetPasswordResultDto>(Error.Conflict(
-                "user.no_password", "Only admin and realtor accounts have a password to reset."));
+                "user.no_password", "This account has no password to reset."));
 
         var newPassword = string.IsNullOrWhiteSpace(request.NewPassword)
             ? GenerateTemporaryPassword()

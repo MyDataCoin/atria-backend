@@ -315,6 +315,92 @@ public sealed class SuperAdminFlowTests : IClassFixture<AtriaApiFactory>
             .Single(e => e.GetProperty("id").GetString() == userId.ToString())
             .GetProperty("blocked").GetBoolean();
 
+    [Theory]
+    [InlineData("Finance", "accountant")]
+    [InlineData("Auditor", "lawyer")]
+    public async Task A_super_admin_creates_the_management_companys_staff_and_they_can_sign_in(
+        string role, string prefix)
+    {
+        // The panel that creates these accounts must also be able to see them afterwards, and the
+        // person handed the password must be able to use it. Both halves are the point of the test:
+        // creating an account nobody can log into, or that vanishes from the list, is worse than not
+        // having the button at all.
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+
+        var username = $"{prefix}-{Guid.NewGuid():N}"[..24];
+        const string password = "Atria!2027pw";
+
+        var created = await superAdmin.PostAsJsonAsync(AdminsRoute, new
+        {
+            username,
+            fullName = "Орунбаев Ж.Р.",
+            password,
+            role,
+        });
+        created.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var body = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        body.RootElement.GetProperty("role").GetString().Should().Be(role);
+
+        // Appears in the staff list, with its role rather than as an anonymous "admin".
+        var list = await superAdmin.GetAsync(AdminsRoute);
+        using var listed = JsonDocument.Parse(await list.Content.ReadAsStringAsync());
+        var row = listed.RootElement.EnumerateArray()
+            .Single(a => a.GetProperty("username").GetString() == username);
+        row.GetProperty("role").GetString().Should().Be(role);
+
+        // And the handed-over password actually signs in, through the shared admin endpoint.
+        var login = await _factory.CreateClient()
+            .PostAsJsonAsync(AdminLoginRoute, new { username, password });
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task A_super_admin_cannot_mint_another_super_admin_through_the_staff_form()
+    {
+        // A second super admin is not something a role dropdown should be able to produce.
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+
+        var response = await superAdmin.PostAsJsonAsync(AdminsRoute, new
+        {
+            username = $"sneaky-{Guid.NewGuid():N}"[..20],
+            fullName = "Не супер",
+            password = "Atria!2027pw",
+            role = "SuperAdmin",
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task An_accountants_password_can_be_reset_by_the_super_admin()
+    {
+        // An account the panel can create but never reset is a lockout waiting to happen.
+        var superAdmin = _factory.CreateClient();
+        await AuthenticateSuperAdminAsync(superAdmin);
+
+        var username = $"acc-{Guid.NewGuid():N}"[..20];
+        var created = await superAdmin.PostAsJsonAsync(AdminsRoute, new
+        {
+            username,
+            fullName = "Бухгалтер УК",
+            password = "Atria!2027pw",
+            role = "Finance",
+        });
+        created.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var body = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var userId = body.RootElement.GetProperty("id").GetGuid();
+
+        var reset = await superAdmin.PostAsJsonAsync(
+            $"{UsersRoute}/{userId}/password/reset", new { });
+
+        reset.StatusCode.Should().Be(
+            HttpStatusCode.OK, await reset.Content.ReadAsStringAsync());
+    }
+
     private async Task<JsonElement> ReadOverviewAsync()
     {
         var admin = _factory.CreateClient();

@@ -102,14 +102,9 @@ public sealed class User : AggregateRoot
         string? fullName = null,
         bool mustResetPassword = false)
     {
-        // Staff roles only, and the list is deliberately explicit rather than "anything but
-        // Investor": an investor account signs in by phone and OTP, and a password-holding row with
-        // an investor's role would be a second, weaker way into someone's holdings.
-        //
-        // Finance and Auditor are here because the management company's own people work in the
-        // platform — the accountant reports and the lawyer reads. Compliance and CollateralManager
-        // are not, only because nobody has asked for them yet.
-        if (role is not (Role.Admin or Role.Realtor or Role.SuperAdmin or Role.Finance or Role.Auditor))
+        // The credential-login roles, and only those — see HasPassword for the list and why an
+        // investor is not on it.
+        if (!IsCredentialRole(role))
             throw new DomainException(
                 "Service accounts must be Admin, Realtor, SuperAdmin, Finance or Auditor.");
         if (string.IsNullOrWhiteSpace(username))
@@ -205,13 +200,32 @@ public sealed class User : AggregateRoot
     }
 
     /// <summary>
+    /// Whether this account signs in with a username and password at all.
+    /// </summary>
+    /// <remarks>
+    /// The single place the credential-login roles are listed. It used to be spelled out at each
+    /// call site, and adding the management company's accountant and lawyer meant finding all of
+    /// them — one missed copy would have left an account that could be created and reset but could
+    /// never complete the forced password change it was created with.
+    /// <para>
+    /// Investors are the ones deliberately outside it: they sign in by phone and OTP, and a password
+    /// on such a row would be a second, weaker way into someone's holdings.
+    /// </para>
+    /// </remarks>
+    public bool HasPassword => IsCredentialRole(Role);
+
+    /// <summary>Whether <paramref name="role"/> signs in with a username and password.</summary>
+    public static bool IsCredentialRole(Role role)
+        => role is Role.Admin or Role.Realtor or Role.SuperAdmin or Role.Finance or Role.Auditor;
+
+    /// <summary>
     /// Sets a new password hash. Only credential-login roles have passwords; setting one on an
     /// investor is a programming error. <paramref name="mustReset"/> flags a super-admin reset.
     /// </summary>
     public void SetPassword(string passwordHash, bool mustReset)
     {
-        if (Role is not (Role.Admin or Role.Realtor or Role.SuperAdmin))
-            throw new DomainException("Only admin and realtor accounts have a password.");
+        if (!HasPassword)
+            throw new DomainException("This account does not sign in with a password.");
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new DomainException("Password hash is required.");
 
@@ -228,8 +242,8 @@ public sealed class User : AggregateRoot
     /// </summary>
     public void RestorePassword()
     {
-        if (Role is not (Role.Admin or Role.Realtor or Role.SuperAdmin))
-            throw new DomainException("Only admin and realtor accounts have a password.");
+        if (!HasPassword)
+            throw new DomainException("This account does not sign in with a password.");
         if (!MustResetPassword)
             throw new DomainException("The account does not require a password reset.");
 

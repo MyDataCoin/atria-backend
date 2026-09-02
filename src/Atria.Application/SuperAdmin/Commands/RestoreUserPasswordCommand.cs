@@ -39,9 +39,11 @@ public sealed class RestoreUserPasswordCommandHandler
         if (user is null)
             return Result.Failure(Error.NotFound("user.not_found", "User not found."));
 
-        if (user.Role is not (Role.Admin or Role.Realtor or Role.SuperAdmin))
+        // User.HasPassword is the one list of credential-login roles — see it for why this is not
+        // spelled out here.
+        if (!user.HasPassword)
             return Result.Failure(Error.Conflict(
-                "user.no_password", "Only admin and realtor accounts have a password to restore."));
+                "user.no_password", "This account has no password to restore."));
 
         try
         {

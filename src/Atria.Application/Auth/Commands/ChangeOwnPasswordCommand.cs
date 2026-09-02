@@ -67,9 +67,9 @@ public sealed class ChangeOwnPasswordCommandHandler
         if (user is null)
             return Result.Failure<AuthTokensDto>(Error.NotFound("user.not_found", "User not found."));
 
-        if (user.Role is not (Role.Admin or Role.Realtor or Role.SuperAdmin) || user.PasswordHash is null)
+        if (!user.HasPassword || user.PasswordHash is null)
             return Result.Failure<AuthTokensDto>(Error.Conflict(
-                "user.no_password", "Only admin and realtor accounts have a password."));
+                "user.no_password", "This account does not sign in with a password."));
 
         if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
             return Result.Failure<AuthTokensDto>(
