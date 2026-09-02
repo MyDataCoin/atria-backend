@@ -192,6 +192,76 @@ public sealed class PropertiesController : ApiControllerBase
     public async Task<IActionResult> Invalidate(Guid id, InvalidateIssueRequest request, CancellationToken ct)
         => ToActionResult(await Sender.Send(new InvalidateIssueCommand(id, request.Reason), ct));
 
+    /// <summary>Sets the placement window and the sum the offering is trying to raise. Admin only.</summary>
+    /// <remarks>
+    /// The dates are a schedule, not a switch: a background sweep opens the offering when
+    /// <c>opensAtUtc</c> arrives and closes it when <c>closesAtUtc</c> does. Only the supplied fields
+    /// change. 400 when the window is inverted — a placement must close after it opens, and that is
+    /// checked against what is already stored, so a PATCH of one date cannot invert it either.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="request">The window and target.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/placement")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SchedulePlacement(
+        Guid id, SchedulePlacementRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new SchedulePlacementCommand(
+            id, request.OpensAtUtc, request.ClosesAtUtc, request.TargetAmount), ct));
+
+    /// <summary>Pushes a placement's closing date back. Admin only.</summary>
+    /// <remarks>
+    /// One of the two answers to a placement that reached its date short of its target; the other is
+    /// <c>placement/unsubscribed</c>. A reason is required and journalled, and the issue counts how
+    /// many times it has been extended — an offering extended four times is not the one investors
+    /// originally bought into. 409 when the new date is not later than the current one, or when the
+    /// placement has no closing date to extend.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="request">The new closing date and the reason.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/placement/extend")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ExtendPlacement(
+        Guid id, ExtendPlacementRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new ExtendPlacementCommand(
+            id, request.NewClosesAtUtc, request.Reason), ct));
+
+    /// <summary>Declares a placement unsubscribed and unwinds it. Admin only.</summary>
+    /// <remarks>
+    /// The other answer to an undersubscribed placement: every application is voided, every share goes
+    /// back to the pool, and everyone who had been placed is owed their money — recorded as refund
+    /// obligations with reason <c>PlacementNotSubscribed</c>, with the on-chain balances queued for
+    /// burning. All of it commits as one transaction; a half-unwound placement is not a reachable
+    /// state. The issue is <b>completed</b>, not invalidated: nothing here was unlawful, the offering
+    /// simply did not fill. Paying the refunds out is a separate step, as it is everywhere else.
+    /// </remarks>
+    /// <param name="id">The property's unique identifier.</param>
+    /// <param name="request">Why the placement is declared unsubscribed.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("{id:guid}/placement/unsubscribed")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ClosePlacementUnsubscribed(
+        Guid id, ClosePlacementUnsubscribedRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(new ClosePlacementUnsubscribedCommand(id, request.Reason), ct));
+
     /// <summary>Reads the collateral file of an issue. Admin, collateral manager or auditor.</summary>
     /// <remarks>
     /// Kept out of the catalogue DTO on purpose: the appraiser, the encumbrance number and who manages

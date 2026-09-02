@@ -12,7 +12,14 @@ public enum RefundReason
     WithdrawalWithin14Days = 1,
 
     /// <summary>Part of the issue was annulled and the affected holders are made whole (ch. 11).</summary>
-    IssueAnnulled = 2
+    IssueAnnulled = 2,
+
+    /// <summary>
+    /// The placement closed short of its target and was unwound rather than extended: everyone who
+    /// bought in gets their money back. Distinct from <see cref="IssueInvalidated"/> — nothing here
+    /// was unlawful, the offering simply did not fill.
+    /// </summary>
+    PlacementNotSubscribed = 3
 }
 
 /// <summary>Where a refund stands.</summary>

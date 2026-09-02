@@ -73,6 +73,13 @@ public sealed class CreateInvestmentCommandHandler
         if (property.SalesPaused)
             return Result.Failure<Guid>(Error.Conflict("investment.sales_paused", "Purchases are currently paused for this property."));
 
+        // The scheduled window closes buying even when the sweep has not run yet. Between an
+        // offering's closing time and the next tick the status is still Open, and without this an
+        // application would land in a placement that was already over.
+        if (property.IsPlacementClosingDue(_clock.UtcNow))
+            return Result.Failure<Guid>(Error.Conflict(
+                "investment.placement_closed", "The placement for this property has closed."));
+
         // Whole tokens the amount buys at the property's unit price, rounded DOWN: the investor gets
         // what their money covers, so a rounding sliver can never place more of the issue than was
         // paid for. This is where wholeness is settled — before any capacity is claimed. Checking it

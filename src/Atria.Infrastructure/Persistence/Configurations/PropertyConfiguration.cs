@@ -72,6 +72,18 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Status).HasConversion<int>().IsRequired();
         b.Property(p => p.SalesPaused).IsRequired();
 
+        // Placement window. Dates optional — an issue placed by hand has neither; the target is the
+        // soft cap the outcome is judged against, and the extension count keeps a pushed-back
+        // closing date from being invisible after the fact.
+        b.Property(p => p.PlacementOpensAtUtc);
+        b.Property(p => p.PlacementClosesAtUtc);
+        b.Property(p => p.TargetAmount).HasPrecision(18, 2);
+        b.Property(p => p.PlacementExtensionCount).IsRequired();
+        // The sweep asks "which issues are due to open or close?" on every tick; without this it
+        // reads every property in the table to answer.
+        b.HasIndex(p => new { p.Status, p.PlacementOpensAtUtc });
+        b.HasIndex(p => new { p.Status, p.PlacementClosesAtUtc });
+
         // On-chain issuance (each property is its own registered issuance / permissioned contract).
         b.Property(p => p.TokenContractAddress).HasMaxLength(128);
         b.Property(p => p.TokenChain).HasMaxLength(64);

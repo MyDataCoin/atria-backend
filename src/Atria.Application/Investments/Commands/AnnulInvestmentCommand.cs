@@ -1,13 +1,11 @@
-using System.Text.Json;
 using Atria.Application.Abstractions;
 using Atria.Application.Audit;
 using Atria.Application.Common;
+using Atria.Application.Investments.Services;
 using Atria.Domain.Audit;
 using Atria.Domain.Common;
-using Atria.Domain.Compliance;
 using Atria.Domain.Investments;
 using Atria.Domain.Refunds;
-using Atria.Domain.Whitelist;
 
 namespace Atria.Application.Investments.Commands;
 
@@ -45,35 +43,20 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
 {
     private readonly IInvestmentRepository _investments;
     private readonly IPropertyRepository _properties;
-    private readonly IHolderPositionRepository _positions;
-    private readonly IRefundObligationRepository _refunds;
-    private readonly IComplianceRepository _profiles;
-    private readonly IWhitelistEntryRepository _whitelist;
-    private readonly IBlockchainOperationQueue _chain;
-    private readonly IDateTimeProvider _clock;
+    private readonly InvestmentUnwinder _unwinder;
     private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _uow;
 
     public AnnulInvestmentCommandHandler(
         IInvestmentRepository investments,
         IPropertyRepository properties,
-        IHolderPositionRepository positions,
-        IRefundObligationRepository refunds,
-        IComplianceRepository profiles,
-        IWhitelistEntryRepository whitelist,
-        IBlockchainOperationQueue chain,
-        IDateTimeProvider clock,
+        InvestmentUnwinder unwinder,
         IAuditWriter audit,
         IUnitOfWork uow)
     {
         _investments = investments;
         _properties = properties;
-        _positions = positions;
-        _refunds = refunds;
-        _profiles = profiles;
-        _whitelist = whitelist;
-        _chain = chain;
-        _clock = clock;
+        _unwinder = unwinder;
         _audit = audit;
         _uow = uow;
     }
@@ -111,47 +94,11 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
         property.ReleaseTokens(investment.TokenCount);
         _properties.Update(property);
 
-        // The address the shares actually went to. The whitelist request snapshots it at mint time,
-        // so a profile whose wallet changed afterwards cannot send the burn to the wrong holder.
-        var entry = await _whitelist.GetByInvestmentAsync(investment.Id, ct);
-        var profile = await _profiles.GetByInvestorAsync(investment.InvestorId, ct);
-        var wallet = entry?.WalletAddress ?? investment.WalletAddress ?? profile?.WalletAddress;
-
-        if (wasActive)
-        {
-            if (request.RecordRefund)
-                await _refunds.AddAsync(RefundObligation.Raise(
-                    property.Id, investment.InvestorId, wallet ?? "—", investment.TokenCount,
-                    investment.Amount, investment.Currency, RefundReason.IssueAnnulled,
-                    $"Заявка {investment.Id} аннулирована оператором: {request.Reason}"), ct);
-
-            if (!string.IsNullOrWhiteSpace(wallet))
-            {
-                await StopCountingInRegistryAsync(property.Id, wallet, investment.TokenCount, ct);
-
-                // Only what actually reached the address needs burning. Either witness is enough: the
-                // platform's own allocation writes OnChainStatus, a batch handed to the exchange only
-                // marks the request Minted — reading just one leaves the other kind of mint un-burned.
-                if ((investment.OnChainStatus != OnChainStatus.None
-                     || entry?.Status == WhitelistStatus.Minted)
-                    && !string.IsNullOrWhiteSpace(property.TokenContractAddress))
-                {
-                    var payload = JsonSerializer.Serialize(new
-                    {
-                        propertyId = property.Id,
-                        chain = property.TokenChain,
-                        tokenContractAddress = property.TokenContractAddress,
-                        holder = wallet,
-                        amount = investment.TokenCount,
-                        reason = "AnnulledByOperator"
-                    });
-
-                    await _chain.EnqueueAsync(
-                        BlockchainOperationType.TokenBurn, payload,
-                        $"token-burn:annulment:{investment.Id}", ct);
-                }
-            }
-        }
+        await _unwinder.UnwindAsync(
+            property, investment, wasActive,
+            $"Заявка {investment.Id} аннулирована оператором: {request.Reason}",
+            RefundReason.IssueAnnulled, "annulment", "AnnulledByOperator",
+            request.RecordRefund, ct);
 
         await _audit.WriteAsync(
             AuditEntities.Property, property.Id, AuditEvents.InvestmentAnnulled,
@@ -161,17 +108,5 @@ public sealed class AnnulInvestmentCommandHandler : IRequestHandler<AnnulInvestm
 
         await _uow.SaveChangesAsync(ct);
         return Result.Success();
-    }
-
-    /// <summary>Takes the shares out of the holder's position so the register stops counting them.</summary>
-    private async Task StopCountingInRegistryAsync(
-        Guid propertyId, string wallet, long tokenCount, CancellationToken ct)
-    {
-        var position = await _positions.GetByAddressAsync(propertyId, wallet, ct);
-        if (position is null)
-            return;
-
-        position.Sync(Math.Max(position.TokenCount - tokenCount, 0), position.Source, _clock.UtcNow);
-        _positions.Update(position);
     }
 }

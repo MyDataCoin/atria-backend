@@ -206,6 +206,54 @@ public sealed class Property : AggregateRoot
     // Persisted status enum; the current state is derived from it on demand (EF-friendly).
     public PropertyStatus Status { get; private set; }
 
+    // --- Placement window (when the offering is scheduled to run) ---
+    //
+    // Scheduled, not enforced by hand. The dates say when the offering SHOULD open and close; the
+    // sweep moves the status to match. Both are optional — an issue placed by hand has neither.
+
+    /// <summary>When the placement is scheduled to open. Null when it is opened by hand.</summary>
+    public DateTime? PlacementOpensAtUtc { get; private set; }
+
+    /// <summary>When the placement is scheduled to close. Null when it is closed by hand.</summary>
+    public DateTime? PlacementClosesAtUtc { get; private set; }
+
+    /// <summary>
+    /// The money the placement is trying to raise — the soft cap the outcome is judged against.
+    /// Null when the issue has no target and simply sells what it sells.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not <see cref="TotalValue"/>. That is what the whole issue is offered at; this is
+    /// what has to be raised by <see cref="PlacementClosesAtUtc"/> for the placement to have
+    /// succeeded. They coincide only when the entire issue must be sold.
+    /// </remarks>
+    public decimal? TargetAmount { get; private set; }
+
+    /// <summary>How many times the closing date has been pushed back. Extending is a decision that has to leave a trace.</summary>
+    public int PlacementExtensionCount { get; private set; }
+
+    /// <summary>Money placed so far: the shares taken out of supply, at the issue price.</summary>
+    public decimal RaisedAmount => TokenAmount.CostOf(TotalTokens - AvailableTokens, TokenPrice);
+
+    /// <summary>
+    /// Whether the target has been reached. True when there is no target — an issue that never set
+    /// one cannot fall short of it.
+    /// </summary>
+    public bool IsTargetMet => TargetAmount is not { } target || RaisedAmount >= target;
+
+    /// <summary>
+    /// Whether the placement's scheduled closing time has passed at <paramref name="nowUtc"/>.
+    /// False when no closing date was set.
+    /// </summary>
+    public bool IsPlacementClosingDue(DateTime nowUtc)
+        => PlacementClosesAtUtc is { } closes && nowUtc >= closes;
+
+    /// <summary>
+    /// Whether the placement's scheduled opening time has arrived at <paramref name="nowUtc"/> and
+    /// has not yet been overtaken by its own closing time.
+    /// </summary>
+    public bool IsPlacementOpeningDue(DateTime nowUtc)
+        => PlacementOpensAtUtc is { } opens && nowUtc >= opens && !IsPlacementClosingDue(nowUtc);
+
     /// <summary>
     /// Whether new purchases are paused. Orthogonal to <see cref="Status"/>: an admin can freeze
     /// buying on an open offering without changing its lifecycle. The public site blocks "buy" while
@@ -326,6 +374,53 @@ public sealed class Property : AggregateRoot
         FloorNumber = floorNumber ?? FloorNumber;
         RoomCount = roomCount ?? RoomCount;
         TotalAreaSqM = totalAreaSqM ?? TotalAreaSqM;
+    }
+
+    /// <summary>
+    /// Sets the placement window and the sum it is trying to raise. Only non-null arguments are
+    /// applied, so a caller can PATCH one of them.
+    /// </summary>
+    /// <remarks>
+    /// The window is validated as a whole, against what is already stored: a closing date that lands
+    /// before the opening date is refused however it is assembled — in one call or by a later PATCH
+    /// of a single field. An inverted window would otherwise be openable and closeable at the same
+    /// instant, and which of the two the sweep applied would depend on the order it ran its checks.
+    /// </remarks>
+    public void SchedulePlacement(
+        DateTime? opensAtUtc = null, DateTime? closesAtUtc = null, decimal? targetAmount = null)
+    {
+        if (targetAmount is <= 0)
+            throw new DomainException("The placement target must be positive.");
+
+        var opens = opensAtUtc ?? PlacementOpensAtUtc;
+        var closes = closesAtUtc ?? PlacementClosesAtUtc;
+
+        if (opens is { } o && closes is { } c && c <= o)
+            throw new DomainException("The placement must close after it opens.");
+
+        PlacementOpensAtUtc = opens;
+        PlacementClosesAtUtc = closes;
+        TargetAmount = targetAmount ?? TargetAmount;
+    }
+
+    /// <summary>
+    /// Pushes the closing date back — what the platform does when a placement reaches its date short
+    /// of its target and the decision is to keep selling rather than unwind.
+    /// </summary>
+    /// <remarks>
+    /// Counted, not silently applied. An extension is a change to the terms investors bought under,
+    /// and a placement that has been extended four times is a different thing from one extended once;
+    /// <see cref="PlacementExtensionCount"/> is what makes the difference visible afterwards.
+    /// </remarks>
+    public void ExtendPlacement(DateTime newClosesAtUtc)
+    {
+        if (PlacementClosesAtUtc is not { } current)
+            throw new DomainException("This placement has no closing date to extend.");
+        if (newClosesAtUtc <= current)
+            throw new DomainException("An extension must move the closing date later.");
+
+        PlacementClosesAtUtc = newClosesAtUtc;
+        PlacementExtensionCount++;
     }
 
     /// <summary>

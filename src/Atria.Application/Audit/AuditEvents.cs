@@ -45,6 +45,11 @@ public static class AuditEvents
     public const string RegulatoryReportFiled = "RegulatoryReportFiled";
     public const string IssueTokensAnnulled = "IssueTokensAnnulled";
     public const string IssueInvalidated = "IssueInvalidated";
+    public const string PlacementScheduled = "PlacementScheduled";
+    public const string PlacementExtended = "PlacementExtended";
+    public const string PlacementOpened = "PlacementOpened";
+    public const string PlacementClosed = "PlacementClosed";
+    public const string PlacementNotSubscribed = "PlacementNotSubscribed";
     public const string InvestmentWithdrawn = "InvestmentWithdrawn";
     public const string InvestmentAnnulled = "InvestmentAnnulled";
     public const string PayoutRunCreated = "PayoutRunCreated";

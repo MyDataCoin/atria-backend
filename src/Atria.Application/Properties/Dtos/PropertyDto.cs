@@ -40,6 +40,12 @@ namespace Atria.Application.Properties.Dtos;
 /// <param name="ReadinessPercent">Reported construction readiness, 0–100; <c>null</c> when not reported.</param>
 /// <param name="IsFreeOfEncumbrances">Cadastre check result: <c>true</c> when free of encumbrances and arrests, <c>false</c> when something was found, <c>null</c> when no check is recorded.</param>
 /// <param name="EncumbranceCheckedAtUtc">When the cadastre check was made; <c>null</c> when none is recorded.</param>
+/// <param name="PlacementOpensAtUtc">When the placement is scheduled to open; <c>null</c> when it is opened by hand.</param>
+/// <param name="PlacementClosesAtUtc">When it is scheduled to close; <c>null</c> when closed by hand.</param>
+/// <param name="TargetAmount">The sum the placement is trying to raise; <c>null</c> when it has no target.</param>
+/// <param name="RaisedAmount">Placed so far: shares taken out of supply, at the issue price.</param>
+/// <param name="IsTargetMet">Whether <paramref name="RaisedAmount"/> has reached <paramref name="TargetAmount"/>. Always <c>true</c> when there is no target.</param>
+/// <param name="PlacementExtensionCount">How many times the closing date has been pushed back.</param>
 /// <param name="Rooms">Room breakdown (name + area), in the order the admin entered it.</param>
 /// <param name="RoomsAreaSqM">Sum of <paramref name="Rooms"/> areas. Compare with <paramref name="TotalAreaSqM"/> to flag a plan that does not add up — the server does not reject a mismatch.</param>
 public sealed record PropertyDto(
@@ -80,6 +86,12 @@ public sealed record PropertyDto(
     int? ReadinessPercent,
     bool? IsFreeOfEncumbrances,
     DateTime? EncumbranceCheckedAtUtc,
+    DateTime? PlacementOpensAtUtc,
+    DateTime? PlacementClosesAtUtc,
+    decimal? TargetAmount,
+    decimal RaisedAmount,
+    bool IsTargetMet,
+    int PlacementExtensionCount,
     IReadOnlyList<PropertyRoomDto> Rooms,
     decimal RoomsAreaSqM)
 {
@@ -103,6 +115,8 @@ public sealed record PropertyDto(
             p.TotalAreaSqM, p.LandAreaHectares, p.LandPlotCode, p.CadastralNumber,
             ToWireConstructionStage(p.ConstructionStage), p.PlannedCompletionDate,
             p.ReadinessPercent, p.IsFreeOfEncumbrances, p.EncumbranceCheckedAtUtc,
+            p.PlacementOpensAtUtc, p.PlacementClosesAtUtc, p.TargetAmount,
+            p.RaisedAmount, p.IsTargetMet, p.PlacementExtensionCount,
             rooms, rooms.Sum(r => r.AreaSqM));
     }
 

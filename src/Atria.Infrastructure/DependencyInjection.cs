@@ -2,9 +2,11 @@ using System.Reflection;
 using Amazon;
 using Amazon.S3;
 using Atria.Application.Abstractions;
+using Atria.Application.Investments.Services;
 using Atria.Application.TravelRule;
 using Atria.Application.Audit.EventHandlers;
 using Atria.Application.Investments;
+using Atria.Application.Properties;
 using Atria.Domain.Common;
 using Atria.Infrastructure.Audit;
 using Atria.Infrastructure.Compliance;
@@ -73,6 +75,7 @@ public static class DependencyInjection
         // Reservation window + background sweep pacing for offering applications. Optional; the
         // built-in defaults (3-day window, 15-minute sweep) apply when the section is absent.
         BindValidated<InvestmentReservationOptions>(services, configuration, InvestmentReservationOptions.SectionName);
+        BindValidated<PlacementSweepOptions>(services, configuration, PlacementSweepOptions.SectionName);
 
         // Ceiling on the realtor-supplied deal commission. Optional; defaults to 10%.
         BindValidated<Application.Deals.DealCommissionOptions>(
@@ -317,6 +320,7 @@ public static class DependencyInjection
         services.AddHostedService<BlockchainOperationWorker>();
         services.AddHostedService<DealExpiryBackgroundService>();
         services.AddHostedService<Investments.ReservationExpiryBackgroundService>();
+        services.AddHostedService<Investments.PlacementSweepBackgroundService>();
         services.AddHostedService<Regulatory.RegulatoryReportSweepBackgroundService>();
         services.AddHostedService<Identity.ExpiredRefreshTokenSweepBackgroundService>();
         services.AddHostedService<Feedback.FeedbackRetentionSweepBackgroundService>();
@@ -348,6 +352,11 @@ public static class DependencyInjection
         // Regulatory report composers, resolved by kind the same way.
         foreach (var composer in types.Where(t => typeof(IRegulatoryReportComposer).IsAssignableFrom(t)))
             services.AddScoped(typeof(IRegulatoryReportComposer), composer);
+
+        // Shared application service, implements no interface so reflection does not find it: the
+        // single copy of "undo one application" that both the operator's annulment and an unwound
+        // placement call into.
+        services.AddScoped<InvestmentUnwinder>();
 
         // FluentValidation validators (IValidator<T>). Registered by reflection so the
         // Infrastructure project needs no FluentValidation.DependencyInjectionExtensions reference.

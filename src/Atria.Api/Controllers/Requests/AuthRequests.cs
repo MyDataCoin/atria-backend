@@ -378,6 +378,24 @@ public sealed record AnnulTokensRequest(long TokenCount, string Reason);
 /// <param name="Reason">The ground on which the issue is declared invalid; required and journalled.</param>
 public sealed record InvalidateIssueRequest(string Reason);
 
+/// <summary>POST /properties/{id}/placement body. Sets the placement window and the sum to raise.</summary>
+/// <param name="OpensAtUtc">When the placement should open; <c>null</c> to leave unchanged.</param>
+/// <param name="ClosesAtUtc">When it should close; <c>null</c> to leave unchanged. Must be after the opening.</param>
+/// <param name="TargetAmount">The sum to raise by the closing date; <c>null</c> to leave unchanged.</param>
+public sealed record SchedulePlacementRequest(
+    DateTime? OpensAtUtc,
+    DateTime? ClosesAtUtc,
+    decimal? TargetAmount);
+
+/// <summary>POST /properties/{id}/placement/extend body.</summary>
+/// <param name="NewClosesAtUtc">The new closing date; must be later than the current one.</param>
+/// <param name="Reason">Why the placement is being extended. Required and journalled.</param>
+public sealed record ExtendPlacementRequest(DateTime NewClosesAtUtc, string Reason);
+
+/// <summary>POST /properties/{id}/placement/unsubscribed body.</summary>
+/// <param name="Reason">Why the placement is declared unsubscribed. Required and journalled.</param>
+public sealed record ClosePlacementUnsubscribedRequest(string Reason);
+
 /// <summary>POST /whitelist/mint-lists body. Assembles a batch of whitelisted requests for the exchange.</summary>
 /// <param name="PropertyId">The issuance to build the batch for.</param>
 /// <param name="EntryIds">
