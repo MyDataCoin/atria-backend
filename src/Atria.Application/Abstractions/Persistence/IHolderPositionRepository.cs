@@ -16,11 +16,4 @@ public interface IHolderPositionRepository : IRepository<HolderPosition>
 
     /// <summary>All holding positions of an issuance, read-only. The basis for a snapshot / reporting.</summary>
     Task<IReadOnlyList<HolderPosition>> GetByPropertyAsync(Guid propertyId, CancellationToken ct);
-
-    /// <summary>
-    /// Everything one address holds, across every issuance, read-only. Answers "what stays behind if
-    /// this wallet is replaced" — the shares live on the address, not on the investor, and the
-    /// platform holds no key that could move them.
-    /// </summary>
-    Task<IReadOnlyList<HolderPosition>> GetByAddressAsync(string walletAddress, CancellationToken ct);
 }

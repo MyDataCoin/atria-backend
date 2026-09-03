@@ -17,13 +17,7 @@ public sealed record RequestKycWalletChangeCommand : IRequest<Result>;
 /// </summary>
 /// <param name="WalletAddress">The new EVM address.</param>
 /// <param name="Code">The SMS code just sent to the investor's registered phone.</param>
-/// <param name="AcknowledgeStrandedShares">
-/// The holder states they understand that shares already minted to the current address stay there.
-/// Required only when there ARE such shares; the platform holds no key and cannot move them, so the
-/// holder must transfer them themselves.
-/// </param>
-public sealed record ConfirmKycWalletChangeCommand(
-    string WalletAddress, string Code, bool AcknowledgeStrandedShares = false)
+public sealed record ConfirmKycWalletChangeCommand(string WalletAddress, string Code)
     : IRequest<Result>;
 
 /// <summary>
@@ -79,16 +73,14 @@ public sealed class RequestKycWalletChangeCommandHandler
 /// </summary>
 /// <remarks>
 /// <para>
-/// Minted shares do not follow the holder — the platform holds no key for their wallet and cannot
-/// transfer them — so a change that would strand shares needs the holder to say, explicitly, that
-/// they know. Refusing outright would trap someone who has lost access to the old key and has every
-/// reason to move on; changing silently would leave them with an empty portfolio and dividends
-/// going to an address we no longer associate with them.
+/// One thing blocks the move: a batch already handed to the exchange. That row names the old address
+/// on a document someone else is acting on right now, and shares minted against it would land
+/// somewhere the profile no longer points. It clears when the batch executes or is called off.
 /// </para>
 /// <para>
-/// A batch already handed to the exchange is the one case with no acknowledgement: that row names
-/// the old address on a document someone else is acting on right now, and the mismatch is not the
-/// holder's to accept. It clears when the batch executes or is called off.
+/// Shares already minted do NOT block it. They stay on the address they were issued to — the holder
+/// keeps the key and the register keeps the position — and wanting a different address for what
+/// comes next is an ordinary thing to want, not a problem to be prevented.
 /// </para>
 /// <para>
 /// Requests that are merely queued DO follow — the aggregate rewrites the ones it is allowed to
@@ -102,7 +94,6 @@ public sealed class ConfirmKycWalletChangeCommandHandler
     private readonly IKycRepository _kyc;
     private readonly IUserRepository _users;
     private readonly IWhitelistEntryRepository _entries;
-    private readonly IHolderPositionRepository _positions;
     private readonly IOtpService _otp;
     private readonly ICurrentUserService _currentUser;
     private readonly IUnitOfWork _uow;
@@ -111,7 +102,6 @@ public sealed class ConfirmKycWalletChangeCommandHandler
         IKycRepository kyc,
         IUserRepository users,
         IWhitelistEntryRepository entries,
-        IHolderPositionRepository positions,
         IOtpService otp,
         ICurrentUserService currentUser,
         IUnitOfWork uow)
@@ -119,7 +109,6 @@ public sealed class ConfirmKycWalletChangeCommandHandler
         _kyc = kyc;
         _users = users;
         _entries = entries;
-        _positions = positions;
         _otp = otp;
         _currentUser = currentUser;
         _uow = uow;
@@ -166,15 +155,6 @@ public sealed class ConfirmKycWalletChangeCommandHandler
                 "Kyc.WalletInMintBatch",
                 "A mint batch naming the current wallet is with the exchange. The address can move "
                 + "once that batch is executed or called off."));
-
-        // Shares already on the address stay there. The holder may still move on — with their eyes
-        // open, having been shown the number.
-        var stranded = (await _positions.GetByAddressAsync(current, ct)).Sum(p => p.TokenCount);
-        if (stranded > 0 && !request.AcknowledgeStrandedShares)
-            return Result.Failure(Error.Conflict(
-                "Kyc.WalletHasShares",
-                $"{stranded} share(s) are held on the current wallet and will stay there — the "
-                + "platform cannot move them. Confirm that you understand before changing the address."));
 
         try
         {

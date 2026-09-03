@@ -120,9 +120,9 @@ public sealed class KycController : ApiControllerBase
 
     /// <summary>Moves the allocation address, authorised by an SMS code. Investor only.</summary>
     /// <remarks>
-    /// Refused once shares have been issued to the current address or a mint batch is in flight —
-    /// a minted position cannot follow the holder, and a batched request names the old address on a
-    /// document the exchange already holds. Requests still queued follow the new address.
+    /// Refused only while a mint batch naming the current address is with the exchange — that row is
+    /// a document someone else is acting on. Shares already minted stay where they are and do not
+    /// block the change; requests still queued follow the new address.
     /// </remarks>
     /// <param name="request">The new address and the SMS code.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -131,7 +131,7 @@ public sealed class KycController : ApiControllerBase
     /// <response code="401">The caller is not authenticated.</response>
     /// <response code="403">The caller is authenticated but not an Investor.</response>
     /// <response code="404">The caller has no KYC profile yet.</response>
-    /// <response code="409">Shares are already issued to the current wallet, or none is linked.</response>
+    /// <response code="409">A mint batch naming the current wallet is in flight, or none is linked.</response>
     [HttpPatch("wallet/change")]
     [Authorize(Roles = "Investor")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -142,28 +142,7 @@ public sealed class KycController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ChangeWallet(ChangeWalletRequest request, CancellationToken ct)
         => ToActionResult(await Sender.Send(
-            new ConfirmKycWalletChangeCommand(
-                request.WalletAddress, request.Code, request.AcknowledgeStrandedShares), ct));
-
-    /// <summary>What replacing the current wallet would leave behind. Investor only.</summary>
-    /// <remarks>
-    /// Read this before offering the change: shares already minted to the address stay on it — the
-    /// platform holds no key for the holder's wallet — so the holder should see the number before
-    /// deciding, not discover it afterwards with an empty portfolio.
-    /// </remarks>
-    /// <param name="ct">Cancellation token.</param>
-    /// <response code="200">What the change would strand.</response>
-    /// <response code="401">The caller is not authenticated.</response>
-    /// <response code="403">The caller is authenticated but not an Investor.</response>
-    /// <response code="404">The caller has no KYC profile yet.</response>
-    [HttpGet("wallet/change/impact")]
-    [Authorize(Roles = "Investor")]
-    [ProducesResponseType<WalletChangeImpactDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetWalletChangeImpact(CancellationToken ct)
-        => ToActionResult(await Sender.Send(new GetWalletChangeImpactQuery(), ct));
+            new ConfirmKycWalletChangeCommand(request.WalletAddress, request.Code), ct));
 
     /// <summary>Returns the current investor's KYC profile state.</summary>
     /// <remarks>

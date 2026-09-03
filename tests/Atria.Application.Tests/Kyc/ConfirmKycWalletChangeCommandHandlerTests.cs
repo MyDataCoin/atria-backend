@@ -11,11 +11,10 @@ namespace Atria.Application.Tests.Kyc;
 /// <summary>
 /// Moving the allocation address, confirmed by SMS.
 /// <para>
-/// What may block the move is narrow on purpose: a request that NAMES the current address and has
-/// left the queue. Shares minted to it sit at that address and cannot follow the holder; a batched
-/// row is on a document the exchange already holds. Anything else — a request carrying an older
-/// address, one with no address yet, or another investor's batch entirely — pins nothing, and
-/// refusing on it would strand a holder who has issued nothing.
+/// One thing blocks the move: a batch NAMING the current address that is already with the exchange,
+/// which is about to mint against a document nobody here can rewrite. Minted shares do not block it —
+/// they stay on the address they went to, and wanting a different address for what comes next is an
+/// ordinary thing to want. A batch carrying an older address pins nothing.
 /// </para>
 /// </summary>
 public sealed class ConfirmKycWalletChangeCommandHandlerTests
@@ -23,7 +22,6 @@ public sealed class ConfirmKycWalletChangeCommandHandlerTests
     private readonly IKycRepository _kyc = Substitute.For<IKycRepository>();
     private readonly IUserRepository _users = Substitute.For<IUserRepository>();
     private readonly IWhitelistEntryRepository _entries = Substitute.For<IWhitelistEntryRepository>();
-    private readonly IHolderPositionRepository _positions = Substitute.For<IHolderPositionRepository>();
     private readonly IOtpService _otp = Substitute.For<IOtpService>();
     private readonly ICurrentUserService _currentUser = Substitute.For<ICurrentUserService>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
@@ -34,16 +32,6 @@ public sealed class ConfirmKycWalletChangeCommandHandlerTests
     private const string Other = "0x23E3C895cC4f77B85443feE0042Dc105BeB00B93";
 
     private static readonly DateTime Now = new(2026, 9, 3, 12, 0, 0, DateTimeKind.Utc);
-
-    /// <summary>Shares sitting on an address in the register — what a change would strand.</summary>
-    private void GivenHeldShares(string wallet, long tokens)
-        => _positions.GetByAddressAsync(wallet, Arg.Any<CancellationToken>())
-            .Returns(new List<Domain.Holders.HolderPosition>
-            {
-                Domain.Holders.HolderPosition.Create(
-                    Guid.NewGuid(), wallet, tokens, UserId, true,
-                    Domain.Holders.HolderSource.Chain, Now),
-            });
 
     private ConfirmKycWalletChangeCommandHandler NewHandler(params WhitelistEntry[] entries)
     {
@@ -61,12 +49,8 @@ public sealed class ConfirmKycWalletChangeCommandHandlerTests
         _entries.ListByInvestorAsync(UserId, Arg.Any<CancellationToken>())
             .Returns(entries.ToList());
 
-        // Nothing held anywhere unless a test says otherwise.
-        _positions.GetByAddressAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Domain.Holders.HolderPosition>());
-
         return new ConfirmKycWalletChangeCommandHandler(
-            _kyc, _users, _entries, _positions, _otp, _currentUser, _uow);
+            _kyc, _users, _entries, _otp, _currentUser, _uow);
     }
 
     private static WhitelistEntry Entry(string? wallet) => WhitelistEntry.Queue(
@@ -100,62 +84,34 @@ public sealed class ConfirmKycWalletChangeCommandHandlerTests
     }
 
     [Fact]
-    public async Task RefusesHeldSharesUntilTheHolderSaysTheyUnderstand()
+    public async Task AllowsTheMoveWhenSharesWereAlreadyMintedToTheCurrentAddress()
     {
         var handler = NewHandler(Minted(Current));
-        GivenHeldShares(Current, 8);
 
         var result = await handler.Handle(new ConfirmKycWalletChangeCommand(Next, "111111"), default);
 
-        result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("Kyc.WalletHasShares");
-        // The number is in the message: the holder decides knowing what stays behind.
-        result.Error.Message.Should().Contain("8");
-    }
-
-    [Fact]
-    public async Task AllowsTheMoveOnceTheHolderAcknowledgesTheStrandedShares()
-    {
-        var handler = NewHandler(Minted(Current));
-        GivenHeldShares(Current, 8);
-
-        var result = await handler.Handle(
-            new ConfirmKycWalletChangeCommand(Next, "111111", AcknowledgeStrandedShares: true), default);
-
-        // Refusing outright would trap a holder who has lost the old key and must move on.
+        // Minted shares stay on the address they were issued to; wanting a different address for
+        // what comes next is ordinary, not something to prevent.
         result.IsSuccess.Should().BeTrue();
     }
 
     [Fact]
-    public async Task RefusesABatchInFlightEvenWhenAcknowledged()
+    public async Task RefusesWhileABatchNamingTheCurrentAddressIsWithTheExchange()
     {
         var handler = NewHandler(Batched(Current));
 
-        var result = await handler.Handle(
-            new ConfirmKycWalletChangeCommand(Next, "111111", AcknowledgeStrandedShares: true), default);
+        var result = await handler.Handle(new ConfirmKycWalletChangeCommand(Next, "111111"), default);
 
-        // Not the holder's to accept: the exchange is acting on a row that names this address.
+        // The exchange is about to mint against a document that names this address.
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("Kyc.WalletInMintBatch");
     }
 
     [Fact]
-    public async Task AllowsTheMoveWhenTheHeldSharesSitAtAnOlderAddress()
+    public async Task AllowsTheMoveWhenTheBatchInFlightNamesAnOlderAddress()
     {
-        // The holder already moved once; those shares stay where they went, and this address is free.
-        var handler = NewHandler(Minted(Other));
-        GivenHeldShares(Other, 8);
-
-        var result = await handler.Handle(new ConfirmKycWalletChangeCommand(Next, "111111"), default);
-
-        result.IsSuccess.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task NeedsNoAcknowledgementWhenTheAddressHoldsNothing()
-    {
-        // A minted request whose shares have since moved off the address strands nothing.
-        var handler = NewHandler(Minted(Current));
+        // The holder moved once already; that batch pins the address it names, not this one.
+        var handler = NewHandler(Batched(Other));
 
         var result = await handler.Handle(new ConfirmKycWalletChangeCommand(Next, "111111"), default);
 
@@ -189,8 +145,7 @@ public sealed class ConfirmKycWalletChangeCommandHandlerTests
     [Fact]
     public async Task RefusesAWrongCodeBeforeReadingAnyHoldings()
     {
-        var handler = NewHandler(Minted(Current));
-        GivenHeldShares(Current, 8);
+        var handler = NewHandler(Batched(Current));
         _otp.VerifyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure(Error.Validation("otp.invalid", "bad code")));
 
