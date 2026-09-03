@@ -86,6 +86,34 @@ public sealed class KycProfile : AggregateRoot
     }
 
     /// <summary>
+    /// Replaces an already-linked wallet with another one. Deliberately a separate operation from
+    /// <see cref="LinkWallet"/>: linking the first address is routine, moving the allocation address
+    /// is not, and the two must not share a code path that could be reached by accident.
+    /// </summary>
+    /// <remarks>
+    /// Whether the holder is ALLOWED to move it — no shares minted, no batch in flight, identity
+    /// re-proved — is decided by the application layer, which can see the register and the queue.
+    /// This aggregate only guarantees that the change is real and announced: the same address is not
+    /// a change, and every module that copied the old one is told about the new one through
+    /// <see cref="Events.KycWalletLinkedEvent"/>.
+    /// </remarks>
+    public void ReplaceWallet(string walletAddress)
+    {
+        if (string.IsNullOrWhiteSpace(walletAddress))
+            throw new DomainException("Wallet address is required.");
+        if (string.IsNullOrWhiteSpace(WalletAddress))
+            throw new DomainException("No wallet is linked yet — link one instead of replacing.");
+        if (string.Equals(WalletAddress, walletAddress, StringComparison.OrdinalIgnoreCase))
+            throw new DomainException("The new wallet is the same as the current one.");
+
+        WalletAddress = walletAddress;
+
+        // The same event as the first link: every module that needs the allocation address reacts to
+        // it, and a replacement they never hear about is worse than one that never happened.
+        RaiseEvent(new Events.KycWalletLinkedEvent(Id, UserId, walletAddress));
+    }
+
+    /// <summary>
     /// Overwrites <see cref="FullName"/> with the verified name from the provider's decision
     /// (the real name on the scanned ID document), replacing whatever the user self-reported at
     /// submit. Applied on approval so the KYC record carries the authoritative, verified name.

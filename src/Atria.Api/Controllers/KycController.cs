@@ -97,6 +97,53 @@ public sealed class KycController : ApiControllerBase
         return ToActionResult(result);
     }
 
+    /// <summary>Sends the SMS code that authorises moving the wallet. Investor only.</summary>
+    /// <remarks>
+    /// The code goes to the phone registered on the account, never to one supplied in the request.
+    /// Call this first, then <c>PATCH /kyc/wallet/change</c> with the code and the new address.
+    /// </remarks>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="204">The code was sent.</response>
+    /// <response code="401">The caller is not authenticated.</response>
+    /// <response code="403">The caller is authenticated but not an Investor.</response>
+    /// <response code="404">The caller has no KYC profile yet.</response>
+    /// <response code="409">No wallet is linked yet, or the account has no phone number.</response>
+    [HttpPost("wallet/change/request")]
+    [Authorize(Roles = "Investor")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RequestWalletChange(CancellationToken ct)
+        => ToActionResult(await Sender.Send(new RequestKycWalletChangeCommand(), ct));
+
+    /// <summary>Moves the allocation address, authorised by an SMS code. Investor only.</summary>
+    /// <remarks>
+    /// Refused once shares have been issued to the current address or a mint batch is in flight —
+    /// a minted position cannot follow the holder, and a batched request names the old address on a
+    /// document the exchange already holds. Requests still queued follow the new address.
+    /// </remarks>
+    /// <param name="request">The new address and the SMS code.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="204">The wallet was changed.</response>
+    /// <response code="400">The address is malformed, the code is wrong, or it is the same address.</response>
+    /// <response code="401">The caller is not authenticated.</response>
+    /// <response code="403">The caller is authenticated but not an Investor.</response>
+    /// <response code="404">The caller has no KYC profile yet.</response>
+    /// <response code="409">Shares are already issued to the current wallet, or none is linked.</response>
+    [HttpPatch("wallet/change")]
+    [Authorize(Roles = "Investor")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeWallet(ChangeWalletRequest request, CancellationToken ct)
+        => ToActionResult(await Sender.Send(
+            new ConfirmKycWalletChangeCommand(request.WalletAddress, request.Code), ct));
+
     /// <summary>Returns the current investor's KYC profile state.</summary>
     /// <remarks>
     /// Requires an authenticated user in the <c>Investor</c> role. Reads only the caller's own

@@ -29,6 +29,13 @@ public interface IWhitelistEntryRepository : IRepository<WhitelistEntry>
     /// </summary>
     Task<IReadOnlyList<WhitelistEntry>> ListAwaitingWalletAsync(Guid investorId, CancellationToken ct);
 
+    /// <summary>
+    /// Every request this investor has, in any status, tracked. Used when a decision needs the whole
+    /// picture rather than one queue — moving the allocation address, which a minted or batched
+    /// request forbids and a queued one follows.
+    /// </summary>
+    Task<IReadOnlyList<WhitelistEntry>> ListByInvestorAsync(Guid investorId, CancellationToken ct);
+
     /// <summary>The requests a mint list is holding, tracked, so the batch can move them together.</summary>
     Task<IReadOnlyList<WhitelistEntry>> ListByMintListAsync(Guid mintListId, CancellationToken ct);
 }

@@ -64,6 +64,11 @@ public sealed record SubmitKycRequest(
 /// <param name="WalletAddress">0x-prefixed 40-hex-character wallet address for token allocation.</param>
 public sealed record LinkWalletRequest(string WalletAddress);
 
+/// <summary>PATCH /kyc/wallet/change body. Moves an already-linked allocation address.</summary>
+/// <param name="WalletAddress">The new EVM address.</param>
+/// <param name="Code">The SMS code from POST /kyc/wallet/change/request.</param>
+public sealed record ChangeWalletRequest(string WalletAddress, string Code);
+
 /// <summary>POST /kyc/{id}/review body. <c>Approve=false</c> requires a <c>Reason</c>.</summary>
 /// <param name="Approve"><c>true</c> to approve the profile; <c>false</c> to reject it.</param>
 /// <param name="Reason">Required when rejecting; the human-readable rejection reason.</param>

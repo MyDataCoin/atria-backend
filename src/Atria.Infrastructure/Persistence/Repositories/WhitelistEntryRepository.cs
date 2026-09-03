@@ -51,6 +51,10 @@ public sealed class WhitelistEntryRepository : Repository<WhitelistEntry>, IWhit
                         && (e.Status == WhitelistStatus.Pending || e.Status == WhitelistStatus.Ready))
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<WhitelistEntry>> ListByInvestorAsync(
+        Guid investorId, CancellationToken ct)
+        => await Set.Where(e => e.InvestorId == investorId).ToListAsync(ct);
+
     public async Task<IReadOnlyList<WhitelistEntry>> ListByMintListAsync(Guid mintListId, CancellationToken ct)
         => await Set.Where(e => e.MintListId == mintListId).ToListAsync(ct);
 }
