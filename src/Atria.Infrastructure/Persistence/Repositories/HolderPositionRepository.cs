@@ -27,4 +27,12 @@ public sealed class HolderPositionRepository : Repository<HolderPosition>, IHold
         => await Set.AsNoTracking()
             .Where(p => p.PropertyId == propertyId)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<HolderPosition>> GetByAddressAsync(
+        string walletAddress, CancellationToken ct)
+        => await Set.AsNoTracking()
+            // EVM addresses are case-insensitive, and the register stores whatever casing the chain
+            // reported; comparing them literally would miss the holder's own position.
+            .Where(p => p.WalletAddress.ToLower() == walletAddress.ToLower() && p.TokenCount > 0)
+            .ToListAsync(ct);
 }

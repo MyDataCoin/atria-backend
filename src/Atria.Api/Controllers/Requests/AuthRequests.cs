@@ -67,7 +67,9 @@ public sealed record LinkWalletRequest(string WalletAddress);
 /// <summary>PATCH /kyc/wallet/change body. Moves an already-linked allocation address.</summary>
 /// <param name="WalletAddress">The new EVM address.</param>
 /// <param name="Code">The SMS code from POST /kyc/wallet/change/request.</param>
-public sealed record ChangeWalletRequest(string WalletAddress, string Code);
+/// <param name="AcknowledgeStrandedShares">The holder confirms they know shares on the current address stay there. Required only when there are any.</param>
+public sealed record ChangeWalletRequest(
+    string WalletAddress, string Code, bool AcknowledgeStrandedShares = false);
 
 /// <summary>POST /kyc/{id}/review body. <c>Approve=false</c> requires a <c>Reason</c>.</summary>
 /// <param name="Approve"><c>true</c> to approve the profile; <c>false</c> to reject it.</param>

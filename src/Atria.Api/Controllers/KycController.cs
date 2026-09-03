@@ -142,7 +142,28 @@ public sealed class KycController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ChangeWallet(ChangeWalletRequest request, CancellationToken ct)
         => ToActionResult(await Sender.Send(
-            new ConfirmKycWalletChangeCommand(request.WalletAddress, request.Code), ct));
+            new ConfirmKycWalletChangeCommand(
+                request.WalletAddress, request.Code, request.AcknowledgeStrandedShares), ct));
+
+    /// <summary>What replacing the current wallet would leave behind. Investor only.</summary>
+    /// <remarks>
+    /// Read this before offering the change: shares already minted to the address stay on it — the
+    /// platform holds no key for the holder's wallet — so the holder should see the number before
+    /// deciding, not discover it afterwards with an empty portfolio.
+    /// </remarks>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="200">What the change would strand.</response>
+    /// <response code="401">The caller is not authenticated.</response>
+    /// <response code="403">The caller is authenticated but not an Investor.</response>
+    /// <response code="404">The caller has no KYC profile yet.</response>
+    [HttpGet("wallet/change/impact")]
+    [Authorize(Roles = "Investor")]
+    [ProducesResponseType<WalletChangeImpactDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetWalletChangeImpact(CancellationToken ct)
+        => ToActionResult(await Sender.Send(new GetWalletChangeImpactQuery(), ct));
 
     /// <summary>Returns the current investor's KYC profile state.</summary>
     /// <remarks>

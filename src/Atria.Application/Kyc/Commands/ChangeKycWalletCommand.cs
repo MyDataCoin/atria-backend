@@ -17,7 +17,13 @@ public sealed record RequestKycWalletChangeCommand : IRequest<Result>;
 /// </summary>
 /// <param name="WalletAddress">The new EVM address.</param>
 /// <param name="Code">The SMS code just sent to the investor's registered phone.</param>
-public sealed record ConfirmKycWalletChangeCommand(string WalletAddress, string Code)
+/// <param name="AcknowledgeStrandedShares">
+/// The holder states they understand that shares already minted to the current address stay there.
+/// Required only when there ARE such shares; the platform holds no key and cannot move them, so the
+/// holder must transfer them themselves.
+/// </param>
+public sealed record ConfirmKycWalletChangeCommand(
+    string WalletAddress, string Code, bool AcknowledgeStrandedShares = false)
     : IRequest<Result>;
 
 /// <summary>
@@ -73,10 +79,16 @@ public sealed class RequestKycWalletChangeCommandHandler
 /// </summary>
 /// <remarks>
 /// <para>
-/// The address is where shares and dividends land, so a change is refused while anything is already
-/// riding on the old one: a minted position cannot follow the holder to a new address, and a request
-/// sitting in a mint list names the old address on a document the exchange is already holding. Those
-/// are unwound or executed first, by a person who can see why.
+/// Minted shares do not follow the holder — the platform holds no key for their wallet and cannot
+/// transfer them — so a change that would strand shares needs the holder to say, explicitly, that
+/// they know. Refusing outright would trap someone who has lost access to the old key and has every
+/// reason to move on; changing silently would leave them with an empty portfolio and dividends
+/// going to an address we no longer associate with them.
+/// </para>
+/// <para>
+/// A batch already handed to the exchange is the one case with no acknowledgement: that row names
+/// the old address on a document someone else is acting on right now, and the mismatch is not the
+/// holder's to accept. It clears when the batch executes or is called off.
 /// </para>
 /// <para>
 /// Requests that are merely queued DO follow — the aggregate rewrites the ones it is allowed to
@@ -90,6 +102,7 @@ public sealed class ConfirmKycWalletChangeCommandHandler
     private readonly IKycRepository _kyc;
     private readonly IUserRepository _users;
     private readonly IWhitelistEntryRepository _entries;
+    private readonly IHolderPositionRepository _positions;
     private readonly IOtpService _otp;
     private readonly ICurrentUserService _currentUser;
     private readonly IUnitOfWork _uow;
@@ -98,6 +111,7 @@ public sealed class ConfirmKycWalletChangeCommandHandler
         IKycRepository kyc,
         IUserRepository users,
         IWhitelistEntryRepository entries,
+        IHolderPositionRepository positions,
         IOtpService otp,
         ICurrentUserService currentUser,
         IUnitOfWork uow)
@@ -105,6 +119,7 @@ public sealed class ConfirmKycWalletChangeCommandHandler
         _kyc = kyc;
         _users = users;
         _entries = entries;
+        _positions = positions;
         _otp = otp;
         _currentUser = currentUser;
         _uow = uow;
@@ -136,21 +151,30 @@ public sealed class ConfirmKycWalletChangeCommandHandler
         if (verification.IsFailure)
             return verification;
 
-        // What pins the address is a request that NAMES it and has left the queue: minted shares sit
-        // at that address, and a batched row is on a document the exchange already holds. A request
-        // carrying some other address — an earlier wallet, or none at all — pins nothing, so the
-        // comparison is against the address being replaced, not merely against the investor.
         var current = profile.WalletAddress;
         var owned = await _entries.ListByInvestorAsync(userId, ct);
-        var pinned = owned.Any(e =>
-            e.Status is WhitelistStatus.Minted or WhitelistStatus.Batched
+
+        // A batch in flight is not negotiable: the exchange is holding a row that names this address.
+        // Matched against the address being replaced, not merely the investor — a request carrying an
+        // older wallet, or none at all, pins nothing.
+        var batched = owned.Any(e =>
+            e.Status == WhitelistStatus.Batched
             && string.Equals(e.WalletAddress, current, StringComparison.OrdinalIgnoreCase));
 
-        if (pinned)
+        if (batched)
+            return Result.Failure(Error.Conflict(
+                "Kyc.WalletInMintBatch",
+                "A mint batch naming the current wallet is with the exchange. The address can move "
+                + "once that batch is executed or called off."));
+
+        // Shares already on the address stay there. The holder may still move on — with their eyes
+        // open, having been shown the number.
+        var stranded = (await _positions.GetByAddressAsync(current, ct)).Sum(p => p.TokenCount);
+        if (stranded > 0 && !request.AcknowledgeStrandedShares)
             return Result.Failure(Error.Conflict(
                 "Kyc.WalletHasShares",
-                "Shares have already been issued to the current wallet, or a mint batch is in flight. "
-                + "Contact support to move the address."));
+                $"{stranded} share(s) are held on the current wallet and will stay there — the "
+                + "platform cannot move them. Confirm that you understand before changing the address."));
 
         try
         {
