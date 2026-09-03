@@ -136,9 +136,17 @@ public sealed class ConfirmKycWalletChangeCommandHandler
         if (verification.IsFailure)
             return verification;
 
-        // Shares already issued to the old address, or a batch the exchange is acting on, pin it.
+        // What pins the address is a request that NAMES it and has left the queue: minted shares sit
+        // at that address, and a batched row is on a document the exchange already holds. A request
+        // carrying some other address — an earlier wallet, or none at all — pins nothing, so the
+        // comparison is against the address being replaced, not merely against the investor.
+        var current = profile.WalletAddress;
         var owned = await _entries.ListByInvestorAsync(userId, ct);
-        if (owned.Any(e => e.Status is WhitelistStatus.Minted or WhitelistStatus.Batched))
+        var pinned = owned.Any(e =>
+            e.Status is WhitelistStatus.Minted or WhitelistStatus.Batched
+            && string.Equals(e.WalletAddress, current, StringComparison.OrdinalIgnoreCase));
+
+        if (pinned)
             return Result.Failure(Error.Conflict(
                 "Kyc.WalletHasShares",
                 "Shares have already been issued to the current wallet, or a mint batch is in flight. "
