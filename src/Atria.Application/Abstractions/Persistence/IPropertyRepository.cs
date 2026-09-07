@@ -16,4 +16,16 @@ public interface IPropertyRepository : IRepository<Property>
     /// placement sweep can move them and persist through the unit of work.
     /// </summary>
     Task<IReadOnlyList<Property>> GetDuePlacementsAsync(DateTime asOfUtc, int batchSize, CancellationToken ct);
+
+    /// <summary>
+    /// The issue deployed at a token contract, or null when we run no such contract. Address matching
+    /// is case-insensitive, since the same address is legitimately written with and without checksum
+    /// casing.
+    /// </summary>
+    /// <remarks>
+    /// This is how an inbound report from the trading operator is tied to an issue: the contract is
+    /// something we deployed and can verify, whereas an issue identifier in a request body is just a
+    /// claim by the sender.
+    /// </remarks>
+    Task<Property?> FindByTokenContractAsync(string chain, string tokenContractAddress, CancellationToken ct);
 }

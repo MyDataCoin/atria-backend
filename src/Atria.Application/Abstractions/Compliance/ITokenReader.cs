@@ -62,4 +62,18 @@ public interface ITokenReader
     /// </summary>
     Task<IReadOnlyList<TokenTransfer>> GetTransfersAsync(
         string chainTag, string tokenContractAddress, long fromBlock, long toBlock, CancellationToken ct);
+
+    /// <summary>
+    /// This contract's transfer events inside one transaction. Empty when the transaction is unknown
+    /// to the node, still unmined, or moved no shares of this contract.
+    /// </summary>
+    /// <remarks>
+    /// Used to check a trade reported by the trading operator against what actually happened. One
+    /// transaction can legitimately carry several transfers — a batch, or an exchange settling two
+    /// trades at once — so the caller matches on the parties rather than assuming a single result.
+    /// An empty list means "nothing found", never "the trade is wrong": the transaction may simply
+    /// not be deep enough to have been read yet.
+    /// </remarks>
+    Task<IReadOnlyList<TokenTransfer>> GetTransfersByTransactionAsync(
+        string chainTag, string tokenContractAddress, string transactionHash, CancellationToken ct);
 }

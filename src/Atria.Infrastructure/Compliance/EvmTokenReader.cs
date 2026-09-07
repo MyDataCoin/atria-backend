@@ -124,6 +124,45 @@ public sealed class EvmTokenReader : ITokenReader
     }
 
     /// <summary>
+    /// This contract's transfers inside one transaction, read from the transaction receipt.
+    /// </summary>
+    /// <remarks>
+    /// The receipt is asked for directly rather than scanning a block range: the caller has an exact
+    /// transaction hash from a trade report, and a range query would be both slower and vulnerable to
+    /// the reported block number being wrong. A receipt that does not exist yet — an unmined or
+    /// unknown transaction — yields an empty list rather than an error, because "not yet" is a normal
+    /// state for a trade that has just been reported.
+    /// </remarks>
+    public async Task<IReadOnlyList<TokenTransfer>> GetTransfersByTransactionAsync(
+        string chainTag, string tokenContractAddress, string transactionHash, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(transactionHash))
+            return Array.Empty<TokenTransfer>();
+
+        var web3 = ClientFor(chainTag);
+
+        var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
+        if (receipt is null)
+            return Array.Empty<TokenTransfer>();
+
+        // Only this contract's logs count. A settlement transaction can touch several contracts —
+        // payment tokens, a router — and a transfer of something else is not a transfer of our shares.
+        var logs = receipt.DecodeAllEvents<TransferEventDto>()
+            .Where(log => string.Equals(
+                log.Log.Address, tokenContractAddress, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return logs
+            .Select(log => new TokenTransfer(
+                log.Event.From,
+                log.Event.To,
+                ToShares(log.Event.Value),
+                (long)receipt.BlockNumber.Value,
+                transactionHash))
+            .ToList();
+    }
+
+    /// <summary>
     /// The contract holds shares as integers with <c>decimals() == TokenAmount.Scale</c> (zero), so a
     /// raw amount is a share count already. A value too large to be one means the contract is not the
     /// one we think it is, and quietly truncating it would put a fabricated number into the registry.

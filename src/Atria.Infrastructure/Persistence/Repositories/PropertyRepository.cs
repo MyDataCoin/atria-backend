@@ -37,6 +37,17 @@ public sealed class PropertyRepository : Repository<Property>, IPropertyReposito
             .Take(batchSize)
             .ToListAsync(ct);
 
+    // No media includes and no tracking: the caller resolves an issue from a contract address to
+    // attribute an inbound report, and never mutates the issue itself.
+    public Task<Property?> FindByTokenContractAsync(
+        string chain, string tokenContractAddress, CancellationToken ct)
+        => Set.AsNoTracking().FirstOrDefaultAsync(
+            p => p.TokenChain != null
+                 && p.TokenContractAddress != null
+                 && p.TokenChain.ToLower() == chain.ToLower()
+                 && p.TokenContractAddress.ToLower() == tokenContractAddress.ToLower(),
+            ct);
+
     public async Task<IReadOnlyList<Property>> GetByBuildingAsync(Guid buildingId, CancellationToken ct)
         => await Set.AsNoTracking()
             .Where(p => p.BuildingId == buildingId)

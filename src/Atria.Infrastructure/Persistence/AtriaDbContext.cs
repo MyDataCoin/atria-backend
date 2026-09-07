@@ -23,6 +23,7 @@ using Atria.Domain.Support;
 using Atria.Domain.Operations;
 using Atria.Domain.Payouts;
 using Atria.Domain.Tax;
+using Atria.Domain.Trading;
 using Atria.Domain.TravelRule;
 using Atria.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -72,6 +73,7 @@ public sealed class AtriaDbContext : DbContext
     public DbSet<PayoutRun> PayoutRuns => Set<PayoutRun>();
     public DbSet<OperatingPeriod> OperatingPeriods => Set<OperatingPeriod>();
     public DbSet<TravelRuleMessage> TravelRuleMessages => Set<TravelRuleMessage>();
+    public DbSet<ExchangeTrade> ExchangeTrades => Set<ExchangeTrade>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // Infra-only EF entities.
@@ -109,6 +111,13 @@ public sealed class AtriaDbContext : DbContext
             .HasConversion(encryptedConverter!);
         modelBuilder.Entity<TravelRuleMessage>()
             .Property(m => m.Payload)
+            .HasConversion(encryptedConverter!);
+
+        // A trade card names the counterparty when the other side is not our client. That name is
+        // personal data we did not collect ourselves and hold only to complete a disclosure, which
+        // makes it exactly the kind of field that must not sit in the clear.
+        modelBuilder.Entity<ExchangeTrade>()
+            .Property(t => t.BeneficiaryName)
             .HasConversion(encryptedConverter!);
     }
 

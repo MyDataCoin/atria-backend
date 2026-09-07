@@ -3,6 +3,7 @@ using Amazon;
 using Amazon.S3;
 using Atria.Application.Abstractions;
 using Atria.Application.Investments.Services;
+using Atria.Application.Trading;
 using Atria.Application.TravelRule;
 using Atria.Application.Audit.EventHandlers;
 using Atria.Application.Investments;
@@ -21,6 +22,7 @@ using Atria.Infrastructure.Outbox;
 using Atria.Infrastructure.Persistence;
 using Atria.Infrastructure.Persistence.Repositories;
 using Atria.Infrastructure.Persistence.Seeding;
+using Atria.Infrastructure.Trading;
 using Atria.Infrastructure.Persistence.Stores;
 using Atria.Infrastructure.Storage;
 using FluentValidation;
@@ -99,6 +101,7 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<TokenSigningOptions>, TokenSigningOptionsValidator>();
         BindValidated<TravelRuleOptions>(services, configuration, TravelRuleOptions.SectionName);
+        BindValidated<ExchangeOptions>(services, configuration, ExchangeOptions.SectionName);
     }
 
     private static void BindValidated<T>(
@@ -154,6 +157,18 @@ public static class DependencyInjection
         services.AddScoped<IPayoutRunRepository, PayoutRunRepository>();
         services.AddScoped<IOperatingPeriodRepository, OperatingPeriodRepository>();
         services.AddScoped<ITravelRuleRepository, TravelRuleRepository>();
+        services.AddScoped<IExchangeTradeRepository, ExchangeTradeRepository>();
+
+        // Trading operator: the trade cards they push are matched against what we already read from
+        // the chain, so the matcher is live even before an operator is connected — a card that
+        // arrives with nothing to match simply waits.
+        services.AddScoped<ITradeChainMatcher, TradeChainMatcher>();
+        services.AddScoped<IExchangeSignatureVerifier, HmacExchangeSignatureVerifier>();
+
+        // Notices we owe the operator (an issuance, a delisting) are assembled and recorded, but no
+        // operator endpoint is chosen yet, so delivery reports honestly that it did not happen
+        // rather than a no-op silently marking them sent.
+        services.AddScoped<IExchangeNotifier, UnconfiguredExchangeNotifier>();
         // Travel rule: the obligation is assembled and queued regardless of whether a counterparty
         // has been chosen, so the reporter is always live and only delivery is stubbed out.
         services.AddScoped<ITravelRuleSettings>(

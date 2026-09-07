@@ -1,5 +1,6 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
+using Atria.Application.Trading;
 using Atria.Application.TravelRule;
 using Atria.Domain.Holders;
 
@@ -44,6 +45,7 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
     private readonly IComplianceRepository _profiles;
     private readonly ITokenReader _tokens;
     private readonly ITravelRuleReporter _travelRule;
+    private readonly ITradeChainMatcher _matcher;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _uow;
 
@@ -54,6 +56,7 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
         IComplianceRepository profiles,
         ITokenReader tokens,
         ITravelRuleReporter travelRule,
+        ITradeChainMatcher matcher,
         IDateTimeProvider clock,
         IUnitOfWork uow)
     {
@@ -63,6 +66,7 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
         _profiles = profiles;
         _tokens = tokens;
         _travelRule = travelRule;
+        _matcher = matcher;
         _clock = clock;
         _uow = uow;
     }
@@ -134,6 +138,12 @@ public sealed class SyncHolderRegistryFromChainCommandHandler
 
         cursor.AdvanceTo(toBlock, now);
         _cursors.Update(cursor);
+
+        // Trade cards reported by the exchange usually arrive before the transfer they describe is
+        // deep enough to be applied, so they sit waiting for a chain leg. Now that this window has
+        // been read, any card whose transfer just landed can be confirmed — which is what turns a
+        // bare transfer into a trade with a price and a counterparty.
+        await _matcher.MatchOutstandingAsync(property.Id, ct);
 
         await _uow.SaveChangesAsync(ct);
         return Result.Success(transfers.Count);

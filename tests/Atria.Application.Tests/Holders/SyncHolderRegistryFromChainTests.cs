@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Holders.Commands;
 using Atria.Domain.Holders;
+using Atria.Application.Trading;
 using Atria.Application.TravelRule;
 using Atria.Domain.Investments;
 using FluentAssertions;
@@ -28,6 +29,7 @@ public sealed class SyncHolderRegistryFromChainTests
     private readonly IComplianceRepository _profiles = Substitute.For<IComplianceRepository>();
     private readonly ITokenReader _tokens = Substitute.For<ITokenReader>();
     private readonly ITravelRuleReporter _travelRule = Substitute.For<ITravelRuleReporter>();
+    private readonly ITradeChainMatcher _matcher = Substitute.For<ITradeChainMatcher>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
@@ -41,7 +43,7 @@ public sealed class SyncHolderRegistryFromChainTests
     }
 
     private SyncHolderRegistryFromChainCommandHandler NewHandler() =>
-        new(_properties, _positions, _cursors, _profiles, _tokens, _travelRule, _clock, _uow);
+        new(_properties, _positions, _cursors, _profiles, _tokens, _travelRule, _matcher, _clock, _uow);
 
     private Property GivenIssue(long? deploymentBlock)
     {
