@@ -24,7 +24,12 @@ public sealed class OtpService : IOtpService
     // rate limits, attempt lockout and single-use guarantees below do not apply while it is on.
     // Set StubEnabled = false (and re-register the SMS adapter in DependencyInjection) to restore
     // the real flow — nothing else needs to change.
-    private const bool StubEnabled = true;
+    //
+    // Public because SecretsGuard refuses to boot outside Development while it is on: the domains are
+    // live, and a bypass that anyone knowing six digits can use must not reach production because a
+    // flag was left as it was on the bench. Deliberately a const rather than a setting — a bypass
+    // that can be switched on by configuration is one an environment variable can switch on.
+    public const bool StubEnabled = true;
     private const string StubCode = "111111";
     // ──────────────────────────────────────────────────────────────────────────────────────────
 

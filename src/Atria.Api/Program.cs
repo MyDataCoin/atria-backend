@@ -228,6 +228,10 @@ builder.Services.AddHealthChecks()
     .AddNpgSql(
         builder.Configuration.GetConnectionString("Postgres") ?? string.Empty,
         name: "postgres",
+        tags: new[] { "ready" })
+    // Degraded, not unhealthy: a missing compliance key costs one capability, not the service.
+    .AddCheck<Atria.Api.Startup.BurnCapabilityHealthCheck>(
+        "token-burn",
         tags: new[] { "ready" });
 
 // --- Rate limiting: throttle the unauthenticated endpoints that are worth attacking — credential

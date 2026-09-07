@@ -90,6 +90,24 @@ public static class SecretsGuard
             }
         }
 
+        // The OTP stub accepts one fixed code for ANY phone number, which is an unauthenticated
+        // takeover of every account on the instance. It is on deliberately — the SMS provider has not
+        // yet approved the ATRIA.KG sender name, and until it does messages would arrive from a
+        // technical number, so the bench and the integration tests must keep working with it.
+        //
+        // Production must not, and only Production: the domains are live there, and nothing else
+        // about a stubbed instance looks different from a real one. Checked separately from the
+        // secrets above because those are missing-value problems that Development is allowed to have,
+        // while this is a compiled-in bypass that exactly one environment must refuse.
+        if (Identity.OtpService.StubEnabled && environment.IsProduction())
+        {
+            throw new InvalidOperationException(
+                "Refusing to start in Production: the OTP stub is enabled (OtpService.StubEnabled), "
+                + "so the fixed code authenticates ANY phone number and the rate limits, attempt "
+                + "lockout and single-use guarantees do not apply. Set it to false and re-register "
+                + "the SMS adapter in DependencyInjection before serving production traffic.");
+        }
+
         if (problems.Count == 0)
             return Array.Empty<string>();
 

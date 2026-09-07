@@ -101,6 +101,21 @@ public static class SigningKeySeparationExtensions
             .Select(p => p.WalletAddress!)
             .ToListAsync());
 
+        // Said out loud at start, because the alternative is learning it from an investor whose
+        // withdrawal was refused. TokenSigningOptionsValidator lets the compliance key be absent on
+        // purpose — refusing to boot over it once took the whole service down — but "the app is up"
+        // and "every capability is present" are then two different things, and only one of them was
+        // ever visible.
+        if (signing.Mode == TokenSigningMode.OperationalKey
+            && string.IsNullOrWhiteSpace(signing.CompliancePrivateKey))
+        {
+            logger.LogWarning(
+                "{Setting} is not set while Mode is OperationalKey: shares cannot be burned, so a "
+                + "withdrawal under §44 will be refused rather than half-accepted. The platform is "
+                + "otherwise serving normally.",
+                $"{TokenSigningOptions.SectionName}:CompliancePrivateKey");
+        }
+
         var collisions = FindCollisions(addresses, wallets);
 
         if (collisions.Count == 0)

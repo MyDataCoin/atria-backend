@@ -64,13 +64,19 @@ public sealed class BlockchainOperationWorker : BackgroundService
     /// </remarks>
     private void LogSigningIdentities()
     {
+        // All four roles on one line, including compliance — the key that was actually confused
+        // during server setup. Reading the deployment's role table against a list with a hole in it
+        // is how the wrong address goes unnoticed; the burn's absence is worth seeing next to the
+        // roles that are present, not only as a warning elsewhere.
         _logger.LogInformation(
-            "Token signing mode: {Mode}. Minter {Minter}, oracle {Oracle}, allowlist agent {Agent}. "
-            + "These must be the addresses the token contract granted MINTER_ROLE and ORACLE_ROLE to, "
-            + "and the address registered as an allowlist agent.",
+            "Token signing mode: {Mode}. Minter {Minter}, oracle {Oracle}, compliance {Compliance}, "
+            + "allowlist agent {Agent}. These must be the addresses the token contract granted "
+            + "MINTER_ROLE, ORACLE_ROLE and COMPLIANCE_ROLE to, and the address registered as an "
+            + "allowlist agent.",
             _signing.Mode,
             AddressOf(_signing.MinterPrivateKey),
             AddressOf(_signing.OraclePrivateKey),
+            AddressOf(_signing.CompliancePrivateKey),
             AddressOf(_agentKey));
     }
 

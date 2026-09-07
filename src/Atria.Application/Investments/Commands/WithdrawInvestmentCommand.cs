@@ -44,6 +44,7 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
     private readonly IComplianceRepository _profiles;
     private readonly IWhitelistEntryRepository _whitelist;
     private readonly IBlockchainOperationQueue _chain;
+    private readonly IBurnCapability _burn;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
     private readonly IAuditWriter _audit;
@@ -57,6 +58,7 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
         IComplianceRepository profiles,
         IWhitelistEntryRepository whitelist,
         IBlockchainOperationQueue chain,
+        IBurnCapability burn,
         ICurrentUserService currentUser,
         IDateTimeProvider clock,
         IAuditWriter audit,
@@ -69,6 +71,7 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
         _profiles = profiles;
         _whitelist = whitelist;
         _chain = chain;
+        _burn = burn;
         _currentUser = currentUser;
         _clock = clock;
         _audit = audit;
@@ -90,6 +93,32 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
 
         var now = _clock.UtcNow;
 
+        var property = await _properties.GetByIdAsync(investment.PropertyId, ct);
+        if (property is null)
+            return Result.Failure(Error.NotFound("investment.propertyNotFound", "Property not found."));
+
+        // The address the shares actually went to. The whitelist request snapshots it at mint time,
+        // so a profile whose wallet changed afterwards cannot send the burn to the wrong holder.
+        var entry = await _whitelist.GetByInvestmentAsync(investment.Id, ct);
+        var profile = await _profiles.GetByInvestorAsync(investment.InvestorId, ct);
+        var wallet = entry?.WalletAddress ?? investment.WalletAddress ?? profile?.WalletAddress;
+
+        var burnRequired = !string.IsNullOrWhiteSpace(wallet) && NeedsBurn(investment, entry, property);
+
+        // Asked BEFORE the withdrawal is accepted, and nothing above this line has changed anything.
+        // The gateway raises the same gap, but only once the investment is marked withdrawn and the
+        // refund obligation exists — leaving the investor holding both the money back and the shares,
+        // and the register disagreeing with the chain until a reconciliation notices. Refusing the
+        // whole withdrawal is the lesser failure: the holder still has their shares and their §44
+        // window, and can exercise it again once the key is configured.
+        if (burnRequired && !_burn.CanBurn)
+        {
+            return Result.Failure(Error.Conflict(
+                "investment.burnUnavailable",
+                "Отказ от сделки временно недоступен: платформа не может погасить уже выпущенные "
+                + "доли. Обратитесь в поддержку — заявка не изменена."));
+        }
+
         try
         {
             investment.Withdraw(now);
@@ -101,19 +130,9 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
 
         _investments.Update(investment);
 
-        var property = await _properties.GetByIdAsync(investment.PropertyId, ct);
-        if (property is null)
-            return Result.Failure(Error.NotFound("investment.propertyNotFound", "Property not found."));
-
         // The shares go back on sale.
         property.ReleaseTokens(investment.TokenCount);
         _properties.Update(property);
-
-        // The address the shares actually went to. The whitelist request snapshots it at mint time,
-        // so a profile whose wallet changed afterwards cannot send the burn to the wrong holder.
-        var entry = await _whitelist.GetByInvestmentAsync(investment.Id, ct);
-        var profile = await _profiles.GetByInvestorAsync(investment.InvestorId, ct);
-        var wallet = entry?.WalletAddress ?? investment.WalletAddress ?? profile?.WalletAddress;
 
         // What is owed back, at the price paid. A withdrawal unwinds the purchase; it does not
         // revalue it, so the holder is neither penalised nor enriched by the last two weeks.
@@ -126,13 +145,7 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
         {
             await StopCountingInRegistryAsync(property.Id, wallet, investment.TokenCount, now, ct);
 
-            // Only what actually reached the address needs burning. An application activated but
-            // never minted has nothing on chain to undo. Either witness is enough: the platform's own
-            // allocation writes OnChainStatus, a batch handed to the exchange only marks the request
-            // Minted — reading just one of them leaves the other kind of mint un-burned.
-            if ((investment.OnChainStatus != OnChainStatus.None
-                 || entry?.Status == WhitelistStatus.Minted)
-                && !string.IsNullOrWhiteSpace(property.TokenContractAddress))
+            if (burnRequired)
             {
                 var payload = JsonSerializer.Serialize(new
                 {
@@ -159,6 +172,20 @@ public sealed class WithdrawInvestmentCommandHandler : IRequestHandler<WithdrawI
         await _uow.SaveChangesAsync(ct);
         return Result.Success();
     }
+
+    /// <summary>
+    /// Whether shares actually reached the chain and so have to be destroyed there.
+    /// </summary>
+    /// <remarks>
+    /// An application activated but never minted has nothing on chain to undo. Either witness is
+    /// enough: the platform's own allocation writes <see cref="OnChainStatus"/>, a batch handed to the
+    /// exchange only marks the request <see cref="WhitelistStatus.Minted"/> — reading just one of them
+    /// leaves the other kind of mint un-burned. Decided once and used twice, so the burn the handler
+    /// refuses over is exactly the burn it would otherwise queue.
+    /// </remarks>
+    private static bool NeedsBurn(Investment investment, WhitelistEntry? entry, Property property)
+        => (investment.OnChainStatus != OnChainStatus.None || entry?.Status == WhitelistStatus.Minted)
+           && !string.IsNullOrWhiteSpace(property.TokenContractAddress);
 
     /// <summary>
     /// Takes the withdrawn shares out of the holder's position so the register stops counting them.

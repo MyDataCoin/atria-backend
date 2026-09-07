@@ -317,6 +317,10 @@ public static class DependencyInjection
                 ? ActivatorUtilities.CreateInstance<EvmTokenGateway>(sp)
                 : ActivatorUtilities.CreateInstance<CustodyTokenGateway>(sp);
         });
+        // Read from configuration only, so a withdrawal can ask whether the burn it is about to
+        // promise can actually be signed before it changes anything.
+        services.AddSingleton<IBurnCapability, ConfiguredBurnCapability>();
+
         // External signer calls a configured signer URL via HttpClient (BaseAddress from options).
         services.AddHttpClient<IBlockchainSigner, ExternalBlockchainSigner>((sp, client) =>
         {
