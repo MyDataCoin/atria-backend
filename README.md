@@ -56,7 +56,7 @@ keeps on `Allowlist.sol`.
 | **Strategy** (DI by type, no string switch) | `IKycProviderStrategy` (Didit*, Manual), `IPaymentProviderStrategy` (Stripe, BankTransfer). Handlers receive `IEnumerable<T>` and pick by `ProviderType`. |
 | **Repository** | `IRepository<T>` + specialized repos over EF Core; Application never sees `DbContext`. |
 | **Domain Events** | only inter-module channel; delivered via the transactional outbox. |
-| **Adapter** | `S3DocumentStorageAdapter`, `NikitaProSmsAdapter`, `EmailNotificationAdapter`. |
+| **Adapter** | `S3DocumentStorageAdapter`, `DisabledSmsSender` (placeholder until WhatsApp OTP), `EmailNotificationAdapter`. |
 | **Factory Method** | `InvestmentFactory` enforces creation invariants. |
 
 \* Didit is the primary KYC provider.
@@ -88,7 +88,7 @@ keeps on `Allowlist.sol`.
   only read/modify their own applications, investments and documents (not just role checks).
 - **Webhooks** verify provider signature + timestamp freshness (replay protection) +
   idempotency; the body is never trusted as a command, it only moves State.
-- **OTP** (phone registration via Nikita Pro): short-lived, single-use, **stored hashed**,
+- **OTP** (phone registration; WhatsApp delivery pending): short-lived, single-use, **stored hashed**,
   constant-time compare, per-code attempt lockout, per-phone rate limit. Login + OTP
   endpoints are rate-limited.
 - **PII at rest** — `KycProfile.FullName` / `DocumentNumber` are AES-GCM encrypted via an
@@ -117,7 +117,7 @@ dotnet user-secrets init --project src/Atria.Api
 dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=atria;Username=atria;Password=..." --project src/Atria.Api
 dotnet user-secrets set "Jwt:SigningKey" "<a long random secret>" --project src/Atria.Api
 dotnet user-secrets set "Encryption:Key" "<base64 of exactly 32 random bytes>" --project src/Atria.Api
-# Didit / Stripe / NikitaPro / S3 / Blockchain secrets likewise
+# Didit / Stripe / S3 / Blockchain secrets likewise
 ```
 `Encryption:Key` must be base64 of **exactly 32 bytes** (AES-256).
 See `appsettings.Example.json` for the full key list.
@@ -290,7 +290,7 @@ simplest solution in the spirit of the document and note it).
 - **Optimistic concurrency** — Npgsql 9.0.4 no longer exposes
   `UseXminAsConcurrencyToken()`, so an equivalent shadow `xmin` (`xid`) concurrency token
   is configured manually. Same runtime behavior, no extra column.
-- **External provider field shapes** (Didit / Nikita Pro / Stripe webhooks) use sensible
+- **External provider field shapes** (Didit / Stripe webhooks) use sensible
   defaults marked with `// NOTE:` where the exact vendor payload should be confirmed.
 - **Config** — package versions are centrally pinned (`Directory.Packages.props`) on the
   .NET 9 line; framework-coupled families stay on `9.0.*`.

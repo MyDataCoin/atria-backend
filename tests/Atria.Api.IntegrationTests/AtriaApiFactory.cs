@@ -88,8 +88,6 @@ public class AtriaApiFactory : WebApplicationFactory<Program>
         SetIfUnset("Otp__HashPepper", TestOtpPepper);
         SetIfUnset("Didit__ApiKey", "test-didit-api-key");
         SetIfUnset("Didit__WebhookSecret", "test-didit-webhook-secret");
-        SetIfUnset("NikitaPro__Login", "test-login");
-        SetIfUnset("NikitaPro__ApiKey", "test-nikita-api-key");
 
         // Rate limiting is read eagerly too (the limiter is built while the pipeline is composed),
         // so it belongs here rather than in ConfigureAppConfiguration. The suite drives every request
@@ -245,12 +243,6 @@ public class AtriaApiFactory : WebApplicationFactory<Program>
                 ["BankTransfer:Bic"] = "ATRIATEST",
                 ["BankTransfer:BankName"] = "Test Bank",
                 ["BankTransfer:WebhookToleranceSeconds"] = "300",
-
-                // NikitaPro (section "NikitaPro"): BaseUrl is [Url].
-                ["NikitaPro:Login"] = "test-login",
-                ["NikitaPro:Sender"] = "ATRIA",
-                ["NikitaPro:ApiKey"] = "test-nikita-api-key",
-                ["NikitaPro:BaseUrl"] = "https://smspro.nikita.test/api/",
 
                 // S3 (section "S3").
                 ["S3:BucketName"] = "atria-documents-test",

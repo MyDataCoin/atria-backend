@@ -8,17 +8,16 @@ namespace Atria.Infrastructure.Notifications;
 /// </summary>
 /// <remarks>
 /// <para>
-/// TEMPORARY — the Nikita Pro SMS gateway must not be contacted at all right now. This adapter is
-/// registered in place of <c>NikitaProSmsAdapter</c> so that no code path, OTP or notification,
-/// can reach smspro.nikita.kg even by accident.
+/// TEMPORARY — no OTP delivery provider is wired yet (WhatsApp is coming). This adapter is
+/// registered so the OTP and notification paths keep working without any gateway call.
 /// </para>
 /// <para>
 /// The message text is never logged (an OTP body would land in the logs); only the fact that a
 /// send was dropped, with the number masked.
 /// </para>
 /// <para>
-/// To restore real SMS: re-register the Nikita adapter in
-/// <c>DependencyInjection.AddAdapters</c> and delete this registration.
+/// To enable delivery: register the WhatsApp adapter in
+/// <c>DependencyInjection.AddAdapters</c> in place of this one.
 /// </para>
 /// </remarks>
 public sealed class DisabledSmsSender : ISmsSender

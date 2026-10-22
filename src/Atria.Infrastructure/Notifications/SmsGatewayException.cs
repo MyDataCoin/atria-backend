@@ -2,8 +2,7 @@ namespace Atria.Infrastructure.Notifications;
 
 /// <summary>
 /// Raised when the SMS gateway cannot accept a message: either the transport failed
-/// (HTTP error / unreachable) or the gateway replied with a non-zero status (e.g.
-/// smspro 2 = bad credentials, 3 = IP not whitelisted, 5 = unknown sender).
+/// (HTTP error / unreachable) or the gateway replied with an error status.
 /// Carries the raw gateway status (when known) so callers can surface a precise,
 /// non-secret reason instead of a generic 500.
 /// </summary>

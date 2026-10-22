@@ -116,7 +116,7 @@ public sealed class OtpService : IOtpService
         catch (SmsGatewayException ex)
         {
             // Log the full exception (stack trace included); the request CorrelationId is attached
-            // automatically via the Serilog LogContext. Surface a precise 502 carrying the smspro
+            // automatically via the Serilog LogContext. Surface a precise 502 carrying the gateway
             // status code instead of an opaque 500 "An unexpected error occurred".
             _logger.LogError(
                 ex, "OTP SMS delivery failed for {Phone}. GatewayStatus={GatewayStatus}",
@@ -124,7 +124,7 @@ public sealed class OtpService : IOtpService
             return Result.Failure(Error.ExternalService(
                 "sms.gateway_error",
                 ex.GatewayStatus is { } gatewayStatus
-                    ? $"SMS gateway rejected the request (smspro status={gatewayStatus})."
+                    ? $"SMS gateway rejected the request (gateway status={gatewayStatus})."
                     : "SMS gateway is currently unavailable. Please try again later."));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

@@ -312,7 +312,7 @@ package to Application. Validators derive `AbstractValidator<TCommand>` in `<Mod
 - **Kyc/Providers**: `DiditKycProvider` (PRIMARY, KycProviderType.Didit, hosted session via HttpClient, HMAC webhook verify, IOptions<DiditOptions>),
   `ManualKycProvider` (KycProviderType.Manual). (SumSub optional second strategy.)
 - **Payments/Providers**: `StripePaymentProvider` (Stripe.net), `BankTransferPaymentProvider`. IPaymentProviderStrategy. Webhook signature verify.
-- **Notifications**: `NikitaProSmsAdapter : ISmsSender` (HttpClient + IOptions<NikitaProOptions>), `EmailNotificationAdapter : IEmailSender` (log/SMTP stub), `NotificationSender : INotificationSender` (persists Notification + picks channel).
+- **Notifications**: `DisabledSmsSender : ISmsSender` (no-op until the WhatsApp OTP adapter lands), `EmailNotificationAdapter : IEmailSender` (log/SMTP stub), `NotificationSender : INotificationSender` (persists Notification + picks channel).
 - **Storage**: `S3DocumentStorageAdapter : IDocumentStorage` (AWSSDK.S3 + IOptions<S3Options>).
 - **Identity**: `JwtTokenGenerator` (IOptions<JwtOptions>), `BcryptPasswordHasher`, `AesGcmEncryptionService` (IOptions<EncryptionOptions>), `SystemDateTimeProvider`, `OtpService` (IOptions<OtpOptions>, ISmsSender, hashes codes, rate-limit + lockout, constant-time compare), `RefreshTokenStore`, `ProcessedEventStore`.
 - **Compliance**: `TesseraComplianceService : ITesseraComplianceService` (LOCAL implementation — see note),
@@ -323,7 +323,7 @@ package to Application. Validators derive `AbstractValidator<TCommand>` in `<Mod
   JwtOptions(Issuer, Audience, SigningKey, AccessTokenMinutes, RefreshTokenDays),
   EncryptionOptions(Key /*base64 32 bytes*/), OtpOptions(Length, TtlMinutes, MaxAttempts, RequestsPerHour),
   DiditOptions(ApiKey, WebhookSecret, BaseUrl), SumSubOptions(...), StripeOptions(ApiKey, WebhookSecret),
-  BankTransferOptions(WebhookSecret), NikitaProOptions(Login, Sender, ApiKey, BaseUrl), S3Options(BucketName, Region, ServiceUrl?),
+  BankTransferOptions(WebhookSecret), S3Options(BucketName, Region, ServiceUrl?),
   TesseraOptions(PolicyId, IssuerDid), BlockchainOptions(SignerUrl, ChainId, TokenContractAddress, AnchorNetwork).
 - **DependencyInjection.cs**: `public static IServiceCollection AddInfrastructure(this IServiceCollection s, IConfiguration cfg)` registers:
   DbContext (UseNpgsql + EnableRetryOnFailure), all repositories, UnitOfWork, ISender+behaviors, dispatcher,

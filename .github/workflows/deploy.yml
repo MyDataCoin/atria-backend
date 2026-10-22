@@ -102,8 +102,6 @@ jobs:
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           OTP_HASH_PEPPER: ${{ secrets.OTP_HASH_PEPPER }}
-          NIKITA_PRO_LOGIN: ${{ secrets.NIKITA_PRO_LOGIN }}
-          NIKITA_PRO_API_KEY: ${{ secrets.NIKITA_PRO_API_KEY }}
           DIDIT_API_KEY: ${{ secrets.DIDIT_API_KEY }}
           DIDIT_WEBHOOK_SECRET: ${{ secrets.DIDIT_WEBHOOK_SECRET }}
         run: |
@@ -178,7 +176,7 @@ jobs:
           # the password stops being consulted the moment a key exists.
           #
           # SECURITY: a password on the production host is the weakest link in this pipeline. The
-          # same session carries POSTGRES_PASSWORD, DIDIT_API_KEY and NIKITA_PRO_API_KEY to the
+          # same session carries POSTGRES_PASSWORD and DIDIT_API_KEY to the
           # server, so whoever holds it holds those too. Finding M-14 of the 2026-08-04 review stays
           # OPEN until a key is issued and `PasswordAuthentication no` is set on the host.
           key: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -195,10 +193,8 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           # Secrets from GitHub, transferred to the remote shell (via `envs` below) so
-          # `docker compose` can interpolate ${POSTGRES_PASSWORD} and ${NIKITA_PRO_*}.
+          # `docker compose` can interpolate ${POSTGRES_PASSWORD} and ${DIDIT_*}.
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          NIKITA_PRO_LOGIN: ${{ secrets.NIKITA_PRO_LOGIN }}
-          NIKITA_PRO_API_KEY: ${{ secrets.NIKITA_PRO_API_KEY }}
           DIDIT_API_KEY: ${{ secrets.DIDIT_API_KEY }}
           DIDIT_WEBHOOK_SECRET: ${{ secrets.DIDIT_WEBHOOK_SECRET }}
           # JWT signing secret + at-rest PII encryption key. Both are REQUIRED by docker-compose
@@ -238,13 +234,13 @@ jobs:
           # the password stops being consulted the moment a key exists.
           #
           # SECURITY: a password on the production host is the weakest link in this pipeline. The
-          # same session carries POSTGRES_PASSWORD, DIDIT_API_KEY and NIKITA_PRO_API_KEY to the
+          # same session carries POSTGRES_PASSWORD and DIDIT_API_KEY to the
           # server, so whoever holds it holds those too. Finding M-14 of the 2026-08-04 review stays
           # OPEN until a key is issued and `PasswordAuthentication no` is set on the host.
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
-          envs: POSTGRES_PASSWORD,NIKITA_PRO_LOGIN,NIKITA_PRO_API_KEY,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,JWT_SIGNING_KEY,ENCRYPTION_KEY,OTP_HASH_PEPPER,BLOCKCHAIN_SIGNER_SHARED_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
+          envs: POSTGRES_PASSWORD,DIDIT_API_KEY,DIDIT_WEBHOOK_SECRET,JWT_SIGNING_KEY,ENCRYPTION_KEY,OTP_HASH_PEPPER,BLOCKCHAIN_SIGNER_SHARED_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,ADMIN_USER_ID,REALTOR_USERNAME,REALTOR_PASSWORD,REALTOR_USER_ID,MEDIA_SCP_USERNAME,MEDIA_SCP_PASSWORD
           script: |
             set -euo pipefail
 

@@ -8,7 +8,7 @@ public interface IEmailSender
     Task SendAsync(string toEmail, string subject, string body, CancellationToken ct);
 }
 
-/// <summary>Low-level SMS adapter. Nikita Pro implements this; OTP and notifications use it.</summary>
+/// <summary>Low-level OTP/message adapter (WhatsApp delivery pending); OTP and notifications use it.</summary>
 public interface ISmsSender
 {
     Task SendAsync(string phoneNumber, string message, CancellationToken ct);
