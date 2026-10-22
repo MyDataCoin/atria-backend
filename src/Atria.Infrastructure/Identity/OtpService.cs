@@ -16,23 +16,6 @@ namespace Atria.Infrastructure.Identity;
 /// </summary>
 public sealed class OtpService : IOtpService
 {
-    // ─── TEMPORARY OTP STUB ───────────────────────────────────────────────────────────────────
-    // The SMS gateway must not be called at all right now, so the phone flow runs on a fixed code:
-    //   • RequestAsync generates nothing, stores nothing, sends nothing — it just succeeds.
-    //   • VerifyAsync accepts StubCode for ANY phone number.
-    // This IS an authentication bypass: anyone who knows the code owns any phone number, and the
-    // rate limits, attempt lockout and single-use guarantees below do not apply while it is on.
-    // Set StubEnabled = false (and re-register the SMS adapter in DependencyInjection) to restore
-    // the real flow — nothing else needs to change.
-    //
-    // Public because SecretsGuard refuses to boot outside Development while it is on: the domains are
-    // live, and a bypass that anyone knowing six digits can use must not reach production because a
-    // flag was left as it was on the bench. Deliberately a const rather than a setting — a bypass
-    // that can be switched on by configuration is one an environment variable can switch on.
-    public const bool StubEnabled = true;
-    private const string StubCode = "111111";
-    // ──────────────────────────────────────────────────────────────────────────────────────────
-
     private readonly IOtpCodeStore _store;
     private readonly ISmsSender _sms;
     private readonly IDateTimeProvider _clock;
@@ -58,16 +41,6 @@ public sealed class OtpService : IOtpService
 
     public async Task<Result> RequestAsync(string phone, string? ipAddress, CancellationToken ct)
     {
-        // Stub mode: return success without touching the store or the SMS gateway. The client
-        // already knows the code, so there is nothing to issue and nothing to deliver.
-        if (StubEnabled)
-        {
-            _logger.LogWarning(
-                "OTP stub is enabled — no code was issued and no SMS was sent for {Phone}.",
-                Mask(phone));
-            return Result.Success();
-        }
-
         var now = _clock.UtcNow;
         var sinceUtc = now.AddHours(-1);
 
@@ -142,15 +115,6 @@ public sealed class OtpService : IOtpService
 
     public async Task<Result> VerifyAsync(string phone, string code, CancellationToken ct)
     {
-        // Stub mode: the fixed code is the only accepted value; no stored code exists to consume.
-        if (StubEnabled)
-        {
-            return code == StubCode
-                ? Result.Success()
-                : Result.Failure(Error.Validation(
-                    "otp.invalid", "The verification code is invalid or has expired."));
-        }
-
         var now = _clock.UtcNow;
 
         // Every verification goes through the stored, hashed, single-use code. There is no bypass

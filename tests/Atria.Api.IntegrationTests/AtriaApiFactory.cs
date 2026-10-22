@@ -37,11 +37,8 @@ public sealed class CapturingSmsSender : ISmsSender
     /// <summary>The verification code most recently sent to a phone.</summary>
     public string CodeFor(string phoneNumber)
     {
-        // TEMPORARY: while OtpService runs in stub mode no code is generated and no SMS is sent,
-        // so there is nothing to capture — every caller needs the fixed stub code instead. Delete
-        // this branch together with OtpService.StubEnabled.
         if (!_lastMessage.TryGetValue(phoneNumber, out var message))
-            return "111111";
+            throw new InvalidOperationException($"No message was sent to {phoneNumber}.");
 
         var match = Regex.Match(message, @"\b(\d{4,10})\b");
         if (!match.Success)
