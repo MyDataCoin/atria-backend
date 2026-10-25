@@ -30,6 +30,10 @@ public sealed class UpdatePropertyCommandValidator : AbstractValidator<UpdatePro
         RuleFor(x => x.LocationDescription).MaximumLength(PropertyFieldLimits.LocationDescription);
         RuleFor(x => x.LandPlotCode).MaximumLength(PropertyFieldLimits.CadastreCode);
         RuleFor(x => x.CadastralNumber).MaximumLength(PropertyFieldLimits.CadastreCode);
+        RuleFor(x => x.TotalValue).GreaterThan(0).When(x => x.TotalValue is not null);
+        RuleFor(x => x.TokenPrice).GreaterThan(0).When(x => x.TokenPrice is not null);
+        RuleFor(x => x.TotalTokens).GreaterThan(0).When(x => x.TotalTokens is not null);
+        RuleFor(x => x.MinPurchaseTokens).GreaterThanOrEqualTo(1).When(x => x.MinPurchaseTokens is not null);
         RuleFor(x => x.ReadinessPercent).InclusiveBetween(0, 100).When(x => x.ReadinessPercent is not null);
 
         RuleForEach(x => x.Rooms).ChildRules(room =>

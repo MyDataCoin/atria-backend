@@ -435,9 +435,8 @@ public sealed class Property : AggregateRoot
 
     /// <summary>
     /// Edits the property's descriptive details. Only non-null arguments are applied, so a caller can
-    /// PATCH a single field. Economics (total value, token price/supply, currency) and the lifecycle
-    /// status are NOT editable here — changing them after investors have bought in would rewrite the
-    /// terms of an existing offering.
+    /// PATCH a single field. Economics and the lifecycle status are NOT editable here — the issue
+    /// terms change only through <see cref="ReviseIssueTerms"/>, and only before sales open.
     /// </summary>
     public void UpdateDetails(
         string? name = null, string? description = null, string? address = null,
@@ -458,6 +457,69 @@ public sealed class Property : AggregateRoot
         YearBuilt = yearBuilt ?? YearBuilt;
         Developer = developer ?? Developer;
         Floors = floors ?? Floors;
+    }
+
+    /// <summary>
+    /// Whether the issue terms — total value, share price, number of shares and minimum purchase —
+    /// can still be revised: the issue is a draft or only announced, nothing is reserved and no
+    /// token contract exists yet.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Before sales open nobody has bought under these terms, so correcting them rewrites nothing
+    /// anyone relied on. From the moment the issue is published they are the terms investors buy
+    /// under, and they freeze — the reason <see cref="UpdateDetails"/> never touched them.
+    /// </para>
+    /// <para>
+    /// Two further guards hold even before publication: no share may be reserved or placed (the
+    /// supply would no longer match what was handed out), and no token contract may be deployed —
+    /// its <c>maxSupply</c> is fixed in the constructor and would disagree with a resized issue.
+    /// </para>
+    /// </remarks>
+    public bool CanReviseIssueTerms
+        => Status is PropertyStatus.Draft or PropertyStatus.ComingSoon
+           && AvailableTokens == TotalTokens
+           && TokenContractAddress is null;
+
+    /// <summary>
+    /// Revises the issue terms while <see cref="CanReviseIssueTerms"/> holds. Only non-null
+    /// arguments are applied; with none it is a no-op, whatever the status.
+    /// </summary>
+    public void ReviseIssueTerms(
+        decimal? totalValue = null, decimal? tokenPrice = null, long? totalTokens = null,
+        long? minPurchaseTokens = null)
+    {
+        if (totalValue is null && tokenPrice is null && totalTokens is null && minPurchaseTokens is null)
+            return;
+
+        if (Status is not (PropertyStatus.Draft or PropertyStatus.ComingSoon))
+            throw new DomainException("Issue terms can only be changed before sales open.");
+        if (AvailableTokens != TotalTokens)
+            throw new DomainException("Issue terms cannot change once shares have been reserved or placed.");
+        if (TokenContractAddress is not null)
+            throw new DomainException("Issue terms cannot change once the token contract is deployed.");
+
+        var value = totalValue ?? TotalValue;
+        var price = tokenPrice ?? TokenPrice;
+        var supply = totalTokens ?? TotalTokens;
+        var minimum = minPurchaseTokens ?? MinPurchaseTokens;
+
+        if (value <= 0)
+            throw new DomainException("Property total value must be positive.");
+        if (price <= 0)
+            throw new DomainException("Token price must be positive.");
+        if (supply <= 0)
+            throw new DomainException("Total tokens must be positive.");
+        if (minimum < TokenAmount.Smallest)
+            throw new DomainException($"Minimum purchase must be at least {TokenAmount.Smallest} token.");
+        if (minimum > supply)
+            throw new DomainException("Minimum purchase cannot exceed the whole issue.");
+
+        TotalValue = value;
+        TokenPrice = price;
+        TotalTokens = supply;
+        AvailableTokens = supply; // nothing is reserved yet — checked above
+        MinPurchaseTokens = minimum;
     }
 
     /// <summary>

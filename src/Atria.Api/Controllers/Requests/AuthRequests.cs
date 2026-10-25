@@ -124,6 +124,10 @@ public sealed record CreateDealRequest(Guid PropertyId, decimal CommissionPercen
 /// <param name="LocationDescription">The neighbourhood; <c>null</c> to leave unchanged.</param>
 /// <param name="PlannedCompletionPrecision">How precisely the commissioning date was stated: <c>day</c> | <c>month</c> | <c>quarter</c> | <c>year</c>; <c>null</c> to leave unchanged.</param>
 /// <param name="ManagementCompany">Who runs the object once it is let; <c>null</c> to leave unchanged.</param>
+/// <param name="TotalValue">New total value of the issue. Accepted only while the issue is a draft or announced (400 afterwards).</param>
+/// <param name="TokenPrice">New share price; same restriction.</param>
+/// <param name="TotalTokens">New number of shares; same restriction, and refused once a share is reserved or the contract is deployed.</param>
+/// <param name="MinPurchaseTokens">New minimum purchase, in shares; same restriction.</param>
 public sealed record UpdatePropertyRequest(
     string? Name,
     string? Description,
@@ -162,7 +166,11 @@ public sealed record UpdatePropertyRequest(
     string? Parking = null,
     string? LocationDescription = null,
     string? PlannedCompletionPrecision = null,
-    string? ManagementCompany = null);
+    string? ManagementCompany = null,
+    decimal? TotalValue = null,
+    decimal? TokenPrice = null,
+    long? TotalTokens = null,
+    long? MinPurchaseTokens = null);
 
 /// <summary>POST /publications body. Creates and publishes a news-feed item.</summary>
 /// <param name="Type">Kind: <c>financial_report</c> | <c>news_release</c> | <c>valuation_audit</c> | <c>general_news</c>.</param>

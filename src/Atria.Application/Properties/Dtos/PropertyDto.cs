@@ -64,6 +64,8 @@ namespace Atria.Application.Properties.Dtos;
 /// </param>
 /// <param name="PlannedCompletionPrecision">How precisely <paramref name="PlannedCompletionDate"/> was stated, lowercase: <c>day</c> | <c>month</c> | <c>quarter</c> | <c>year</c>. Format the date to this precision — "4 квартал 2027" shown as "31.12.2027" is a promise nobody made.</param>
 /// <param name="ManagementCompany">Who runs the object once it is let; <c>null</c> when unset. Distinct from <paramref name="Developer"/>.</param>
+/// <param name="TotalValue">What the whole issue is offered at, in <paramref name="Currency"/>.</param>
+/// <param name="IssueTermsEditable">Whether value, share price, supply and minimum purchase can still be changed: a draft or announced issue with nothing reserved and no contract deployed.</param>
 /// <param name="Rooms">Room breakdown (name + area), in the order the admin entered it.</param>
 /// <param name="RoomsAreaSqM">Sum of <paramref name="Rooms"/> areas. Compare with <paramref name="TotalAreaSqM"/> to flag a plan that does not add up — the server does not reject a mismatch.</param>
 public sealed record PropertyDto(
@@ -125,7 +127,9 @@ public sealed record PropertyDto(
     IReadOnlyList<PropertyRoomDto> Rooms,
     decimal RoomsAreaSqM,
     string PlannedCompletionPrecision,
-    string? ManagementCompany)
+    string? ManagementCompany,
+    decimal TotalValue,
+    bool IssueTermsEditable)
 {
     /// <summary>Maps a property aggregate to its read model.</summary>
     public static PropertyDto From(Property p)
@@ -153,7 +157,8 @@ public sealed record PropertyDto(
             p.RaisedAmount, p.IsTargetMet, p.PlacementExtensionCount,
             ToWirePayoutFrequency(p.PayoutFrequency), p.DistributesYet,
             rooms, rooms.Sum(r => r.AreaSqM),
-            ToWireCompletionDatePrecision(p.PlannedCompletionPrecision), p.ManagementCompany);
+            ToWireCompletionDatePrecision(p.PlannedCompletionPrecision), p.ManagementCompany,
+            p.TotalValue, p.CanReviseIssueTerms);
     }
 
     /// <summary>Maps the domain status to its lowercase wire value.</summary>

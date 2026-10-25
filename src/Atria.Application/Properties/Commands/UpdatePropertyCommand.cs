@@ -9,8 +9,8 @@ namespace Atria.Application.Properties.Commands;
 
 /// <summary>
 /// Edits a property's descriptive details. Admin only. Only non-null fields are applied, so a client
-/// can PATCH one field at a time. Economics (value, token price/supply, currency) and the lifecycle
-/// status are not editable here.
+/// can PATCH one field at a time. The issue terms (value, token price/supply, minimum purchase) are
+/// editable only while the issue is a draft or announced; currency and the lifecycle status never are.
 /// </summary>
 /// <param name="Id">The property to edit.</param>
 /// <param name="Name">New display name; <c>null</c> to leave unchanged.</param>
@@ -53,6 +53,10 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="LocationDescription">The neighbourhood: infrastructure, transport, surroundings; <c>null</c> to leave unchanged.</param>
 /// <param name="PlannedCompletionPrecision">How precisely the commissioning date was stated (<c>day</c>, <c>quarter</c>, …); <c>null</c> to leave unchanged.</param>
 /// <param name="ManagementCompany">Who runs the object once it is let; <c>null</c> to leave unchanged.</param>
+/// <param name="TotalValue">New total value of the issue; only while it is a draft or announced.</param>
+/// <param name="TokenPrice">New share price; only while it is a draft or announced.</param>
+/// <param name="TotalTokens">New number of shares; only while it is a draft or announced.</param>
+/// <param name="MinPurchaseTokens">New minimum purchase, in shares; only while it is a draft or announced.</param>
 /// <param name="Rooms">
 /// Replaces the whole room breakdown when supplied; <c>null</c> leaves it untouched and an empty
 /// list clears it.
@@ -96,7 +100,11 @@ public sealed record UpdatePropertyCommand(
     string? Parking = null,
     string? LocationDescription = null,
     string? PlannedCompletionPrecision = null,
-    string? ManagementCompany = null) : IRequest<Result>;
+    string? ManagementCompany = null,
+    decimal? TotalValue = null,
+    decimal? TokenPrice = null,
+    long? TotalTokens = null,
+    long? MinPurchaseTokens = null) : IRequest<Result>;
 
 public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropertyCommand, Result>
 {
@@ -154,6 +162,10 @@ public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropert
         property.SetUnitDetails(
             PropertyDto.ParseUnitType(request.UnitType), request.UnitNumber, request.FloorNumber,
             request.RoomCount, request.TotalAreaSqM);
+
+        // Refused by the aggregate once sales have opened — see Property.ReviseIssueTerms.
+        property.ReviseIssueTerms(
+            request.TotalValue, request.TokenPrice, request.TotalTokens, request.MinPurchaseTokens);
 
         property.SetCadastralDetails(
             request.LandPlotCode, request.CadastralNumber, request.LandAreaHectares);

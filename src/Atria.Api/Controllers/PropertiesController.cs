@@ -120,9 +120,10 @@ public sealed class PropertiesController : ApiControllerBase
     /// <summary>Edits a property's details. Admin only.</summary>
     /// <remarks>
     /// Requires the <b>Admin</b> role. Only the supplied fields are changed, so a client can PATCH a
-    /// single field. Economics (total value, token price, supply, currency) and the lifecycle status
-    /// are <b>not</b> editable here — changing them after investors have bought in would rewrite the
-    /// terms of a live offering. The unit fields (building, type, number, floor, area) and the
+    /// single field. The issue terms (total value, token price, supply, minimum purchase) are editable
+    /// only while the issue is a draft or "coming soon" and nothing is reserved — once sales open they
+    /// are the terms investors buy under, and the request is refused with 400. Currency and the
+    /// lifecycle status are never editable here. The unit fields (building, type, number, floor, area) and the
     /// <c>rooms</c> breakdown are editable; sending <c>rooms</c> replaces the whole list, <c>[]</c> clears
     /// it and omitting it leaves it alone. <c>buildingId</c> moves the unit into another building; send
     /// the all-zero Guid to pull it out into a standalone issue. The parking address
@@ -156,7 +157,8 @@ public sealed class PropertiesController : ApiControllerBase
             request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
             request.Parking, request.LocationDescription,
-            request.PlannedCompletionPrecision, request.ManagementCompany), ct));
+            request.PlannedCompletionPrecision, request.ManagementCompany,
+            request.TotalValue, request.TokenPrice, request.TotalTokens, request.MinPurchaseTokens), ct));
 
     /// <summary>Annuls part of an issue that was never placed. Admin only.</summary>
     /// <remarks>
