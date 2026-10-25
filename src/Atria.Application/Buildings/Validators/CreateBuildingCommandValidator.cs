@@ -16,5 +16,6 @@ public sealed class CreateBuildingCommandValidator : AbstractValidator<CreateBui
         RuleFor(x => x.BuildingType).MaximumLength(64);
         RuleFor(x => x.YearBuilt).InclusiveBetween(1800, 2100).When(x => x.YearBuilt is not null);
         RuleFor(x => x.Floors).InclusiveBetween(1, 500).When(x => x.Floors is not null);
+        RuleFor(x => x.TotalAreaSqM).GreaterThan(0).When(x => x.TotalAreaSqM is not null);
     }
 }
