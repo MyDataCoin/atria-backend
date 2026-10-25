@@ -38,6 +38,8 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="LocationDescription">The neighbourhood: infrastructure, transport, what is around the object.</param>
 /// <param name="PlannedCompletionPrecision">How precisely <paramref name="PlannedCompletionDate"/> was stated: <c>day</c> | <c>month</c> | <c>quarter</c> | <c>year</c>.</param>
 /// <param name="ManagementCompany">Who runs the object once it is let: leasing, maintenance, tenants.</param>
+/// <param name="IsFreeOfEncumbrances">Cadastre check result; applied only together with <paramref name="EncumbranceCheckedAtUtc"/>.</param>
+/// <param name="EncumbranceCheckedAtUtc">When that cadastre check was made.</param>
 public sealed record CreatePropertyCommand(
     string Name,
     string? Description,
@@ -79,4 +81,6 @@ public sealed record CreatePropertyCommand(
     string? Parking = null,
     string? LocationDescription = null,
     string? PlannedCompletionPrecision = null,
-    string? ManagementCompany = null) : IRequest<Result<Guid>>;
+    string? ManagementCompany = null,
+    bool? IsFreeOfEncumbrances = null,
+    DateTime? EncumbranceCheckedAtUtc = null) : IRequest<Result<Guid>>;

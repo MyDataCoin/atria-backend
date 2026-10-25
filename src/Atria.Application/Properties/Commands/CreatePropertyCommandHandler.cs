@@ -70,6 +70,10 @@ public sealed class CreatePropertyCommandHandler
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
             request.Parking, request.LocationDescription, request.ManagementCompany);
 
+        // Both halves or neither — the same rule the edit path follows.
+        if (request.IsFreeOfEncumbrances is { } isFree && request.EncumbranceCheckedAtUtc is { } checkedAt)
+            property.RecordEncumbranceCheck(isFree, checkedAt);
+
         if (request.Rooms is { Count: > 0 })
             property.ReplaceRooms(request.Rooms.Select(r => (r.Name, r.AreaSqM)));
 

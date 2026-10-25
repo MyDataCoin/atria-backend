@@ -17,6 +17,9 @@ internal sealed class BuildingConfiguration : IEntityTypeConfiguration<Building>
         b.Property(x => x.City).HasMaxLength(128);
         b.Property(x => x.Developer).HasMaxLength(256);
         b.Property(x => x.BuildingType).HasMaxLength(64);
+        b.Property(x => x.TotalAreaSqM).HasPrecision(12, 2);
+        b.Property(x => x.ConstructionStage).HasConversion<int>().IsRequired();
+        b.Property(x => x.PlannedCompletionPrecision).HasConversion<int>().IsRequired();
 
         // Child photos mapped via the backing field, owned by the Building aggregate.
         b.HasMany(x => x.Images)

@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Audit;
 using Atria.Application.Common;
+using Atria.Application.Properties.Dtos;
 using Atria.Domain.Audit;
 using Atria.Domain.Investments;
 using Atria.Domain.Users;
@@ -19,7 +20,17 @@ public sealed record CreateBuildingCommand(
     string? Developer = null,
     int? YearBuilt = null,
     int? Floors = null,
-    string? BuildingType = null) : IRequest<Result<Guid>>;
+    string? BuildingType = null,
+    decimal? TotalAreaSqM = null,
+    string? ConstructionStage = null,
+    DateTime? PlannedCompletionDate = null,
+    string? PlannedCompletionPrecision = null,
+    bool? HasElevator = null,
+    bool? HasHeating = null,
+    bool? HasSecurity = null,
+    bool? HasParking = null,
+    bool? IsFreeOfEncumbrances = null,
+    DateTime? EncumbranceCheckedAtUtc = null) : IRequest<Result<Guid>>;
 
 public sealed class CreateBuildingCommandHandler : IRequestHandler<CreateBuildingCommand, Result<Guid>>
 {
@@ -53,6 +64,18 @@ public sealed class CreateBuildingCommandHandler : IRequestHandler<CreateBuildin
         var building = Building.Create(
             request.Name, request.Description, request.Address, request.City,
             request.Developer, request.YearBuilt, request.Floors, request.BuildingType);
+
+        building.SetCharacteristics(
+            request.TotalAreaSqM, request.HasElevator, request.HasHeating,
+            request.HasSecurity, request.HasParking);
+        building.SetConstructionProgress(
+            PropertyDto.ParseConstructionStage(request.ConstructionStage),
+            request.PlannedCompletionDate,
+            PropertyDto.ParseCompletionDatePrecision(request.PlannedCompletionPrecision));
+
+        // Both halves or neither: an undated all-clear is not evidence of anything.
+        if (request.IsFreeOfEncumbrances is { } isFree && request.EncumbranceCheckedAtUtc is { } checkedAt)
+            building.RecordEncumbranceCheck(isFree, checkedAt);
 
         await _buildings.AddAsync(building, ct);
 

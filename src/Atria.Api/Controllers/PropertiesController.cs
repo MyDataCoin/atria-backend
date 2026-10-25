@@ -112,7 +112,8 @@ public sealed class PropertiesController : ApiControllerBase
             request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
             request.Parking, request.LocationDescription,
-            request.PlannedCompletionPrecision, request.ManagementCompany), ct);
+            request.PlannedCompletionPrecision, request.ManagementCompany,
+            request.IsFreeOfEncumbrances, request.EncumbranceCheckedAtUtc), ct);
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 

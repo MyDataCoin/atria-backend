@@ -25,6 +25,38 @@ public sealed class Building : AggregateRoot
     /// <summary>Kind of building (e.g. residential, commercial, mixed). Free text, optional.</summary>
     public string? BuildingType { get; private set; }
 
+    /// <summary>
+    /// Total floor area of the whole building, in m². Not the sum of the units on sale: a business
+    /// centre places its offices, while the area also counts the parking, the lobby and the plant rooms.
+    /// </summary>
+    public decimal? TotalAreaSqM { get; private set; }
+
+    // --- Construction readiness — the same meaning as on Property, stated once for the building ---
+
+    /// <summary>Built or still being built. <see cref="ConstructionStage.Unspecified"/> until stated.</summary>
+    public ConstructionStage ConstructionStage { get; private set; } = ConstructionStage.Unspecified;
+
+    /// <summary>When the building is expected to be commissioned. Null while there is no schedule.</summary>
+    public DateTime? PlannedCompletionDate { get; private set; }
+
+    /// <summary>How precisely <see cref="PlannedCompletionDate"/> was stated.</summary>
+    public CompletionDatePrecision PlannedCompletionPrecision { get; private set; } = CompletionDatePrecision.Day;
+
+    // --- Amenities. Ticked = the building has it (or the design provides for it); unticked = not stated ---
+
+    public bool HasElevator { get; private set; }
+    public bool HasHeating { get; private set; }
+    public bool HasSecurity { get; private set; }
+    public bool HasParking { get; private set; }
+
+    // --- Cadastre check: the same two-field shape as on Property, for the same reason ---
+
+    /// <summary>True when free of encumbrances and arrests, false when something was found, null when nobody looked.</summary>
+    public bool? IsFreeOfEncumbrances { get; private set; }
+
+    /// <summary>When the check behind <see cref="IsFreeOfEncumbrances"/> was made.</summary>
+    public DateTime? EncumbranceCheckedAtUtc { get; private set; }
+
     private readonly List<BuildingImage> _images = new();
     public IReadOnlyCollection<BuildingImage> Images => _images.AsReadOnly();
 
@@ -74,6 +106,46 @@ public sealed class Building : AggregateRoot
         YearBuilt = yearBuilt ?? YearBuilt;
         Floors = floors ?? Floors;
         BuildingType = buildingType ?? BuildingType;
+    }
+
+    /// <summary>
+    /// Records the building-wide characteristics: total area and amenities. Only non-null arguments
+    /// are applied, so a caller can PATCH a single one.
+    /// </summary>
+    public void SetCharacteristics(
+        decimal? totalAreaSqM = null, bool? hasElevator = null, bool? hasHeating = null,
+        bool? hasSecurity = null, bool? hasParking = null)
+    {
+        if (totalAreaSqM is <= 0)
+            throw new DomainException("Building area must be positive.");
+
+        TotalAreaSqM = totalAreaSqM ?? TotalAreaSqM;
+        HasElevator = hasElevator ?? HasElevator;
+        HasHeating = hasHeating ?? HasHeating;
+        HasSecurity = hasSecurity ?? HasSecurity;
+        HasParking = hasParking ?? HasParking;
+    }
+
+    /// <summary>
+    /// Records whether the building stands or is being built, and when it is due. Only non-null
+    /// arguments are applied; <see cref="ConstructionStage.Unspecified"/> is "leave as is".
+    /// </summary>
+    public void SetConstructionProgress(
+        ConstructionStage? stage = null, DateTime? plannedCompletionDate = null,
+        CompletionDatePrecision? plannedCompletionPrecision = null)
+    {
+        if (stage is not null and not ConstructionStage.Unspecified)
+            ConstructionStage = stage.Value;
+
+        PlannedCompletionDate = plannedCompletionDate ?? PlannedCompletionDate;
+        PlannedCompletionPrecision = plannedCompletionPrecision ?? PlannedCompletionPrecision;
+    }
+
+    /// <summary>Records a cadastre check for encumbrances and arrests: what was found and when.</summary>
+    public void RecordEncumbranceCheck(bool isFree, DateTime checkedAtUtc)
+    {
+        IsFreeOfEncumbrances = isFree;
+        EncumbranceCheckedAtUtc = checkedAtUtc;
     }
 
     /// <summary>Adds a photo (max <see cref="MaxImages"/>). Returns the created child.</summary>

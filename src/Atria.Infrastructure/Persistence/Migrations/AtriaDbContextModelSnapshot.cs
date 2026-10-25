@@ -640,6 +640,9 @@ namespace Atria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<int>("ConstructionStage")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -651,13 +654,41 @@ namespace Atria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<DateTime?>("EncumbranceCheckedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int?>("Floors")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("HasElevator")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HasHeating")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HasParking")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HasSecurity")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("IsFreeOfEncumbrances")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("PlannedCompletionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PlannedCompletionPrecision")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("TotalAreaSqM")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");

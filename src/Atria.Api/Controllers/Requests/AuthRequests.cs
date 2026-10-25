@@ -225,6 +225,8 @@ public sealed record RecordConsentRequest(ConsentType Type, string Version, bool
 /// <param name="LocationDescription">The neighbourhood: infrastructure, transport, what is around the object; optional.</param>
 /// <param name="PlannedCompletionPrecision">How precisely <paramref name="PlannedCompletionDate"/> was stated: <c>day</c> | <c>month</c> | <c>quarter</c> | <c>year</c>; defaults to <c>day</c>.</param>
 /// <param name="ManagementCompany">Who runs the object once it is let: leasing, maintenance, tenants; optional.</param>
+/// <param name="IsFreeOfEncumbrances">Cadastre check result; applied only together with <paramref name="EncumbranceCheckedAtUtc"/>.</param>
+/// <param name="EncumbranceCheckedAtUtc">When that cadastre check was made.</param>
 public sealed record CreatePropertyRequest(
     string Name,
     string? Description,
@@ -266,7 +268,9 @@ public sealed record CreatePropertyRequest(
     string? Parking = null,
     string? LocationDescription = null,
     string? PlannedCompletionPrecision = null,
-    string? ManagementCompany = null);
+    string? ManagementCompany = null,
+    bool? IsFreeOfEncumbrances = null,
+    DateTime? EncumbranceCheckedAtUtc = null);
 
 /// <summary>POST /buildings body. Registers the building an admin then fills with units.</summary>
 /// <param name="Name">Display name (e.g. "ЖК Ала-Тоо, блок B").</param>
@@ -277,6 +281,16 @@ public sealed record CreatePropertyRequest(
 /// <param name="YearBuilt">Year the building was built.</param>
 /// <param name="Floors">Number of storeys.</param>
 /// <param name="BuildingType">Kind of building (residential, commercial, mixed).</param>
+/// <param name="TotalAreaSqM">Total floor area of the whole building in m²; optional.</param>
+/// <param name="ConstructionStage">Built or being built: <c>land_only</c> | <c>design</c> | <c>under_construction</c> | <c>commissioned</c>; optional.</param>
+/// <param name="PlannedCompletionDate">Expected commissioning date, when still being built; optional.</param>
+/// <param name="PlannedCompletionPrecision">How precisely that date was stated: <c>day</c> | <c>month</c> | <c>quarter</c> | <c>year</c>.</param>
+/// <param name="HasElevator">The building has (or the design provides for) a lift.</param>
+/// <param name="HasHeating">The building has heating.</param>
+/// <param name="HasSecurity">The building has security.</param>
+/// <param name="HasParking">The building has parking.</param>
+/// <param name="IsFreeOfEncumbrances">Cadastre check result; applied only together with <paramref name="EncumbranceCheckedAtUtc"/>.</param>
+/// <param name="EncumbranceCheckedAtUtc">When that cadastre check was made.</param>
 public sealed record CreateBuildingRequest(
     string Name,
     string? Description = null,
@@ -285,7 +299,17 @@ public sealed record CreateBuildingRequest(
     string? Developer = null,
     int? YearBuilt = null,
     int? Floors = null,
-    string? BuildingType = null);
+    string? BuildingType = null,
+    decimal? TotalAreaSqM = null,
+    string? ConstructionStage = null,
+    DateTime? PlannedCompletionDate = null,
+    string? PlannedCompletionPrecision = null,
+    bool? HasElevator = null,
+    bool? HasHeating = null,
+    bool? HasSecurity = null,
+    bool? HasParking = null,
+    bool? IsFreeOfEncumbrances = null,
+    DateTime? EncumbranceCheckedAtUtc = null);
 
 /// <summary>PATCH /buildings/{id} body. Only the supplied fields are changed.</summary>
 /// <param name="Name">New display name; <c>null</c> to leave unchanged.</param>
@@ -296,6 +320,16 @@ public sealed record CreateBuildingRequest(
 /// <param name="YearBuilt">New build year; <c>null</c> to leave unchanged.</param>
 /// <param name="Floors">New storey count; <c>null</c> to leave unchanged.</param>
 /// <param name="BuildingType">New building kind; <c>null</c> to leave unchanged.</param>
+/// <param name="TotalAreaSqM">Total floor area of the whole building in m²; optional.</param>
+/// <param name="ConstructionStage">Built or being built: <c>land_only</c> | <c>design</c> | <c>under_construction</c> | <c>commissioned</c>; optional.</param>
+/// <param name="PlannedCompletionDate">Expected commissioning date, when still being built; optional.</param>
+/// <param name="PlannedCompletionPrecision">How precisely that date was stated: <c>day</c> | <c>month</c> | <c>quarter</c> | <c>year</c>.</param>
+/// <param name="HasElevator">The building has (or the design provides for) a lift.</param>
+/// <param name="HasHeating">The building has heating.</param>
+/// <param name="HasSecurity">The building has security.</param>
+/// <param name="HasParking">The building has parking.</param>
+/// <param name="IsFreeOfEncumbrances">Cadastre check result; applied only together with <paramref name="EncumbranceCheckedAtUtc"/>.</param>
+/// <param name="EncumbranceCheckedAtUtc">When that cadastre check was made.</param>
 public sealed record UpdateBuildingRequest(
     string? Name = null,
     string? Description = null,
@@ -304,7 +338,17 @@ public sealed record UpdateBuildingRequest(
     string? Developer = null,
     int? YearBuilt = null,
     int? Floors = null,
-    string? BuildingType = null);
+    string? BuildingType = null,
+    decimal? TotalAreaSqM = null,
+    string? ConstructionStage = null,
+    DateTime? PlannedCompletionDate = null,
+    string? PlannedCompletionPrecision = null,
+    bool? HasElevator = null,
+    bool? HasHeating = null,
+    bool? HasSecurity = null,
+    bool? HasParking = null,
+    bool? IsFreeOfEncumbrances = null,
+    DateTime? EncumbranceCheckedAtUtc = null);
 
 /// <summary>POST /investments/{id}/reject body. Rejects a reserved offering application.</summary>
 /// <param name="Reason">Required human-readable rejection reason shown to the investor and journalled.</param>

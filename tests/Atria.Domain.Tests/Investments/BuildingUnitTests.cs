@@ -178,4 +178,39 @@ public sealed class BuildingUnitTests
         act.Should().NotThrow();
         unit.TotalAreaSqM.Should().Be(57.55m);
     }
+
+    [Fact]
+    public void Building_UnderConstruction_KeepsItsScheduleAreaAndAmenities()
+    {
+        // «Офисы 7 мкр. д.41а»: строится, ввод — 4 квартал 2027, 19 545,70 м², лифт/отопление/
+        // охрана/парковка предусмотрены проектом, обременений нет.
+        var building = Building.Create("Офисы 7 мкр. д.41а", buildingType: "Бизнес-центр");
+        var checkedAt = new DateTime(2026, 10, 24, 0, 0, 0, DateTimeKind.Utc);
+
+        building.SetCharacteristics(19_545.70m, hasElevator: true, hasHeating: true, hasSecurity: true, hasParking: true);
+        building.SetConstructionProgress(
+            ConstructionStage.UnderConstruction, new DateTime(2027, 12, 31, 0, 0, 0, DateTimeKind.Utc),
+            CompletionDatePrecision.Quarter);
+        building.RecordEncumbranceCheck(true, checkedAt);
+
+        building.TotalAreaSqM.Should().Be(19_545.70m);
+        building.ConstructionStage.Should().Be(ConstructionStage.UnderConstruction);
+        building.PlannedCompletionPrecision.Should().Be(CompletionDatePrecision.Quarter);
+        building.HasElevator.Should().BeTrue();
+        building.IsFreeOfEncumbrances.Should().BeTrue();
+        building.EncumbranceCheckedAtUtc.Should().Be(checkedAt);
+    }
+
+    [Fact]
+    public void Building_EncumbranceIsUnknownUntilChecked()
+    {
+        Building.Create("ЖК").IsFreeOfEncumbrances.Should().BeNull();
+    }
+
+    [Fact]
+    public void Building_RejectsANonPositiveArea()
+    {
+        var act = () => Building.Create("ЖК").SetCharacteristics(totalAreaSqM: 0m);
+        act.Should().Throw<DomainException>();
+    }
 }

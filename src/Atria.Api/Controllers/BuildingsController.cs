@@ -64,7 +64,11 @@ public sealed class BuildingsController : ApiControllerBase
     {
         var result = await Sender.Send(new CreateBuildingCommand(
             request.Name, request.Description, request.Address, request.City,
-            request.Developer, request.YearBuilt, request.Floors, request.BuildingType), ct);
+            request.Developer, request.YearBuilt, request.Floors, request.BuildingType,
+            request.TotalAreaSqM, request.ConstructionStage, request.PlannedCompletionDate,
+            request.PlannedCompletionPrecision, request.HasElevator, request.HasHeating,
+            request.HasSecurity, request.HasParking,
+            request.IsFreeOfEncumbrances, request.EncumbranceCheckedAtUtc), ct);
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
@@ -86,7 +90,11 @@ public sealed class BuildingsController : ApiControllerBase
     public async Task<IActionResult> Update(Guid id, UpdateBuildingRequest request, CancellationToken ct)
         => ToActionResult(await Sender.Send(new UpdateBuildingCommand(
             id, request.Name, request.Description, request.Address, request.City,
-            request.Developer, request.YearBuilt, request.Floors, request.BuildingType), ct));
+            request.Developer, request.YearBuilt, request.Floors, request.BuildingType,
+            request.TotalAreaSqM, request.ConstructionStage, request.PlannedCompletionDate,
+            request.PlannedCompletionPrecision, request.HasElevator, request.HasHeating,
+            request.HasSecurity, request.HasParking,
+            request.IsFreeOfEncumbrances, request.EncumbranceCheckedAtUtc), ct));
 
     /// <summary>Publishes every unit of the building in one go. Admin only.</summary>
     /// <remarks>
