@@ -114,6 +114,15 @@ public sealed class Property : AggregateRoot
     public string? Parking { get; private set; }
 
     /// <summary>
+    /// Who runs the object once it is let: leasing, maintenance, tenants. Free text and optional.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="Developer"/>: the company that builds the object and the one that lets it are
+    /// often different, and the second is where the rent figures behind every payout come from.
+    /// </remarks>
+    public string? ManagementCompany { get; private set; }
+
+    /// <summary>
     /// The neighbourhood the object sits in: infrastructure, transport, what is around it. Free text
     /// and optional.
     /// </summary>
@@ -165,6 +174,12 @@ public sealed class Property : AggregateRoot
 
     /// <summary>When the object is expected to be commissioned. Null while there is no schedule.</summary>
     public DateTime? PlannedCompletionDate { get; private set; }
+
+    /// <summary>
+    /// How precisely <see cref="PlannedCompletionDate"/> was stated — "4 квартал 2027" is a quarter,
+    /// not the day it happens to be stored as.
+    /// </summary>
+    public CompletionDatePrecision PlannedCompletionPrecision { get; private set; } = CompletionDatePrecision.Day;
 
     /// <summary>Reported construction readiness, 0–100. Null when not reported.</summary>
     public int? ReadinessPercent { get; private set; }
@@ -546,8 +561,8 @@ public sealed class Property : AggregateRoot
 
     /// <summary>
     /// Records the descriptive characteristics of the object — class, material, heating, lift,
-    /// security, parking and the neighbourhood it sits in.
-    /// security, parking, the documented use and the usable area. Only non-null arguments are
+    /// security, parking, the management company, the neighbourhood it sits in, the documented use
+    /// and the usable area. Only non-null arguments are
     /// applied, so a caller can PATCH a single field, and blank clears nothing (it reads as absent).
     /// </summary>
     /// <remarks>
@@ -558,7 +573,8 @@ public sealed class Property : AggregateRoot
     public void SetCharacteristics(
         decimal? usableAreaSqM = null, string? documentedUse = null, string? buildingClass = null,
         string? wallMaterial = null, string? heating = null, string? elevator = null,
-        string? security = null, string? parking = null, string? locationDescription = null)
+        string? security = null, string? parking = null, string? locationDescription = null,
+        string? managementCompany = null)
     {
         if (usableAreaSqM is <= 0)
             throw new DomainException("Usable area must be positive.");
@@ -576,6 +592,7 @@ public sealed class Property : AggregateRoot
         Security = Trimmed(security) ?? Security;
         Parking = Trimmed(parking) ?? Parking;
         LocationDescription = Trimmed(locationDescription) ?? LocationDescription;
+        ManagementCompany = Trimmed(managementCompany) ?? ManagementCompany;
 
         static string? Trimmed(string? value)
             => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -605,8 +622,9 @@ public sealed class Property : AggregateRoot
     }
 
     /// <summary>
-    /// Records how far along the physical object is: stage, expected commissioning date and reported
-    /// readiness. Only non-null arguments are applied. <paramref name="stage"/> of
+    /// Records how far along the physical object is: stage, expected commissioning date (and how
+    /// precisely it was stated) and reported readiness. Only non-null arguments are applied.
+    /// <paramref name="stage"/> of
     /// <see cref="ConstructionStage.Unspecified"/> is treated as "leave as is".
     /// </summary>
     /// <remarks>
@@ -616,7 +634,7 @@ public sealed class Property : AggregateRoot
     /// </remarks>
     public void SetConstructionProgress(
         ConstructionStage? stage = null, DateTime? plannedCompletionDate = null,
-        int? readinessPercent = null)
+        int? readinessPercent = null, CompletionDatePrecision? plannedCompletionPrecision = null)
     {
         if (readinessPercent is < 0 or > 100)
             throw new DomainException("Readiness must be between 0 and 100 percent.");
@@ -625,6 +643,7 @@ public sealed class Property : AggregateRoot
             ConstructionStage = stage.Value;
 
         PlannedCompletionDate = plannedCompletionDate ?? PlannedCompletionDate;
+        PlannedCompletionPrecision = plannedCompletionPrecision ?? PlannedCompletionPrecision;
         ReadinessPercent = readinessPercent ?? ReadinessPercent;
     }
 

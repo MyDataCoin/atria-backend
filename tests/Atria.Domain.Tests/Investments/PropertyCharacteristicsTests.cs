@@ -153,4 +153,19 @@ public sealed class PropertyCharacteristicsTests
         unit.PropertyType.Should().Be("Коммерческая недвижимость");
         unit.DocumentedUse.Should().Be("нежилое — офис");
     }
+
+    [Fact]
+    public void ManagementCompany_isSeparateFromTheDeveloper()
+    {
+        // Who builds the object and who lets it are often different companies, and only the second
+        // one has the rent figures.
+        var unit = NewUnit();
+        unit.UpdateDetails(developer: "ОсОО «Маэстро Кей Джи»");
+
+        unit.SetCharacteristics(managementCompany: "  УК «Пример»  ");
+        unit.SetCharacteristics(heating: "центральное");
+
+        unit.Developer.Should().Be("ОсОО «Маэстро Кей Джи»");
+        unit.ManagementCompany.Should().Be("УК «Пример»");
+    }
 }

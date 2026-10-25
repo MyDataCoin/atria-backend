@@ -111,7 +111,8 @@ public sealed class PropertiesController : ApiControllerBase
             request.PayoutFrequency,
             request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
-            request.Parking, request.LocationDescription), ct);
+            request.Parking, request.LocationDescription,
+            request.PlannedCompletionPrecision, request.ManagementCompany), ct);
         return ToCreatedResult(result, nameof(GetById), new { id = result.IsSuccess ? result.Value : Guid.Empty });
     }
 
@@ -153,7 +154,8 @@ public sealed class PropertiesController : ApiControllerBase
             request.PayoutFrequency,
             request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
-            request.Parking, request.LocationDescription), ct));
+            request.Parking, request.LocationDescription,
+            request.PlannedCompletionPrecision, request.ManagementCompany), ct));
 
     /// <summary>Annuls part of an issue that was never placed. Admin only.</summary>
     /// <remarks>

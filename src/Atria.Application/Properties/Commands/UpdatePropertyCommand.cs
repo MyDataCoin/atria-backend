@@ -51,6 +51,8 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="Security">Security arrangement; <c>null</c> to leave unchanged.</param>
 /// <param name="Parking">Parking available with the object; <c>null</c> to leave unchanged.</param>
 /// <param name="LocationDescription">The neighbourhood: infrastructure, transport, surroundings; <c>null</c> to leave unchanged.</param>
+/// <param name="PlannedCompletionPrecision">How precisely the commissioning date was stated (<c>day</c>, <c>quarter</c>, …); <c>null</c> to leave unchanged.</param>
+/// <param name="ManagementCompany">Who runs the object once it is let; <c>null</c> to leave unchanged.</param>
 /// <param name="Rooms">
 /// Replaces the whole room breakdown when supplied; <c>null</c> leaves it untouched and an empty
 /// list clears it.
@@ -92,7 +94,9 @@ public sealed record UpdatePropertyCommand(
     string? Elevator = null,
     string? Security = null,
     string? Parking = null,
-    string? LocationDescription = null) : IRequest<Result>;
+    string? LocationDescription = null,
+    string? PlannedCompletionPrecision = null,
+    string? ManagementCompany = null) : IRequest<Result>;
 
 public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropertyCommand, Result>
 {
@@ -156,14 +160,15 @@ public sealed class UpdatePropertyCommandHandler : IRequestHandler<UpdatePropert
 
         property.SetConstructionProgress(
             PropertyDto.ParseConstructionStage(request.ConstructionStage),
-            request.PlannedCompletionDate, request.ReadinessPercent);
+            request.PlannedCompletionDate, request.ReadinessPercent,
+            PropertyDto.ParseCompletionDatePrecision(request.PlannedCompletionPrecision));
 
         property.SetPayoutFrequency(PropertyDto.ParsePayoutFrequency(request.PayoutFrequency));
 
         property.SetCharacteristics(
             request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
-            request.Parking, request.LocationDescription);
+            request.Parking, request.LocationDescription, request.ManagementCompany);
 
         // Both halves or neither: recording a verdict without the date it was reached would put an
         // undated all-clear on the record, and an all-clear nobody can date is not one.

@@ -801,8 +801,8 @@ namespace Atria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("CadastralNumber")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("City")
                         .HasMaxLength(128)
@@ -885,12 +885,16 @@ namespace Atria.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(12,4)");
 
                     b.Property<string>("LandPlotCode")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("LocationDescription")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
+
+                    b.Property<string>("ManagementCompany")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<long>("MinPurchaseTokens")
                         .HasColumnType("bigint");
@@ -922,6 +926,9 @@ namespace Atria.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("PlannedCompletionDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PlannedCompletionPrecision")
+                        .HasColumnType("integer");
 
                     b.Property<string>("PropertyType")
                         .HasMaxLength(64)

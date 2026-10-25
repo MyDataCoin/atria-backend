@@ -36,6 +36,8 @@ namespace Atria.Application.Properties.Commands;
 /// <param name="Security">Security arrangement.</param>
 /// <param name="Parking">Parking available with the object.</param>
 /// <param name="LocationDescription">The neighbourhood: infrastructure, transport, what is around the object.</param>
+/// <param name="PlannedCompletionPrecision">How precisely <paramref name="PlannedCompletionDate"/> was stated: <c>day</c> | <c>month</c> | <c>quarter</c> | <c>year</c>.</param>
+/// <param name="ManagementCompany">Who runs the object once it is let: leasing, maintenance, tenants.</param>
 public sealed record CreatePropertyCommand(
     string Name,
     string? Description,
@@ -75,4 +77,6 @@ public sealed record CreatePropertyCommand(
     string? Elevator = null,
     string? Security = null,
     string? Parking = null,
-    string? LocationDescription = null) : IRequest<Result<Guid>>;
+    string? LocationDescription = null,
+    string? PlannedCompletionPrecision = null,
+    string? ManagementCompany = null) : IRequest<Result<Guid>>;

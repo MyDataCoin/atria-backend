@@ -62,12 +62,13 @@ public sealed class CreatePropertyCommandHandler
             request.LandPlotCode, request.CadastralNumber, request.LandAreaHectares);
         property.SetConstructionProgress(
             PropertyDto.ParseConstructionStage(request.ConstructionStage),
-            request.PlannedCompletionDate, request.ReadinessPercent);
+            request.PlannedCompletionDate, request.ReadinessPercent,
+            PropertyDto.ParseCompletionDatePrecision(request.PlannedCompletionPrecision));
         property.SetPayoutFrequency(PropertyDto.ParsePayoutFrequency(request.PayoutFrequency));
         property.SetCharacteristics(
             request.UsableAreaSqM, request.DocumentedUse, request.BuildingClass,
             request.WallMaterial, request.Heating, request.Elevator, request.Security,
-            request.Parking, request.LocationDescription);
+            request.Parking, request.LocationDescription, request.ManagementCompany);
 
         if (request.Rooms is { Count: > 0 })
             property.ReplaceRooms(request.Rooms.Select(r => (r.Name, r.AreaSqM)));

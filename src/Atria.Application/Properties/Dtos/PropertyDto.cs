@@ -62,6 +62,8 @@ namespace Atria.Application.Properties.Dtos;
 /// frequency was entered — public surfaces should read this and not <paramref name="PayoutFrequency"/>,
 /// so an object under construction does not advertise a payment it cannot make.
 /// </param>
+/// <param name="PlannedCompletionPrecision">How precisely <paramref name="PlannedCompletionDate"/> was stated, lowercase: <c>day</c> | <c>month</c> | <c>quarter</c> | <c>year</c>. Format the date to this precision — "4 квартал 2027" shown as "31.12.2027" is a promise nobody made.</param>
+/// <param name="ManagementCompany">Who runs the object once it is let; <c>null</c> when unset. Distinct from <paramref name="Developer"/>.</param>
 /// <param name="Rooms">Room breakdown (name + area), in the order the admin entered it.</param>
 /// <param name="RoomsAreaSqM">Sum of <paramref name="Rooms"/> areas. Compare with <paramref name="TotalAreaSqM"/> to flag a plan that does not add up — the server does not reject a mismatch.</param>
 public sealed record PropertyDto(
@@ -121,7 +123,9 @@ public sealed record PropertyDto(
     string PayoutFrequency,
     bool DistributesYet,
     IReadOnlyList<PropertyRoomDto> Rooms,
-    decimal RoomsAreaSqM)
+    decimal RoomsAreaSqM,
+    string PlannedCompletionPrecision,
+    string? ManagementCompany)
 {
     /// <summary>Maps a property aggregate to its read model.</summary>
     public static PropertyDto From(Property p)
@@ -148,7 +152,8 @@ public sealed record PropertyDto(
             p.PlacementOpensAtUtc, p.PlacementClosesAtUtc, p.TargetAmount,
             p.RaisedAmount, p.IsTargetMet, p.PlacementExtensionCount,
             ToWirePayoutFrequency(p.PayoutFrequency), p.DistributesYet,
-            rooms, rooms.Sum(r => r.AreaSqM));
+            rooms, rooms.Sum(r => r.AreaSqM),
+            ToWireCompletionDatePrecision(p.PlannedCompletionPrecision), p.ManagementCompany);
     }
 
     /// <summary>Maps the domain status to its lowercase wire value.</summary>
@@ -211,6 +216,28 @@ public sealed record PropertyDto(
         "under_construction" => Domain.Investments.ConstructionStage.UnderConstruction,
         "commissioned" => Domain.Investments.ConstructionStage.Commissioned,
         _ => Domain.Investments.ConstructionStage.Unspecified
+    };
+
+    /// <summary>Maps the completion date precision to its lowercase wire value.</summary>
+    public static string ToWireCompletionDatePrecision(CompletionDatePrecision precision) => precision switch
+    {
+        CompletionDatePrecision.Month => "month",
+        CompletionDatePrecision.Quarter => "quarter",
+        CompletionDatePrecision.Year => "year",
+        _ => "day"
+    };
+
+    /// <summary>
+    /// Parses the wire completion date precision. Unknown / absent values map to <c>null</c>, which
+    /// <see cref="Property.SetConstructionProgress"/> treats as "leave as is".
+    /// </summary>
+    public static CompletionDatePrecision? ParseCompletionDatePrecision(string? wire) => wire?.Trim().ToLowerInvariant() switch
+    {
+        "day" => CompletionDatePrecision.Day,
+        "month" => CompletionDatePrecision.Month,
+        "quarter" => CompletionDatePrecision.Quarter,
+        "year" => CompletionDatePrecision.Year,
+        _ => null
     };
 
     /// <summary>Maps the payout frequency to its lowercase wire value.</summary>

@@ -46,19 +46,22 @@ internal sealed class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.Property(p => p.Elevator).HasMaxLength(128);
         b.Property(p => p.Security).HasMaxLength(128);
         b.Property(p => p.Parking).HasMaxLength(256);
+        b.Property(p => p.ManagementCompany).HasMaxLength(256);
         // A paragraph about the district, not a label: longer than the other characteristics and
         // shorter than the object's own description.
         b.Property(p => p.LocationDescription).HasMaxLength(2048);
 
         // Cadastre and land. Hectares kept in their own column with their own precision: a plot is
-        // written to four decimals (0.7200 ha) where floor area is written to two.
-        b.Property(p => p.LandPlotCode).HasMaxLength(64);
-        b.Property(p => p.CadastralNumber).HasMaxLength(64);
+        // written to four decimals (0.7200 ha) where floor area is written to two. Codes are wide
+        // enough for several, "; "-separated: one building can stand on more than one plot.
+        b.Property(p => p.LandPlotCode).HasMaxLength(256);
+        b.Property(p => p.CadastralNumber).HasMaxLength(256);
         b.Property(p => p.LandAreaHectares).HasPrecision(12, 4);
 
         // Construction readiness — orthogonal to Status, which tracks the placement.
         b.Property(p => p.ConstructionStage).HasConversion<int>().IsRequired();
         b.Property(p => p.PlannedCompletionDate);
+        b.Property(p => p.PlannedCompletionPrecision).HasConversion<int>().IsRequired();
         b.Property(p => p.ReadinessPercent);
         // How often the issue distributes. `None` is a real answer for an object that does not earn.
         b.Property(p => p.PayoutFrequency).HasConversion<int>().IsRequired();

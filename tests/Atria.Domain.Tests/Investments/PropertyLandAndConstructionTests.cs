@@ -118,6 +118,27 @@ public sealed class PropertyLandAndConstructionTests
         plot.ReadinessPercent.Should().Be(5);
     }
 
+    [Fact]
+    public void PlannedCompletionPrecision_IsAnExactDateUntilStatedOtherwise()
+    {
+        NewPlot().PlannedCompletionPrecision.Should().Be(CompletionDatePrecision.Day);
+    }
+
+    [Fact]
+    public void SetConstructionProgress_KeepsAQuarterAsAQuarter()
+    {
+        // "4 квартал 2027" — the business centre on 7 мкр. д.41а. Stored as some day of the quarter,
+        // but the card must not print that day back as if the developer had promised it.
+        var plot = NewPlot();
+
+        plot.SetConstructionProgress(
+            ConstructionStage.UnderConstruction, new DateTime(2027, 12, 31, 0, 0, 0, DateTimeKind.Utc),
+            plannedCompletionPrecision: CompletionDatePrecision.Quarter);
+        plot.SetConstructionProgress(readinessPercent: 40);
+
+        plot.PlannedCompletionPrecision.Should().Be(CompletionDatePrecision.Quarter);
+    }
+
     [Theory]
     [InlineData(-1)]
     [InlineData(101)]
