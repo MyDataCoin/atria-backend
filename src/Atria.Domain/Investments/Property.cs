@@ -661,6 +661,22 @@ public sealed class Property : AggregateRoot
     }
 
     /// <summary>
+    /// Sets lift, heating, security and parking exactly as given — null CLEARS, unlike
+    /// <see cref="SetCharacteristics"/>. Used when a building's ticked amenities are re-inherited:
+    /// unticking a box on the building has to remove the "Есть" it once handed down.
+    /// </summary>
+    public void ReplaceAmenities(string? elevator, string? heating, string? security, string? parking)
+    {
+        Elevator = Trimmed(elevator);
+        Heating = Trimmed(heating);
+        Security = Trimmed(security);
+        Parking = Trimmed(parking);
+
+        static string? Trimmed(string? value)
+            => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    /// <summary>
     /// Records what the plot is, in the cadastre's terms: its identification code, the built
     /// object's cadastral number, and the plot area in hectares. Only non-null arguments are
     /// applied, so a caller can PATCH a single field.

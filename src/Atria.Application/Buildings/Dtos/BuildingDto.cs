@@ -31,6 +31,7 @@ public sealed record BuildingImageDto(Guid Id, string Url);
 /// <param name="HasParking">The building has parking.</param>
 /// <param name="IsFreeOfEncumbrances">Cadastre check result; <c>null</c> when no check is recorded.</param>
 /// <param name="EncumbranceCheckedAtUtc">When the cadastre check was made.</param>
+/// <param name="IsEditable">Whether the building may still be edited: every unit is a draft or coming soon.</param>
 /// <param name="Images">The building's photos, each with a public URL.</param>
 /// <param name="UnitCount">How many units are visible to the caller (drafts are staff-only).</param>
 /// <param name="Units">The units themselves — apartments, garages — each a property with its own token issue.</param>
@@ -56,7 +57,8 @@ public sealed record BuildingDto(
     bool HasSecurity,
     bool HasParking,
     bool? IsFreeOfEncumbrances,
-    DateTime? EncumbranceCheckedAtUtc)
+    DateTime? EncumbranceCheckedAtUtc,
+    bool IsEditable)
 {
     /// <summary>Maps a building aggregate plus the units the caller may see to its read model.</summary>
     public static BuildingDto From(Building b, IReadOnlyList<PropertyDto> units)
@@ -67,5 +69,7 @@ public sealed record BuildingDto(
             b.TotalAreaSqM, PropertyDto.ToWireConstructionStage(b.ConstructionStage),
             b.PlannedCompletionDate, PropertyDto.ToWireCompletionDatePrecision(b.PlannedCompletionPrecision),
             b.HasElevator, b.HasHeating, b.HasSecurity, b.HasParking,
-            b.IsFreeOfEncumbrances, b.EncumbranceCheckedAtUtc);
+            b.IsFreeOfEncumbrances, b.EncumbranceCheckedAtUtc,
+            // Units as the caller sees them; the edit itself re-checks against all of them.
+            units.All(u => u.Status is "draft" or "coming_soon"));
 }

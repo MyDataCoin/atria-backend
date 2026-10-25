@@ -109,6 +109,23 @@ public sealed class Building : AggregateRoot
     }
 
     /// <summary>
+    /// Whether a building with units in <paramref name="unitStatuses"/> may still be edited: only
+    /// while every unit is a draft or announced. Once any unit is on sale (or past it), the building
+    /// data on its card is part of what investors bought on, and it stops changing.
+    /// </summary>
+    public static bool IsEditableWith(IEnumerable<PropertyStatus> unitStatuses)
+        => unitStatuses.All(s => s is PropertyStatus.Draft or PropertyStatus.ComingSoon);
+
+    /// <summary>
+    /// The text a unit inherits for a ticked amenity: "Предусмотрено проектом" while the building is
+    /// being built, "Есть" once it stands; null when the box is not ticked.
+    /// </summary>
+    public string? AmenityText(bool ticked)
+        => !ticked ? null
+            : ConstructionStage is ConstructionStage.LandOnly or ConstructionStage.Design
+                or ConstructionStage.UnderConstruction ? "Предусмотрено проектом" : "Есть";
+
+    /// <summary>
     /// Records the building-wide characteristics: total area and amenities. Only non-null arguments
     /// are applied, so a caller can PATCH a single one.
     /// </summary>
@@ -139,6 +156,13 @@ public sealed class Building : AggregateRoot
 
         PlannedCompletionDate = plannedCompletionDate ?? PlannedCompletionDate;
         PlannedCompletionPrecision = plannedCompletionPrecision ?? PlannedCompletionPrecision;
+
+        // A building that stands has no completion still to come.
+        if (ConstructionStage == ConstructionStage.Commissioned)
+        {
+            PlannedCompletionDate = null;
+            PlannedCompletionPrecision = CompletionDatePrecision.Day;
+        }
     }
 
     /// <summary>Records a cadastre check for encumbrances and arrests: what was found and when.</summary>
