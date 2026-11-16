@@ -105,6 +105,18 @@ public sealed class AuthFlowTests : IClassFixture<AtriaApiFactory>
         (await ReadAccessTokenAsync(refreshed)).Should().NotBeNullOrWhiteSpace("refresh must issue a new access token");
     }
 
+    [Fact]
+    public async Task Refresh_WithoutAnyToken_Returns401SoClientsEndTheSession()
+    {
+        // 400 here used to read as a transient failure: the site kept a dead access token and showed
+        // the person as signed in while the dashboard (same browser, same missing cookie) did not.
+        var client = _factory.CreateClient();
+
+        var refreshed = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { });
+
+        refreshed.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     /// <summary>Extracts the <c>atria_refresh</c> Set-Cookie value as a "name=value" pair, or null.</summary>
     private static string? RefreshCookieFrom(HttpResponseMessage response)
     {

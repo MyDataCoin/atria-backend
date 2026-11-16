@@ -27,6 +27,9 @@ namespace Atria.Api.Controllers;
 [AllowAnonymous]
 public sealed class AuthController : ApiControllerBase
 {
+    private static readonly Error MissingRefreshToken =
+        Error.Unauthorized("auth.missing_refresh_token", "No refresh token was presented.");
+
     private readonly string? _cookieDomain;
     private readonly BrowserOrigins _browserOrigins;
 
@@ -175,7 +178,18 @@ public sealed class AuthController : ApiControllerBase
         // body, and a stale copy in a body should never override the one the browser holds.
         var presented = RefreshTokenCookie.Read(Request) ?? request?.RefreshToken;
 
-        var result = await Sender.Send(new RefreshTokenCommand(presented ?? string.Empty), ct);
+        // No token at all is "no session", not a malformed request. Answering 400 here made the clients
+        // read it as a transient failure: the site kept a dead access token and went on showing the
+        // person as signed in, while the dashboard — same browser, same missing cookie — asked them to
+        // sign in. 401 is the one answer every client already treats as "the session is over".
+        if (string.IsNullOrWhiteSpace(presented))
+        {
+            RefreshTokenCookie.MarkUncacheable(Response);
+            RefreshTokenCookie.Clear(Response, _cookieDomain);
+            return ToActionResult(Result.Failure<AuthTokensDto>(MissingRefreshToken));
+        }
+
+        var result = await Sender.Send(new RefreshTokenCommand(presented), ct);
 
         // A refused refresh means the cookie cannot authenticate anything any more; leaving it in
         // place only guarantees the next attempt fails the same way.

@@ -264,6 +264,8 @@ string[] throttledPaths =
 // which drives every test through one loopback address — can raise them out of its own way.
 var rateLimitPermits = builder.Configuration.GetValue("RateLimiting:PermitLimit", 5);
 var rateLimitWindowSeconds = builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60);
+var refreshPermits = Math.Max(
+    rateLimitPermits, builder.Configuration.GetValue("RateLimiting:RefreshPermitLimit", 60));
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -303,10 +305,15 @@ builder.Services.AddRateLimiter(options =>
 
         // Partition by client IP + path so one caller cannot starve others.
         var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        // Refresh is not a guessing surface (the token is 256 random bits) and it is called by every
+        // open tab of the site AND of the dashboards, all sharing one cookie. Five a minute had the
+        // site and the investor app throttling each other into 429s within a single page load.
+        var isRefresh = path.StartsWith("/api/v1/auth/refresh", StringComparison.OrdinalIgnoreCase);
         return RateLimitPartition.GetFixedWindowLimiter($"{ip}:{path}", _ =>
             new FixedWindowRateLimiterOptions
             {
-                PermitLimit = rateLimitPermits,
+                PermitLimit = isRefresh ? refreshPermits : rateLimitPermits,
                 Window = TimeSpan.FromSeconds(rateLimitWindowSeconds),
                 QueueLimit = 0,
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
