@@ -19,6 +19,11 @@ internal sealed class BuildingImageConfiguration : IEntityTypeConfiguration<Buil
         b.Property(i => i.BuildingId).IsRequired();
         b.Property(i => i.Url).HasMaxLength(1024).IsRequired();
 
+        // Existing rows default to Photo (0) at position 0 — what they were.
+        b.Property(i => i.Kind).HasConversion<int>().IsRequired();
+        b.Property(i => i.Caption).HasMaxLength(PropertyImage.MaxCaption);
+        b.Property(i => i.SortOrder).IsRequired();
+
         b.HasIndex(i => i.BuildingId);
     }
 }

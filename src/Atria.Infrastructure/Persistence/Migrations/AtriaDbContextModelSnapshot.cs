@@ -709,8 +709,18 @@ namespace Atria.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("BuildingId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Caption")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");

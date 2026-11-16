@@ -3,10 +3,20 @@ using Atria.Domain.Investments;
 
 namespace Atria.Application.Buildings.Dtos;
 
-/// <summary>A building photo: its id (for deletion) and the public URL to display.</summary>
+/// <summary>A building image: its id (for deletion), the public URL, and what the image actually is.</summary>
 /// <param name="Id">The image's unique identifier.</param>
-/// <param name="Url">Public URL of the photo (served statically).</param>
-public sealed record BuildingImageDto(Guid Id, string Url);
+/// <param name="Url">Public URL of the image (served statically).</param>
+/// <param name="Kind">
+/// <c>photo</c> | <c>render</c> | <c>floor_plan</c> | <c>site_plan</c>. A <c>render</c> must be
+/// labelled as a visualisation wherever it is shown, the building cover included.
+/// </param>
+/// <param name="Caption">The uploader's caption, or <c>null</c>.</param>
+public sealed record BuildingImageDto(Guid Id, string Url, string Kind, string? Caption)
+{
+    /// <summary>Maps an image to its read model.</summary>
+    public static BuildingImageDto From(BuildingImage image)
+        => new(image.Id, image.Url, PropertyImageDto.ToWireKind(image.Kind), image.Caption);
+}
 
 /// <summary>
 /// Read model of a building and the units sold inside it. The building itself has no token supply —
@@ -64,7 +74,7 @@ public sealed record BuildingDto(
     public static BuildingDto From(Building b, IReadOnlyList<PropertyDto> units)
         => new(b.Id, b.Name, b.Description, b.Address, b.City, b.Developer, b.YearBuilt, b.Floors,
             b.BuildingType,
-            b.Images.Select(i => new BuildingImageDto(i.Id, i.Url)).ToList(),
+            b.Images.Select(BuildingImageDto.From).ToList(),
             units.Count, units,
             b.TotalAreaSqM, PropertyDto.ToWireConstructionStage(b.ConstructionStage),
             b.PlannedCompletionDate, PropertyDto.ToWireCompletionDatePrecision(b.PlannedCompletionPrecision),

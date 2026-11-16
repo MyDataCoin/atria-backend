@@ -87,7 +87,8 @@ sealed class Building : AggregateRoot   // groups the units sold inside it; issu
   int? YearBuilt; int? Floors; string? BuildingType; IReadOnlyCollection<BuildingImage> Images;
   static Building Create(string name, ...descriptive optionals);
   void UpdateDetails(...optionals);  // only non-null args applied (PATCH semantics)
-  BuildingImage AddImage(string url); BuildingImage? RemoveImage(Guid imageId);  // max Building.MaxImages
+  BuildingImage AddImage(string url, PropertyImageKind kind = Photo, string? caption = null);  // max Building.MaxImages; Images ordered by SortOrder, first = cover
+  BuildingImage? RemoveImage(Guid imageId);
 sealed class Property : AggregateRoot   // THE unit of issuance: standalone, or one unit of a Building
   string Name; string? Description; string? Address; decimal TotalValue; decimal TokenPrice;
   long TotalTokens; long AvailableTokens; long MinPurchaseTokens; string Currency;

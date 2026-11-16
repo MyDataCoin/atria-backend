@@ -58,7 +58,9 @@ public sealed class Building : AggregateRoot
     public DateTime? EncumbranceCheckedAtUtc { get; private set; }
 
     private readonly List<BuildingImage> _images = new();
-    public IReadOnlyCollection<BuildingImage> Images => _images.AsReadOnly();
+    /// <summary>The gallery, in display order. The first image is the cover.</summary>
+    public IReadOnlyCollection<BuildingImage> Images
+        => _images.OrderBy(i => i.SortOrder).ToList().AsReadOnly();
 
     // private ctor: creation only through the factory method
     private Building() { }
@@ -172,15 +174,22 @@ public sealed class Building : AggregateRoot
         EncumbranceCheckedAtUtc = checkedAtUtc;
     }
 
-    /// <summary>Adds a photo (max <see cref="MaxImages"/>). Returns the created child.</summary>
-    public BuildingImage AddImage(string url)
+    /// <summary>
+    /// Adds an image (max <see cref="MaxImages"/>), appended at the end of the gallery. Returns the
+    /// created child. A render of an unbuilt building is added as <see cref="PropertyImageKind.Render"/>.
+    /// </summary>
+    public BuildingImage AddImage(
+        string url, PropertyImageKind kind = PropertyImageKind.Photo, string? caption = null)
     {
         if (string.IsNullOrWhiteSpace(url))
             throw new DomainException("Image URL is required.");
         if (_images.Count >= MaxImages)
             throw new DomainException($"A building can have at most {MaxImages} images.");
 
-        var image = BuildingImage.Create(Id, url);
+        // After the current last position, not at _images.Count: removing a middle image leaves a gap.
+        var next = _images.Count == 0 ? 0 : _images.Max(i => i.SortOrder) + 1;
+
+        var image = BuildingImage.Create(Id, url, kind, caption, next);
         _images.Add(image);
         return image;
     }

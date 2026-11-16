@@ -139,6 +139,8 @@ public sealed class BuildingsController : ApiControllerBase
     /// </remarks>
     /// <param name="id">The building's id.</param>
     /// <param name="file">The image file part.</param>
+    /// <param name="kind">What the image is: <c>photo</c> (default) | <c>render</c> | <c>floor_plan</c> | <c>site_plan</c>. A render of an unbuilt building must be sent as <c>render</c>.</param>
+    /// <param name="caption">Optional caption (≤ 200 characters).</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("{id:guid}/images")]
     [Authorize(Roles = "Admin")]
@@ -149,11 +151,17 @@ public sealed class BuildingsController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> UploadImage(Guid id, IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadImage(
+        Guid id,
+        IFormFile file,
+        [FromForm] string? kind,
+        [FromForm] string? caption,
+        CancellationToken ct)
     {
         await using var stream = file.OpenReadStream();
         var result = await Sender.Send(
-            new AddBuildingImageCommand(id, stream, file.FileName, file.ContentType, file.Length), ct);
+            new AddBuildingImageCommand(
+                id, stream, file.FileName, file.ContentType, file.Length, kind, caption), ct);
         return ToActionResult(result);
     }
 
