@@ -93,6 +93,8 @@ public class AtriaApiFactory : WebApplicationFactory<Program>
         // AuthRateLimitTests, which sets the production numbers for itself.
         SetIfUnset("RateLimiting__PermitLimit", "100000");
         SetIfUnset("RateLimiting__WindowSeconds", "60");
+        // The deposit watcher would poll real BNB/TRON nodes from inside the suite.
+        SetIfUnset("CryptoPayments__WatcherEnabled", "false");
     }
 
     private static void SetIfUnset(string name, string value)

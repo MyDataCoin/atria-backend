@@ -73,6 +73,8 @@ public static class DependencyInjection
         // returned when unset.
         services.Configure<ReferralOptions>(configuration.GetSection(ReferralOptions.SectionName));
         services.Configure<AuthCookieOptions>(configuration.GetSection(AuthCookieOptions.SectionName));
+        services.Configure<Atria.Application.Payments.CryptoPaymentOptions>(
+            configuration.GetSection(Atria.Application.Payments.CryptoPaymentOptions.SectionName));
 
         // Reservation window + background sweep pacing for offering applications. Optional; the
         // built-in defaults (3-day window, 15-minute sweep) apply when the section is absent.
@@ -148,6 +150,10 @@ public static class DependencyInjection
         services.AddScoped<IWhitelistEntryRepository, WhitelistEntryRepository>();
         services.AddScoped<IMintListRepository, MintListRepository>();
         services.AddScoped<IChainSyncCursorRepository, ChainSyncCursorRepository>();
+        services.AddScoped<IPaymentSettingsRepository, PaymentSettingsRepository>();
+        services.AddScoped<ICryptoInvoiceRepository, CryptoInvoiceRepository>();
+        services.AddScoped<ICryptoDepositRepository, CryptoDepositRepository>();
+        services.AddScoped<ICryptoWatchCursorRepository, CryptoWatchCursorRepository>();
         services.AddScoped<ICriticalActionRepository, CriticalActionRepository>();
         services.AddScoped<IRegulatoryReportRepository, RegulatoryReportRepository>();
         services.AddScoped<IRefundObligationRepository, RefundObligationRepository>();
@@ -332,6 +338,7 @@ public static class DependencyInjection
         services.AddHostedService<Regulatory.RegulatoryReportSweepBackgroundService>();
         services.AddHostedService<Identity.ExpiredRefreshTokenSweepBackgroundService>();
         services.AddHostedService<Feedback.FeedbackRetentionSweepBackgroundService>();
+        services.AddHostedService<Payments.CryptoDepositWatcherBackgroundService>();
     }
 
     // --- Application assembly scan: request handlers, event handlers, validators ---
@@ -365,6 +372,11 @@ public static class DependencyInjection
         // single copy of "undo one application" that both the operator's annulment and an unwound
         // placement call into.
         services.AddScoped<InvestmentUnwinder>();
+        services.AddScoped<Atria.Application.Payments.Services.CryptoDepositProcessor>();
+        // Crypto payments are read on mainnet, independent of the share-token network.
+        services.AddSingleton<ICryptoTransferSource, Payments.BscTransferSource>();
+        services.AddHttpClient<Payments.TronTransferSource>(c => c.Timeout = TimeSpan.FromSeconds(20));
+        services.AddTransient<ICryptoTransferSource>(sp => sp.GetRequiredService<Payments.TronTransferSource>());
 
         // FluentValidation validators (IValidator<T>). Registered by reflection so the
         // Infrastructure project needs no FluentValidation.DependencyInjectionExtensions reference.
