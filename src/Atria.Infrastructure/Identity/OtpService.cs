@@ -86,12 +86,11 @@ public sealed class OtpService : IOtpService
         }
         catch (TelegramLinkRequiredException)
         {
-            // Not a failure of the channel: the person has to open the login bot and share the number
-            // once. The client keys off this code to show the bot link. The code just stored is never
-            // delivered and simply expires.
-            return Result.Failure(Error.Conflict(
-                "otp.telegram_link_required",
-                "Open the ATRIA bot in Telegram and share your phone number to receive the code."));
+            // The number has not met the login bot yet. Same answer as a delivered code: the code
+            // screen always offers the bot, and sharing the number there sends a fresh code. Not an
+            // error — and the answer does not reveal whether a number is linked.
+            _logger.LogInformation("OTP for {Phone} awaits the Telegram bot link.", Mask(phone));
+            return Result.Success();
         }
         catch (SmsGatewayException ex)
         {
