@@ -2383,6 +2383,39 @@ namespace Atria.Infrastructure.Persistence.Migrations
                     b.ToTable("travel_rule_messages", (string)null);
                 });
 
+            modelBuilder.Entity("Atria.Domain.Users.TelegramLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("ChatId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<long>("TelegramUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Phone")
+                        .IsUnique();
+
+                    b.HasIndex("TelegramUserId");
+
+                    b.ToTable("telegram_links", (string)null);
+                });
+
             modelBuilder.Entity("Atria.Domain.Users.User", b =>
                 {
                     b.Property<Guid>("Id")

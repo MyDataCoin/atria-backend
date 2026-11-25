@@ -74,6 +74,7 @@ public static class DependencyInjection
         services.Configure<ReferralOptions>(configuration.GetSection(ReferralOptions.SectionName));
         services.Configure<AuthCookieOptions>(configuration.GetSection(AuthCookieOptions.SectionName));
         services.Configure<TelegramGatewayOptions>(configuration.GetSection(TelegramGatewayOptions.SectionName));
+        services.Configure<TelegramBotOptions>(configuration.GetSection(TelegramBotOptions.SectionName));
         services.Configure<Atria.Application.Payments.CryptoPaymentOptions>(
             configuration.GetSection(Atria.Application.Payments.CryptoPaymentOptions.SectionName));
 
@@ -251,10 +252,17 @@ public static class DependencyInjection
         // Login codes: Telegram Gateway when its token is set, otherwise the SMS adapter above.
         services.AddHttpClient<TelegramGatewayOtpSender>(c => c.Timeout = TimeSpan.FromSeconds(15));
         services.AddScoped<SmsOtpCodeSender>();
+        // Login codes, first configured wins: the Telegram login bot (free), Telegram Gateway (paid,
+        // needs a prepaid balance), then the SMS adapter above.
+        services.AddHttpClient<TelegramBotClient>(c => c.Timeout = TimeSpan.FromSeconds(15));
+        services.AddScoped<TelegramBotOtpSender>();
+        services.AddScoped<TelegramBotUpdateHandler>();
         services.AddScoped<IOtpCodeSender>(sp =>
-            sp.GetRequiredService<IOptions<TelegramGatewayOptions>>().Value.IsConfigured
-                ? sp.GetRequiredService<TelegramGatewayOtpSender>()
-                : sp.GetRequiredService<SmsOtpCodeSender>());
+            sp.GetRequiredService<IOptions<TelegramBotOptions>>().Value.IsConfigured
+                ? sp.GetRequiredService<TelegramBotOtpSender>()
+                : sp.GetRequiredService<IOptions<TelegramGatewayOptions>>().Value.IsConfigured
+                    ? sp.GetRequiredService<TelegramGatewayOtpSender>()
+                    : sp.GetRequiredService<SmsOtpCodeSender>());
         services.AddScoped<IEmailSender, EmailNotificationAdapter>();
         services.AddScoped<INotificationSender, NotificationSender>();
 
@@ -348,6 +356,7 @@ public static class DependencyInjection
         services.AddHostedService<Identity.ExpiredRefreshTokenSweepBackgroundService>();
         services.AddHostedService<Feedback.FeedbackRetentionSweepBackgroundService>();
         services.AddHostedService<Payments.CryptoDepositWatcherBackgroundService>();
+        services.AddHostedService<TelegramBotWebhookRegistrar>();
     }
 
     // --- Application assembly scan: request handlers, event handlers, validators ---

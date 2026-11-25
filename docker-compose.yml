@@ -109,6 +109,11 @@ services:
       # Login codes via Telegram Gateway (gateway.telegram.org). Secret, from the server .env.
       # Empty keeps codes on the SMS adapter.
       TelegramGateway__ApiToken: ${TELEGRAM_GATEWAY_TOKEN:-}
+      # Telegram login bot: codes go to the chat of whoever shared the number with it. Takes
+      # precedence over the Gateway when set. All three from the server .env.
+      TelegramBot__Token: ${TELEGRAM_BOT_TOKEN:-}
+      TelegramBot__Username: ${TELEGRAM_BOT_USERNAME:-}
+      TelegramBot__WebhookSecret: ${TELEGRAM_BOT_WEBHOOK_SECRET:-}
       Blockchain__TokenSigning__Mode: ${BLOCKCHAIN_TOKEN_SIGNING_MODE:-Custody}
       # MINTER_ROLE key — mints and burns shares. ORACLE_ROLE key — attests to what backs the issue.
       # Two separate keys on purpose: the one that speaks for the collateral must not be able to touch

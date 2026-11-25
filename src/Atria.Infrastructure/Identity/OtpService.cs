@@ -84,6 +84,15 @@ public sealed class OtpService : IOtpService
         {
             await _codes.SendCodeAsync(phone, code, _options.TtlMinutes, ct);
         }
+        catch (TelegramLinkRequiredException)
+        {
+            // Not a failure of the channel: the person has to open the login bot and share the number
+            // once. The client keys off this code to show the bot link. The code just stored is never
+            // delivered and simply expires.
+            return Result.Failure(Error.Conflict(
+                "otp.telegram_link_required",
+                "Open the ATRIA bot in Telegram and share your phone number to receive the code."));
+        }
         catch (SmsGatewayException ex)
         {
             // Log the full exception (stack trace included); the request CorrelationId is attached
