@@ -26,8 +26,8 @@ public sealed class SubmitFeedbackCommandValidator : AbstractValidator<SubmitFee
             .MaximumLength(FeedbackRequest.MaxPhoneLength)
             // Тот же разбор номера, что и при регистрации: платформа кыргызстанская, и телефон,
             // по которому нельзя перезвонить, ничем не лучше пустого поля.
-            .Must(KyrgyzPhone.IsValid)
-            .WithMessage($"Укажите номер в формате {KyrgyzPhone.Example}.");
+            .Must(PhoneNumbers.IsValid)
+            .WithMessage($"Укажите номер в формате {PhoneNumbers.Example}.");
     }
 
     // Проверка почты намеренно грубая: строгая маска отсекает живых людей с непривычным адресом,

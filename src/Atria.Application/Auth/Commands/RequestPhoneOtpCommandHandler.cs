@@ -13,5 +13,5 @@ public sealed class RequestPhoneOtpCommandHandler : IRequestHandler<RequestPhone
 
     public Task<Result> Handle(RequestPhoneOtpCommand request, CancellationToken ct)
         // Canonicalize to +996XXXXXXXXX so the OTP bucket/lookup is stable regardless of input form.
-        => _otp.RequestAsync(KyrgyzPhone.Normalize(request.Phone), request.IpAddress, ct);
+        => _otp.RequestAsync(PhoneNumbers.Normalize(request.Phone), request.IpAddress, ct);
 }

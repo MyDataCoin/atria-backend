@@ -179,10 +179,10 @@ public sealed class TelegramBotUpdateHandler
 
         var raw = contact.GetProperty("phone_number").GetString() ?? string.Empty;
         var digits = new string(raw.Where(char.IsDigit).ToArray());
-        if (!KyrgyzPhone.TryNormalize("+" + digits, out var phone))
+        if (!PhoneNumbers.TryNormalize("+" + digits, out var phone))
         {
             await _bot.SendMessageAsync(chatId,
-                "Пока вход доступен только для номеров Кыргызстана (+996).", RemoveKeyboard, ct);
+                "Не удалось распознать номер. Напишите нам на atria.kg — разберёмся.", RemoveKeyboard, ct);
             return;
         }
 

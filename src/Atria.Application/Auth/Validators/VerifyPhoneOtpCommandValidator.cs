@@ -11,8 +11,8 @@ public sealed class VerifyPhoneOtpCommandValidator : AbstractValidator<VerifyPho
     {
         RuleFor(x => x.Phone)
             .NotEmpty()
-            .Must(KyrgyzPhone.IsValid)
-            .WithMessage($"Phone must be a valid Kyrgyzstan number, e.g. {KyrgyzPhone.Example}.");
+            .Must(PhoneNumbers.IsValid)
+            .WithMessage($"Phone must be a valid number: a Kyrgyz number or any number in international form (+country code), e.g. {PhoneNumbers.Example}.");
 
         RuleFor(x => x.Code)
             .NotEmpty()

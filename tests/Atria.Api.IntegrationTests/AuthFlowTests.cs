@@ -55,12 +55,22 @@ public sealed class AuthFlowTests : IClassFixture<AtriaApiFactory>
     }
 
     [Fact]
-    public async Task RequestOtp_WithNonKyrgyzNumber_ReturnsBadRequest()
+    public async Task RequestOtp_AcceptsAnInternationalNumber()
     {
         var client = _factory.CreateClient();
 
-        // US number — not a +996 KG number, must be rejected by validation.
-        var response = await client.PostAsJsonAsync(RequestOtpRoute, new { phone = "+15551234567" });
+        // Investors are not only in Kyrgyzstan: any number in +country-code form is accepted.
+        var response = await client.PostAsJsonAsync(RequestOtpRoute, new { phone = "+420774958325" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task RequestOtp_WithMalformedNumber_ReturnsBadRequest()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(RequestOtpRoute, new { phone = "+99670012" });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

@@ -41,7 +41,7 @@ public sealed class GetPhoneRegistrationQueryHandler
     {
         // Та же канонизация, что и на запросе кода: иначе «0700…» и «+996700…» дали бы разные ответы
         // об одном и том же номере.
-        var phone = KyrgyzPhone.Normalize(request.Phone);
+        var phone = PhoneNumbers.Normalize(request.Phone);
         var user = await _users.GetByPhoneAsync(phone, ct);
 
         return Result.Success(new PhoneRegistrationDto(user is not null));

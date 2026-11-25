@@ -40,7 +40,7 @@ public sealed class SubmitFeedbackCommandHandler : IRequestHandler<SubmitFeedbac
         // Номер приводим к +996XXXXXXXXX: в панели он превращается в ссылку «позвонить», и разнобой
         // в записи ломает ровно её — оператору пришлось бы вычищать пробелы и скобки руками.
         var feedback = FeedbackRequest.Create(
-            request.FullName, request.Email, KyrgyzPhone.Normalize(request.Phone), request.Message);
+            request.FullName, request.Email, PhoneNumbers.Normalize(request.Phone), request.Message);
 
         await _feedback.AddAsync(feedback, ct);
         await _unitOfWork.SaveChangesAsync(ct);
