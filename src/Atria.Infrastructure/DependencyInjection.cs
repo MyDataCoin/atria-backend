@@ -73,6 +73,7 @@ public static class DependencyInjection
         // returned when unset.
         services.Configure<ReferralOptions>(configuration.GetSection(ReferralOptions.SectionName));
         services.Configure<AuthCookieOptions>(configuration.GetSection(AuthCookieOptions.SectionName));
+        services.Configure<TelegramGatewayOptions>(configuration.GetSection(TelegramGatewayOptions.SectionName));
         services.Configure<Atria.Application.Payments.CryptoPaymentOptions>(
             configuration.GetSection(Atria.Application.Payments.CryptoPaymentOptions.SectionName));
 
@@ -246,6 +247,14 @@ public static class DependencyInjection
         // TEMPORARY: no OTP delivery provider is wired yet (WhatsApp is coming). Every message is
         // swallowed by DisabledSmsSender; replace this line with the WhatsApp adapter.
         services.AddScoped<ISmsSender, DisabledSmsSender>();
+
+        // Login codes: Telegram Gateway when its token is set, otherwise the SMS adapter above.
+        services.AddHttpClient<TelegramGatewayOtpSender>(c => c.Timeout = TimeSpan.FromSeconds(15));
+        services.AddScoped<SmsOtpCodeSender>();
+        services.AddScoped<IOtpCodeSender>(sp =>
+            sp.GetRequiredService<IOptions<TelegramGatewayOptions>>().Value.IsConfigured
+                ? sp.GetRequiredService<TelegramGatewayOtpSender>()
+                : sp.GetRequiredService<SmsOtpCodeSender>());
         services.AddScoped<IEmailSender, EmailNotificationAdapter>();
         services.AddScoped<INotificationSender, NotificationSender>();
 

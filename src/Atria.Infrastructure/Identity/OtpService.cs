@@ -17,7 +17,7 @@ namespace Atria.Infrastructure.Identity;
 public sealed class OtpService : IOtpService
 {
     private readonly IOtpCodeStore _store;
-    private readonly ISmsSender _sms;
+    private readonly IOtpCodeSender _codes;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<OtpService> _logger;
@@ -25,14 +25,14 @@ public sealed class OtpService : IOtpService
 
     public OtpService(
         IOtpCodeStore store,
-        ISmsSender sms,
+        IOtpCodeSender codes,
         IDateTimeProvider clock,
         IUnitOfWork unitOfWork,
         ILogger<OtpService> logger,
         IOptions<OtpOptions> options)
     {
         _store = store;
-        _sms = sms;
+        _codes = codes;
         _clock = clock;
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -79,12 +79,10 @@ public sealed class OtpService : IOtpService
         // Commit the code BEFORE sending the SMS, otherwise verification can't find it.
         await _unitOfWork.SaveChangesAsync(ct);
 
-        // The message embeds the code; we never log this string.
-        var message = $"Добро пожаловать в Atria! Ваш код потверждения: {code}. Он истечёт через {_options.TtlMinutes} минут.";
-
+        // The code is handed to the delivery channel only; it is never logged.
         try
         {
-            await _sms.SendAsync(phone, message, ct);
+            await _codes.SendCodeAsync(phone, code, _options.TtlMinutes, ct);
         }
         catch (SmsGatewayException ex)
         {

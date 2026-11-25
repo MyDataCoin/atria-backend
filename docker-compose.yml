@@ -106,6 +106,9 @@ services:
       # able to create or destroy shares lives in this process. A test network has no custody service
       # to call, so a testnet deployment sets BLOCKCHAIN_TOKEN_SIGNING_MODE=OperationalKey and supplies
       # the two keys below. Leaving the mode unset keeps the custody path whatever the keys say.
+      # Login codes via Telegram Gateway (gateway.telegram.org). Secret, from the server .env.
+      # Empty keeps codes on the SMS adapter.
+      TelegramGateway__ApiToken: ${TELEGRAM_GATEWAY_TOKEN:-}
       Blockchain__TokenSigning__Mode: ${BLOCKCHAIN_TOKEN_SIGNING_MODE:-Custody}
       # MINTER_ROLE key — mints and burns shares. ORACLE_ROLE key — attests to what backs the issue.
       # Two separate keys on purpose: the one that speaks for the collateral must not be able to touch

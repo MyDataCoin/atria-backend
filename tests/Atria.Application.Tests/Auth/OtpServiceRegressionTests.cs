@@ -1,3 +1,4 @@
+using Atria.Infrastructure.Notifications;
 using Atria.Application.Abstractions;
 using Atria.Infrastructure.Configuration;
 using Atria.Infrastructure.Identity;
@@ -50,7 +51,7 @@ public sealed class OtpServiceRegressionTests
         var store = new OtpCodeStore(_db);
         var uow = new UnitOfWork(_db);
         var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<OtpService>.Instance;
-        return new OtpService(store, _sms, _clock, uow, logger, Microsoft.Extensions.Options.Options.Create(Options));
+        return new OtpService(store, new SmsOtpCodeSender(_sms), _clock, uow, logger, Microsoft.Extensions.Options.Options.Create(Options));
     }
 
     [Fact]
