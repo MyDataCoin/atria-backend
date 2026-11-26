@@ -19,10 +19,13 @@ public sealed class RejectInvestmentCommandHandler : IRequestHandler<RejectInves
     private readonly IInvestmentRepository _investments;
     private readonly IPropertyRepository _properties;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICryptoInvoiceRepository _invoices;
 
     public RejectInvestmentCommandHandler(
-        IInvestmentRepository investments, IPropertyRepository properties, IUnitOfWork unitOfWork)
+        IInvestmentRepository investments, IPropertyRepository properties, IUnitOfWork unitOfWork,
+        ICryptoInvoiceRepository invoices)
     {
+        _invoices = invoices;
         _investments = investments;
         _properties = properties;
         _unitOfWork = unitOfWork;
@@ -50,6 +53,15 @@ public sealed class RejectInvestmentCommandHandler : IRequestHandler<RejectInves
 
         _investments.Update(investment);
         _properties.Update(property);
+
+        // A pending crypto invoice of an application that has ended must not stay payable: its exact
+        // amount would still match an incoming transfer and tie the money to a dead application.
+        foreach (var invoice in await _invoices.GetPendingByInvestmentAsync(investment.Id, ct))
+        {
+            invoice.Cancel();
+            _invoices.Update(invoice);
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success();

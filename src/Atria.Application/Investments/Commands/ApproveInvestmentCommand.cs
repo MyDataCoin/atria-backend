@@ -20,10 +20,13 @@ public sealed class ApproveInvestmentCommandHandler : IRequestHandler<ApproveInv
     private readonly IInvestmentRepository _investments;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICryptoInvoiceRepository _invoices;
 
     public ApproveInvestmentCommandHandler(
-        IInvestmentRepository investments, IDateTimeProvider clock, IUnitOfWork unitOfWork)
+        IInvestmentRepository investments, IDateTimeProvider clock, IUnitOfWork unitOfWork,
+        ICryptoInvoiceRepository invoices)
     {
+        _invoices = invoices;
         _investments = investments;
         _clock = clock;
         _unitOfWork = unitOfWork;
@@ -41,6 +44,17 @@ public sealed class ApproveInvestmentCommandHandler : IRequestHandler<ApproveInv
 
         investment.Approve(_clock.UtcNow);
         _investments.Update(investment);
+
+        // The operator has accepted payment — a crypto transfer the matcher could not tie to the
+        // invoice (wrong amount), a bank transfer, anything. An invoice still pending would keep
+        // showing "awaiting payment" on an active application and could still swallow a later
+        // transfer of its exact amount.
+        foreach (var invoice in await _invoices.GetPendingByInvestmentAsync(investment.Id, ct))
+        {
+            invoice.Cancel();
+            _invoices.Update(invoice);
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success();

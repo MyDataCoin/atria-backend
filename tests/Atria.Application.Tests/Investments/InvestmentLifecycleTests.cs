@@ -5,6 +5,7 @@ using Atria.Application.Investments.Commands;
 using Atria.Domain.Factories;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
+using Atria.Domain.Payments;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -25,6 +26,13 @@ public sealed class InvestmentLifecycleTests
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly ICurrentUserService _currentUser = Substitute.For<ICurrentUserService>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
+    private readonly ICryptoInvoiceRepository _invoices = Substitute.For<ICryptoInvoiceRepository>();
+
+    public InvestmentLifecycleTests()
+    {
+        _invoices.GetPendingByInvestmentAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<CryptoInvoice>());
+    }
 
     private static KycProfile ApprovedKyc(Guid userId)
     {
@@ -74,7 +82,7 @@ public sealed class InvestmentLifecycleTests
             Guid.NewGuid(), property.Id, 5, "KGS", 100m, DateTime.UtcNow.AddDays(3));
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
 
-        var result = await new ApproveInvestmentCommandHandler(_investments, _clock, _uow)
+        var result = await new ApproveInvestmentCommandHandler(_investments, _clock, _uow, _invoices)
             .Handle(new ApproveInvestmentCommand(investment.Id), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -90,7 +98,7 @@ public sealed class InvestmentLifecycleTests
         investment.Approve(DateTime.UtcNow); // already Active
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
 
-        var result = await new ApproveInvestmentCommandHandler(_investments, _clock, _uow)
+        var result = await new ApproveInvestmentCommandHandler(_investments, _clock, _uow, _invoices)
             .Handle(new ApproveInvestmentCommand(investment.Id), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
@@ -109,7 +117,7 @@ public sealed class InvestmentLifecycleTests
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
 
-        var result = await new RejectInvestmentCommandHandler(_investments, _properties, _uow)
+        var result = await new RejectInvestmentCommandHandler(_investments, _properties, _uow, _invoices)
             .Handle(new RejectInvestmentCommand(investment.Id, "does not meet policy"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -129,7 +137,7 @@ public sealed class InvestmentLifecycleTests
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
 
-        var handler = new RejectInvestmentCommandHandler(_investments, _properties, _uow);
+        var handler = new RejectInvestmentCommandHandler(_investments, _properties, _uow, _invoices);
         await handler.Handle(new RejectInvestmentCommand(investment.Id, "does not meet policy"), CancellationToken.None);
         var second = await handler.Handle(
             new RejectInvestmentCommand(investment.Id, "changed my mind"), CancellationToken.None);
@@ -141,7 +149,7 @@ public sealed class InvestmentLifecycleTests
     [Fact]
     public async Task Rejecting_without_a_reason_is_a_validation_error()
     {
-        var result = await new RejectInvestmentCommandHandler(_investments, _properties, _uow)
+        var result = await new RejectInvestmentCommandHandler(_investments, _properties, _uow, _invoices)
             .Handle(new RejectInvestmentCommand(Guid.NewGuid(), "  "), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
@@ -162,7 +170,7 @@ public sealed class InvestmentLifecycleTests
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
         _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
 
-        var result = await new CancelInvestmentCommandHandler(_investments, _properties, _uow, _currentUser)
+        var result = await new CancelInvestmentCommandHandler(_investments, _properties, _uow, _currentUser, _invoices)
             .Handle(new CancelInvestmentCommand(investment.Id), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -197,10 +205,34 @@ public sealed class InvestmentLifecycleTests
             Guid.NewGuid(), Guid.NewGuid(), 5, "KGS", 100m, DateTime.UtcNow.AddDays(3));
         _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
 
-        var result = await new CancelInvestmentCommandHandler(_investments, _properties, _uow, _currentUser)
+        var result = await new CancelInvestmentCommandHandler(_investments, _properties, _uow, _currentUser, _invoices)
             .Handle(new CancelInvestmentCommand(investment.Id), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.NotFound);
+    }
+
+    [Fact]
+    public async Task Cancelling_an_application_closes_its_pending_crypto_invoice()
+    {
+        var investorId = Guid.NewGuid();
+        _currentUser.UserId.Returns(investorId);
+        var property = OpenProperty(100);
+        property.ReserveTokens(1);
+        var investment = InvestmentFactory.CreateForInvestor(
+            investorId, property.Id, 1, "KGS", 100m, DateTime.UtcNow.AddDays(3));
+        _investments.GetByIdAsync(investment.Id, Arg.Any<CancellationToken>()).Returns(investment);
+        _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
+
+        var invoice = CryptoInvoice.Issue(investment.Id, investorId, CryptoPaymentMethod.KgstBep20,
+            "0x7481b488974690b8C4D06b028684FD3f752540A9", 100m, 1m, 83, DateTime.UtcNow.AddDays(3));
+        _invoices.GetPendingByInvestmentAsync(investment.Id, Arg.Any<CancellationToken>())
+            .Returns(new[] { invoice });
+
+        var result = await new CancelInvestmentCommandHandler(_investments, _properties, _uow, _currentUser, _invoices)
+            .Handle(new CancelInvestmentCommand(investment.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        invoice.Status.Should().Be(CryptoInvoiceStatus.Cancelled);
     }
 }

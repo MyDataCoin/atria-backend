@@ -65,6 +65,7 @@ public sealed class ReservationExpiryBackgroundService : BackgroundService
         var properties = scope.ServiceProvider.GetRequiredService<IPropertyRepository>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var clock = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+        var invoices = scope.ServiceProvider.GetRequiredService<ICryptoInvoiceRepository>();
 
         var expired = await investments.GetExpiredReservationsAsync(
             clock.UtcNow, _options.SweepBatchSize, ct);
@@ -89,6 +90,14 @@ public sealed class ReservationExpiryBackgroundService : BackgroundService
 
             investments.Update(investment);
             properties.Update(property);
+
+            // The invoice of a lapsed reservation must stop matching incoming transfers.
+            foreach (var invoice in await invoices.GetPendingByInvestmentAsync(investment.Id, ct))
+            {
+                invoice.Cancel();
+                invoices.Update(invoice);
+            }
+
             reclaimed++;
         }
 
