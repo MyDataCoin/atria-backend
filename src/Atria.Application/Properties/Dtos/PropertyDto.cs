@@ -167,6 +167,7 @@ public sealed record PropertyDto(
         PropertyStatus.ComingSoon => "coming_soon",
         PropertyStatus.Open => "open",
         PropertyStatus.Completed => "completed",
+        PropertyStatus.Invalidated => "invalidated",
         _ => "draft"
     };
 

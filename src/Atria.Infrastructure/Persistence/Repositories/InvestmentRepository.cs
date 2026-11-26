@@ -9,6 +9,13 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
 {
     public InvestmentRepository(AtriaDbContext db) : base(db) { }
 
+    public async Task<IReadOnlyDictionary<Guid, long>> GetActiveTokenTotalsByInvestorAsync(CancellationToken ct)
+        => await Set.AsNoTracking()
+            .Where(i => i.Status == InvestmentStatus.Active)
+            .GroupBy(i => i.InvestorId)
+            .Select(g => new { g.Key, Total = g.Sum(i => i.TokenCount) })
+            .ToDictionaryAsync(x => x.Key, x => (long)x.Total, ct);
+
     // Read-only list view; callers project scalar fields only.
     public async Task<IReadOnlyList<Investment>> GetByInvestorAsync(Guid investorId, CancellationToken ct)
         => await Set.AsNoTracking()

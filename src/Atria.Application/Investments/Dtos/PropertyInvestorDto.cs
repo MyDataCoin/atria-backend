@@ -7,4 +7,5 @@ namespace Atria.Application.Investments.Dtos;
 /// </summary>
 /// <param name="FullName">Investor's verified KYC full name (decrypted); <c>null</c> when unset or no profile.</param>
 /// <param name="Tokens">Total tokens held across the investor's Active investments in the property.</param>
-public sealed record PropertyInvestorDto(string? FullName, int Tokens);
+public sealed record PropertyInvestorDto(
+    string? FullName, int Tokens, Guid InvestorId = default, string? WalletAddress = null);

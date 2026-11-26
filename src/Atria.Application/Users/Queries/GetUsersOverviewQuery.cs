@@ -16,12 +16,18 @@ public sealed class GetUsersOverviewQueryHandler
     : IRequestHandler<GetUsersOverviewQuery, Result<IReadOnlyList<UserOverviewDto>>>
 {
     private readonly IUserRepository _users;
+    private readonly IInvestmentRepository _investments;
 
-    public GetUsersOverviewQueryHandler(IUserRepository users) => _users = users;
+    public GetUsersOverviewQueryHandler(IUserRepository users, IInvestmentRepository investments)
+    {
+        _users = users;
+        _investments = investments;
+    }
 
     public async Task<Result<IReadOnlyList<UserOverviewDto>>> Handle(GetUsersOverviewQuery request, CancellationToken ct)
     {
         var rows = await _users.GetOverviewAsync(ct);
+        var tokens = await _investments.GetActiveTokenTotalsByInvestorAsync(ct);
 
         IReadOnlyList<UserOverviewDto> dtos = rows
             .Select(r => new UserOverviewDto(
@@ -33,7 +39,8 @@ public sealed class GetUsersOverviewQueryHandler
                 r.Kyc?.Id,
                 r.User.Role,
                 r.User.IsBanned,
-                r.User.CreatedAtUtc))
+                r.User.CreatedAtUtc,
+                tokens.TryGetValue(r.User.Id, out var t) ? t : 0))
             .ToList();
 
         return Result.Success(dtos);

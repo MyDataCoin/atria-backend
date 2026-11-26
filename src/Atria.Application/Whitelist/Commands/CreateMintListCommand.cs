@@ -1,3 +1,4 @@
+using Atria.Domain.Investments;
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Domain.Common;
@@ -30,6 +31,7 @@ public sealed class CreateMintListCommandHandler : IRequestHandler<CreateMintLis
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _uow;
+    private readonly IInvestmentRepository _investments;
 
     public CreateMintListCommandHandler(
         IMintListRepository lists,
@@ -37,8 +39,10 @@ public sealed class CreateMintListCommandHandler : IRequestHandler<CreateMintLis
         IPropertyRepository properties,
         ICurrentUserService currentUser,
         IDateTimeProvider clock,
-        IUnitOfWork uow)
+        IUnitOfWork uow,
+        IInvestmentRepository investments)
     {
+        _investments = investments;
         _lists = lists;
         _entries = entries;
         _properties = properties;
@@ -74,13 +78,21 @@ public sealed class CreateMintListCommandHandler : IRequestHandler<CreateMintLis
                     "A selected request is not approved, already batched, belongs to another issuance, "
                     + "or has no wallet address."));
 
+            if (await PlatformMintingAsync(found, ct) is { Count: > 0 })
+                return Result.Failure<Guid>(Error.Conflict(
+                    "mintList.platformMinting",
+                    "A selected request is already being minted by the platform after approval (see "
+                    + "«Операции в сети»). Batching it again would mint the shares twice."));
+
             selected = found;
         }
         else
         {
             var ready = await _entries.ListForOperatorAsync(
                 request.PropertyId, WhitelistStatus.Ready, int.MaxValue, ct);
-            var mintable = ready.Select(r => r.Entry).Where(e => e.IsMintable).Select(e => e.Id).ToList();
+            var candidates = ready.Select(r => r.Entry).Where(e => e.IsMintable).ToList();
+            var inFlight = await PlatformMintingAsync(candidates, ct);
+            var mintable = candidates.Where(e => !inFlight.Contains(e.Id)).Select(e => e.Id).ToList();
             if (mintable.Count == 0)
                 return Result.Failure<Guid>(Error.Conflict(
                     "mintList.nothingMintable", "This issuance has no requests ready to be minted."));
@@ -127,5 +139,22 @@ public sealed class CreateMintListCommandHandler : IRequestHandler<CreateMintLis
         var year = _clock.UtcNow.Year;
         var count = await _lists.CountForYearAsync(year, ct);
         return $"ML-{year}-{count + 1:D4}";
+    }
+
+    /// <summary>
+    /// Entries whose investment already has an on-chain allocation (pending, confirmed or failed).
+    /// Approval queues a TokenAllocation by itself; a manual batch on top of it mints twice. A failed
+    /// one is retried from «Операции в сети», not re-batched.
+    /// </summary>
+    private async Task<HashSet<Guid>> PlatformMintingAsync(
+        IReadOnlyCollection<WhitelistEntry> entries, CancellationToken ct)
+    {
+        if (entries.Count == 0)
+            return new HashSet<Guid>();
+
+        var investments = await _investments.GetByIdsAsync(entries.Select(e => e.InvestmentId).Distinct().ToList(), ct);
+        var busy = investments.Where(i => i.OnChainStatus != OnChainStatus.None).Select(i => i.Id).ToHashSet();
+
+        return entries.Where(e => busy.Contains(e.InvestmentId)).Select(e => e.Id).ToHashSet();
     }
 }

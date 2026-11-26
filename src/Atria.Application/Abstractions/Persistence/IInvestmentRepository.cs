@@ -29,6 +29,9 @@ public interface IInvestmentRepository : IRepository<Investment>
     /// <summary>DB-side aggregate of the investor's Active investments: total invested and active count.</summary>
     Task<(decimal TotalInvested, int ActiveCount)> GetActiveTotalsAsync(Guid investorId, CancellationToken ct);
 
+    /// <summary>Shares held per investor across all issues (Active investments only).</summary>
+    Task<IReadOnlyDictionary<Guid, long>> GetActiveTokenTotalsByInvestorAsync(CancellationToken ct);
+
     /// <summary>
     /// Active investments in a property with their token counts and the investor's (optional) KYC
     /// profile. The KYC entity is materialized so its encrypted FullName is decrypted by the value

@@ -35,4 +35,5 @@ public sealed record UserOverviewDto(
     Guid? KycProfileId,
     Role Role,
     bool Blocked,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    long TotalTokens = 0);

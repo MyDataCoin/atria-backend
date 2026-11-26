@@ -162,7 +162,7 @@ public sealed class ListBlockchainOperationsQueryHandler
             return new PayloadFacts(
                 ReadGuid(root, "propertyId"),
                 ReadGuid(root, "investorId"),
-                ReadString(root, "wallet") ?? ReadString(root, "address"),
+                ReadString(root, "wallet") ?? ReadString(root, "walletAddress") ?? ReadString(root, "address"),
                 ReadString(root, "chain"),
                 root.TryGetProperty("tokenCount", out var tc) && tc.TryGetInt64(out var count)
                     ? count

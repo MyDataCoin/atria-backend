@@ -30,7 +30,9 @@ public sealed class GetPropertyInvestorsQueryHandler
             .GroupBy(r => r.InvestorId)
             .Select(g => new PropertyInvestorDto(
                 g.First().Kyc?.FullName,
-                (int)g.Sum(r => r.TokenCount)))
+                (int)g.Sum(r => r.TokenCount),
+                g.Key,
+                g.First().Kyc?.WalletAddress))
             .ToList();
 
         return Result.Success(dtos);
