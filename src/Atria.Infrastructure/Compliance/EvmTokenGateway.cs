@@ -6,8 +6,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nethereum.ABI.FunctionEncoding.Attributes;
 using Nethereum.Contracts;
+using Nethereum.Contracts.ContractHandlers;
 using Nethereum.Web3;
 using Nethereum.Web3.Accounts;
+using Nethereum.Hex.HexConvertors.Extensions;
 using Atria.Domain.Investments;
 
 namespace Atria.Infrastructure.Compliance;
@@ -63,30 +65,13 @@ public sealed class EvmTokenGateway : ITokenGateway
         // shares — which is why the conversion goes through TokenAmount rather than a literal.
         var mint = new MintFunction { To = toAddress, Amount = TokenAmount.ToMinor(amount) };
 
-        // Pass the caller's token through: waiting for a receipt polls indefinitely by default, so a
-        // shut-down or an abandoned request would otherwise leave a worker parked on a chain that has
-        // stopped producing blocks.
-        using var receiptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var receipt = await handler.SendRequestAndWaitForReceiptAsync(
-            tokenContractAddress, mint, receiptCts);
+        var txHash = await SendOnceAsync(web3, handler, tokenContractAddress, mint, ct);
 
-        // A receipt with status 0 is a reverted transaction — most often the address never made it
-        // onto the allowlist. It costs gas and changes nothing, and reporting it as a successful
-        // mint would leave the registry counting shares that do not exist.
-        var succeeded = receipt.Status?.Value == 1;
+        _logger.LogInformation(
+            "Mint of {Amount} share(s) to {To} on {Contract} ({Chain}) broadcast: tx {TxHash}.",
+            amount, toAddress, tokenContractAddress, chainTag, txHash);
 
-        _logger.Log(
-            succeeded ? LogLevel.Information : LogLevel.Error,
-            "Mint of {Amount} share(s) to {To} on {Contract} ({Chain}): tx {TxHash}, status {Status}.",
-            amount, toAddress, tokenContractAddress, chainTag, receipt.TransactionHash,
-            succeeded ? "confirmed" : "REVERTED");
-
-        if (!succeeded)
-            throw new InvalidOperationException(
-                $"Mint reverted on chain (tx {receipt.TransactionHash}). The recipient is most likely "
-                + "not on the allowlist, or the issue's cap would be exceeded.");
-
-        return new TokenWriteResult(receipt.TransactionHash, Confirmed: true);
+        return new TokenWriteResult(txHash, Confirmed: false);
     }
 
     public async Task<TokenWriteResult> BurnAsync(
@@ -106,22 +91,13 @@ public sealed class EvmTokenGateway : ITokenGateway
             Reason = ReasonToBytes32(reason)
         };
 
-        using var receiptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var receipt = await handler.SendRequestAndWaitForReceiptAsync(
-            tokenContractAddress, burn, receiptCts);
+        var txHash = await SendOnceAsync(web3, handler, tokenContractAddress, burn, ct);
 
-        // Status 0 most often means the holder no longer has that many shares — they sold some on
-        // an exchange after buying. Reporting it as burned would leave the platform believing shares
-        // are gone while they sit in someone's wallet.
-        var succeeded = receipt.Status?.Value == 1;
+        _logger.LogInformation(
+            "Burn of {Amount} share(s) from {From} on {Contract} ({Chain}) broadcast: tx {TxHash}.",
+            amount, fromAddress, tokenContractAddress, chainTag, txHash);
 
-        _logger.Log(
-            succeeded ? LogLevel.Information : LogLevel.Error,
-            "Burn of {Amount} share(s) from {From} on {Contract} ({Chain}): tx {TxHash}, status {Status}.",
-            amount, fromAddress, tokenContractAddress, chainTag, receipt.TransactionHash,
-            succeeded ? "confirmed" : "REVERTED");
-
-        return new TokenWriteResult(receipt.TransactionHash, succeeded);
+        return new TokenWriteResult(txHash, Confirmed: false);
     }
 
     /// <summary>
@@ -161,23 +137,60 @@ public sealed class EvmTokenGateway : ITokenGateway
             Uri = uri ?? string.Empty
         };
 
-        using var receiptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var receipt = await handler.SendRequestAndWaitForReceiptAsync(
-            tokenContractAddress, report, receiptCts);
-        var succeeded = receipt.Status?.Value == 1;
+        var txHash = await SendOnceAsync(web3, handler, tokenContractAddress, report, ct);
 
-        _logger.Log(
-            succeeded ? LogLevel.Information : LogLevel.Error,
-            "Collateral report for {Contract} ({Chain}): tx {TxHash}, status {Status}.",
-            tokenContractAddress, chainTag, receipt.TransactionHash,
-            succeeded ? "confirmed" : "REVERTED");
+        _logger.LogInformation(
+            "Collateral report for {Contract} ({Chain}) broadcast: tx {TxHash}.",
+            tokenContractAddress, chainTag, txHash);
 
-        if (!succeeded)
-            throw new InvalidOperationException(
-                $"Collateral report reverted on chain (tx {receipt.TransactionHash}). The signing key "
-                + "most likely does not hold ORACLE_ROLE on this contract.");
+        return new TokenWriteResult(txHash, Confirmed: false);
+    }
 
-        return new TokenWriteResult(receipt.TransactionHash, Confirmed: true);
+    /// <summary>
+    /// Signs locally, so the transaction hash is known BEFORE anything reaches the network, then
+    /// broadcasts it once and returns that hash. The worker's reconciliation pass reads the receipt.
+    /// </summary>
+    /// <remarks>
+    /// This used to send and wait for the receipt in one call. When the node failed on the receipt
+    /// poll (a public RPC answering 403 under load) the call threw although the transaction was
+    /// already mined, the worker counted the attempt as failed and minted again: one paid share
+    /// became four on BSC mainnet. Now a transport failure during broadcast is an UNKNOWN outcome,
+    /// not a failure — the hash is returned anyway and the reconciler settles it from the chain.
+    /// Only an explicit JSON-RPC rejection (nonce too low, insufficient funds, revert on estimate)
+    /// proves nothing was broadcast and is rethrown so the operation can be retried.
+    /// </remarks>
+    private async Task<string> SendOnceAsync<TFunction>(
+        Web3 web3, IContractTransactionHandler<TFunction> handler, string contractAddress,
+        TFunction message, CancellationToken ct)
+        where TFunction : FunctionMessage, new()
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var signed = await handler.SignTransactionAsync(contractAddress, message);
+        var raw = signed.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? signed : "0x" + signed;
+        var txHash = Nethereum.Util.Sha3Keccack.Current.CalculateHashFromHex(raw).EnsureHexPrefix();
+
+        try
+        {
+            await web3.Eth.Transactions.SendRawTransaction.SendRequestAsync(raw);
+        }
+        catch (Nethereum.JsonRpc.Client.RpcResponseException ex)
+            when (ex.Message.Contains("already known", StringComparison.OrdinalIgnoreCase))
+        {
+            // The node already holds this exact transaction — it was broadcast.
+        }
+        catch (Nethereum.JsonRpc.Client.RpcResponseException)
+        {
+            throw; // The node rejected it outright: nothing went out, a retry is safe.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Broadcast of tx {TxHash} to {Contract} ended without an answer; recording it as "
+                + "submitted and leaving the chain to say whether it landed.", txHash, contractAddress);
+        }
+
+        return txHash;
     }
 
     private Web3 OracleClientFor(string chainTag)
