@@ -32,6 +32,15 @@ public static class RefreshTokenCookie
 {
     public const string Name = "atria_refresh";
 
+    /// <summary>
+    /// Separate cookie for the admin panel. All browser tabs share one cookie jar for the API host, so
+    /// with a single name an investor sign-in on app.atria.kg overwrote the admin session and vice
+    /// versa — each panel then woke up holding the other role's session and had to warn about it.
+    /// The admin panel (any <c>admin.*</c> origin) gets its own name; the public site and the investor
+    /// cabinet keep sharing <see cref="Name"/>, which is the one sign-in they are meant to share.
+    /// </summary>
+    public const string AdminName = "atria_admin_refresh";
+
     private const string Path = "/api/v1/auth";
 
     /// <summary>Writes the refresh token as a cookie scoped to the auth routes.</summary>
@@ -41,7 +50,7 @@ public static class RefreshTokenCookie
     /// </param>
     public static void Write(
         HttpResponse response, string refreshToken, DateTime expiresAtUtc, string? domain = null)
-        => response.Cookies.Append(Name, refreshToken, new CookieOptions
+        => response.Cookies.Append(NameFor(response.HttpContext.Request), refreshToken, new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
@@ -54,7 +63,7 @@ public static class RefreshTokenCookie
 
     /// <summary>Reads the refresh token from the cookie, or null when absent.</summary>
     public static string? Read(HttpRequest request)
-        => request.Cookies.TryGetValue(Name, out var value) && !string.IsNullOrWhiteSpace(value)
+        => request.Cookies.TryGetValue(NameFor(request), out var value) && !string.IsNullOrWhiteSpace(value)
             ? value
             : null;
 
@@ -64,7 +73,7 @@ public static class RefreshTokenCookie
     /// the real one in place and only expires a host-only cookie that was never there.
     /// </remarks>
     public static void Clear(HttpResponse response, string? domain = null)
-        => response.Cookies.Delete(Name, new CookieOptions
+        => response.Cookies.Delete(NameFor(response.HttpContext.Request), new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
@@ -100,6 +109,10 @@ public static class RefreshTokenCookie
             ? domain
             : null;
     }
+
+    /// <summary>The cookie name for the panel the request comes from.</summary>
+    public static string NameFor(HttpRequest request)
+        => BrowserHost(request).StartsWith("admin.", StringComparison.OrdinalIgnoreCase) ? AdminName : Name;
 
     /// <summary>Does <paramref name="domain"/> (e.g. <c>.atria.kg</c>) cover <paramref name="host"/>?</summary>
     private static bool Covers(string domain, string host)

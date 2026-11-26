@@ -127,6 +127,26 @@ public sealed class AuthFlowTests : IClassFixture<AtriaApiFactory>
         refreshed.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task SignInFromAdminOrigin_UsesItsOwnRefreshCookie_SoItCannotClobberTheInvestorSession()
+    {
+        var client = _factory.CreateClient();
+        var phone = UniqueKgPhone();
+        await client.PostAsJsonAsync(RequestOtpRoute, new { phone });
+
+        using var verifyRequest = new HttpRequestMessage(HttpMethod.Post, VerifyOtpRoute)
+        {
+            Content = JsonContent.Create(new { phone, code = _factory.Sms.CodeFor(phone) })
+        };
+        verifyRequest.Headers.Add("Origin", "https://admin.atria.kg");
+        var verify = await client.SendAsync(verifyRequest);
+
+        verify.IsSuccessStatusCode.Should().BeTrue();
+        verify.Headers.GetValues("Set-Cookie").Should()
+            .Contain(c => c.StartsWith("atria_admin_refresh=", StringComparison.Ordinal))
+            .And.NotContain(c => c.StartsWith("atria_refresh=", StringComparison.Ordinal));
+    }
+
     /// <summary>Extracts the <c>atria_refresh</c> Set-Cookie value as a "name=value" pair, or null.</summary>
     private static string? RefreshCookieFrom(HttpResponseMessage response)
     {
