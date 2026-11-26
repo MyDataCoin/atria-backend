@@ -22,7 +22,8 @@ public sealed class IssueTaxStatementCommandHandlerTests
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
     private static readonly Guid InvestorId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly DateTime Now = new(2026, 8, 4, 10, 0, 0, DateTimeKind.Utc);
+    // The statement year (2026) has ended by the time it is issued.
+    private static readonly DateTime Now = new(2027, 2, 4, 10, 0, 0, DateTimeKind.Utc);
 
     private readonly List<TaxStatement> _issued = new();
 
@@ -163,5 +164,14 @@ public sealed class IssueTaxStatementCommandHandlerTests
             .ToList();
 
         codes.Distinct().Should().HaveCount(codes.Count);
+    }
+
+    [Fact]
+    public async Task The_current_year_cannot_be_issued_before_it_ends()
+    {
+        var result = await NewHandler().Handle(new IssueTaxStatementCommand(2027), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("taxStatement.yearNotOver");
     }
 }

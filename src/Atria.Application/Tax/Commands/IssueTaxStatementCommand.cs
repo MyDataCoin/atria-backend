@@ -57,9 +57,11 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
                 Error.Unauthorized("taxStatement.unauthorized", "Authentication is required."));
 
         var now = _clock.UtcNow;
-        if (request.Year > now.Year)
+        // The current year is not over: a statement is issued once per year and then frozen, so
+        // issuing it now would lock in a year without its remaining months.
+        if (request.Year >= now.Year)
             return Result.Failure<Guid>(Error.Validation(
-                "taxStatement.futureYear", "A statement cannot be issued for a year that has not happened."));
+                "taxStatement.yearNotOver", "A statement can only be issued for a year that has ended."));
 
         var existing = await _statements.FindAsync(userId.Value, request.Year, ct);
         if (existing is not null)
