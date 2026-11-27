@@ -3,6 +3,7 @@ using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Domain.Common;
 using Atria.Domain.Kyc;
+using Atria.Domain.Payouts;
 using Atria.Domain.Tax;
 
 namespace Atria.Application.Tax.Commands;
@@ -23,6 +24,7 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
 {
     private readonly ITaxStatementRepository _statements;
     private readonly IInvestmentRepository _investments;
+    private readonly IPayoutRunRepository _payouts;
     private readonly IKycRepository _kyc;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
@@ -31,6 +33,7 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
     public IssueTaxStatementCommandHandler(
         ITaxStatementRepository statements,
         IInvestmentRepository investments,
+        IPayoutRunRepository payouts,
         IKycRepository kyc,
         ICurrentUserService currentUser,
         IDateTimeProvider clock,
@@ -38,6 +41,7 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
     {
         _statements = statements;
         _investments = investments;
+        _payouts = payouts;
         _kyc = kyc;
         _currentUser = currentUser;
         _clock = clock;
@@ -83,10 +87,20 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
         var currency = holdings[0].Currency;
         var totalInvested = holdings.Sum(h => h.Amount);
 
-        // No distribution has ever been paid: the payout module does not exist yet. The statement
-        // reports zero income and says so, rather than leaving a reader to assume the field was
-        // simply left blank.
-        const decimal totalIncome = 0m;
+        // Income is what was actually paid to this investor in the year: dividend lines recorded as
+        // paid, dated by the payment, not by the register cut. A capital return is the investor's own
+        // money coming back and is not income; a line still pending or failed was not received.
+        var paidIncome = (await _payouts.ListForInvestorAsync(userId.Value, ct))
+            .Where(x => x.Run.Kind == PayoutKind.Dividend
+                        && x.Item.Status == PayoutItemStatus.Paid
+                        && x.Item.PaidAtUtc is { } paidAt
+                        && paidAt.Year == request.Year
+                        && string.Equals(x.Run.Currency, currency, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => x.Item.PaidAtUtc)
+            .ToList();
+
+        var totalIncome = paidIncome.Sum(x => x.Item.Amount);
+        var holdingNames = holdings.GroupBy(h => h.PropertyId).ToDictionary(g => g.Key, g => g.First().PropertyName);
 
         // Relaxed escaping so the stored document reads as Cyrillic text rather than \uXXXX escapes:
         // this JSON is the statement's content, not a wire payload.
@@ -96,7 +110,19 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
             issuedAtUtc = now,
             investor = new { fullName = profile.FullName },
             totals = new { invested = totalInvested, income = totalIncome, currency },
-            incomeNote = "За отчётный период выплаты дохода не производились.",
+            incomeNote = paidIncome.Count == 0
+                ? "За отчётный период выплаты дохода не производились."
+                : null,
+            payouts = paidIncome.Select(x => new
+            {
+                propertyId = x.Run.PropertyId,
+                propertyName = holdingNames.GetValueOrDefault(x.Run.PropertyId),
+                paidAtUtc = x.Item.PaidAtUtc,
+                tokens = x.Item.TokenCount,
+                amount = x.Item.Amount,
+                currency = x.Run.Currency,
+                reference = x.Item.SettlementReference
+            }),
             holdings = holdings.Select(h => new
             {
                 propertyId = h.PropertyId,

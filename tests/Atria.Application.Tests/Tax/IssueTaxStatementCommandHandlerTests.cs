@@ -1,7 +1,9 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Application.Tax.Commands;
+using Atria.Domain.Holders;
 using Atria.Domain.Kyc;
+using Atria.Domain.Payouts;
 using Atria.Domain.Tax;
 using FluentAssertions;
 using NSubstitute;
@@ -16,6 +18,7 @@ public sealed class IssueTaxStatementCommandHandlerTests
 {
     private readonly ITaxStatementRepository _statements = Substitute.For<ITaxStatementRepository>();
     private readonly IInvestmentRepository _investments = Substitute.For<IInvestmentRepository>();
+    private readonly IPayoutRunRepository _payouts = Substitute.For<IPayoutRunRepository>();
     private readonly IKycRepository _kyc = Substitute.For<IKycRepository>();
     private readonly ICurrentUserService _currentUser = Substitute.For<ICurrentUserService>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
@@ -36,7 +39,24 @@ public sealed class IssueTaxStatementCommandHandlerTests
     }
 
     private IssueTaxStatementCommandHandler NewHandler() =>
-        new(_statements, _investments, _kyc, _currentUser, _clock, _uow);
+        new(_statements, _investments, _payouts, _kyc, _currentUser, _clock, _uow);
+
+    // One distribution to this investor, approved and — when paidAt is given — recorded as paid then.
+    private (PayoutRun Run, PayoutItem Item) PayoutLine(
+        PayoutKind kind, decimal amount, DateTime? paidAt, string currency = "KGS")
+    {
+        var snapshot = HolderSnapshot.Create(
+            Guid.NewGuid(), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), SnapshotPurpose.Payout, 100,
+            Guid.NewGuid(), [new HolderSnapshotEntry("0xaaa", 100, InvestorId)]);
+        var run = PayoutRun.Create(snapshot, kind, PayoutMethod.BankTransfer, amount, currency, Guid.NewGuid(), null);
+        var item = run.Items.Single();
+        if (paidAt is { } at)
+        {
+            run.Approve(at.AddDays(-1));
+            run.SettleItem(item.Id, "PP-1", at);
+        }
+        return (run, item);
+    }
 
     private void GivenApprovedKyc(string fullName = "Иванов Иван Иванович")
     {
@@ -73,7 +93,29 @@ public sealed class IssueTaxStatementCommandHandlerTests
         statement.Content.Should().Contain("Tower One").And.Contain("Tower Two");
     }
 
-    /// <summary>No payout module exists yet, so the statement says zero rather than leaving it blank.</summary>
+    [Fact]
+    public async Task Income_is_the_dividends_actually_paid_in_that_year()
+    {
+        GivenApprovedKyc();
+        GivenHoldings((Guid.NewGuid(), "Tower One", 30, 3_000m, 1_000));
+        _payouts.ListForInvestorAsync(InvestorId, Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            PayoutLine(PayoutKind.Dividend, 120m, new DateTime(2026, 3, 10, 0, 0, 0, DateTimeKind.Utc)),
+            PayoutLine(PayoutKind.Dividend, 80m, new DateTime(2026, 9, 10, 0, 0, 0, DateTimeKind.Utc)),
+            // Paid the next year, a return of capital, and a line never paid: none of them is 2026 income.
+            PayoutLine(PayoutKind.Dividend, 500m, new DateTime(2027, 1, 20, 0, 0, 0, DateTimeKind.Utc)),
+            PayoutLine(PayoutKind.CapitalReturn, 1_000m, new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc)),
+            PayoutLine(PayoutKind.Dividend, 70m, null),
+        });
+
+        await NewHandler().Handle(new IssueTaxStatementCommand(2026), CancellationToken.None);
+
+        var statement = _issued.Single();
+        statement.TotalIncome.Should().Be(200m);
+        statement.Content.Should().NotContain("выплаты дохода не производились");
+    }
+
+    /// <summary>With nothing paid in the year the statement says zero rather than leaving it blank.</summary>
     [Fact]
     public async Task Income_is_reported_as_zero_with_an_explicit_note()
     {
