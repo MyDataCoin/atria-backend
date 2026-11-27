@@ -19,6 +19,7 @@ public sealed class IssueTaxStatementCommandHandlerTests
     private readonly ITaxStatementRepository _statements = Substitute.For<ITaxStatementRepository>();
     private readonly IInvestmentRepository _investments = Substitute.For<IInvestmentRepository>();
     private readonly IPayoutRunRepository _payouts = Substitute.For<IPayoutRunRepository>();
+    private readonly IPropertyRepository _properties = Substitute.For<IPropertyRepository>();
     private readonly IKycRepository _kyc = Substitute.For<IKycRepository>();
     private readonly ICurrentUserService _currentUser = Substitute.For<ICurrentUserService>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
@@ -39,7 +40,7 @@ public sealed class IssueTaxStatementCommandHandlerTests
     }
 
     private IssueTaxStatementCommandHandler NewHandler() =>
-        new(_statements, _investments, _payouts, _kyc, _currentUser, _clock, _uow);
+        new(_statements, _investments, _payouts, _properties, _kyc, _currentUser, _clock, _uow);
 
     // One distribution to this investor, approved and — when paidAt is given — recorded as paid then.
     private (PayoutRun Run, PayoutItem Item) PayoutLine(
@@ -245,5 +246,22 @@ public sealed class IssueTaxStatementCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         _issued.Single().TotalIncome.Should().Be(50m);
         _issued.Single().TotalInvested.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task A_payout_from_a_property_sold_during_the_year_still_names_it()
+    {
+        GivenApprovedKyc();
+        GivenHoldings();
+        var line = PayoutLine(PayoutKind.Dividend, 50m, new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc));
+        var sold = Atria.Domain.Investments.Property.Create("Бизнес-центр Восток", null, null, 1_000_000m, 100m, 10_000, "KGS");
+        _properties.GetByIdAsync(line.Run.PropertyId, Arg.Any<CancellationToken>()).Returns(sold);
+        _payouts.ListForInvestorAsync(InvestorId, Arg.Any<CancellationToken>()).Returns(new[] { line });
+
+        await NewHandler().Handle(new IssueTaxStatementCommand(2026), CancellationToken.None);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(_issued.Single().Content);
+        doc.RootElement.GetProperty("payouts")[0].GetProperty("propertyName").GetString()
+            .Should().Be("Бизнес-центр Восток");
     }
 }

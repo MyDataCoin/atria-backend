@@ -25,6 +25,7 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
     private readonly ITaxStatementRepository _statements;
     private readonly IInvestmentRepository _investments;
     private readonly IPayoutRunRepository _payouts;
+    private readonly IPropertyRepository _properties;
     private readonly IKycRepository _kyc;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
@@ -34,6 +35,7 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
         ITaxStatementRepository statements,
         IInvestmentRepository investments,
         IPayoutRunRepository payouts,
+        IPropertyRepository properties,
         IKycRepository kyc,
         ICurrentUserService currentUser,
         IDateTimeProvider clock,
@@ -42,6 +44,7 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
         _statements = statements;
         _investments = investments;
         _payouts = payouts;
+        _properties = properties;
         _kyc = kyc;
         _currentUser = currentUser;
         _clock = clock;
@@ -107,7 +110,17 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
         if (holdings.Count == 0 && paidIncome.Count == 0)
             return Result.Failure<Guid>(Error.Conflict(
                 "taxStatement.noHoldings", "There are no holdings or income to report for this year."));
-        var holdingNames = holdings.GroupBy(h => h.PropertyId).ToDictionary(g => g.Key, g => g.First().PropertyName);
+
+        // Every payout line names its property. Most are among the year-end holdings; one sold
+        // during the year is not, so its name comes from the property itself.
+        var propertyNames = holdings.GroupBy(h => h.PropertyId).ToDictionary(g => g.Key, g => g.First().PropertyName);
+        foreach (var propertyId in paidIncome.Select(x => x.Run.PropertyId).Distinct())
+        {
+            if (propertyNames.ContainsKey(propertyId)) continue;
+            var property = await _properties.GetByIdAsync(propertyId, ct);
+            if (property is not null)
+                propertyNames[propertyId] = property.Name;
+        }
 
         // Relaxed escaping so the stored document reads as Cyrillic text rather than \uXXXX escapes:
         // this JSON is the statement's content, not a wire payload.
@@ -124,7 +137,7 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
             payouts = paidIncome.Select(x => new
             {
                 propertyId = x.Run.PropertyId,
-                propertyName = holdingNames.GetValueOrDefault(x.Run.PropertyId),
+                propertyName = propertyNames.GetValueOrDefault(x.Run.PropertyId),
                 paidAtUtc = x.Item.PaidAtUtc,
                 tokens = x.Item.TokenCount,
                 amount = x.Item.Amount,
