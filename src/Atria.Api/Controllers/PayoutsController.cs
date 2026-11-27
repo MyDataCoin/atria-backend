@@ -95,7 +95,7 @@ public sealed class PayoutsController : ApiControllerBase
     /// <param name="id">The distribution.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "Admin,Auditor")]
+    [Authorize(Roles = "Admin,Auditor,SuperAdmin")]
     [ProducesResponseType<PayoutRunDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

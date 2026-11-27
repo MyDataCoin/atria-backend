@@ -41,14 +41,17 @@ public sealed class PayoutSettlementHandlers
       IRequestHandler<CancelPayoutRunCommand, Result>
 {
     private readonly IPayoutRunRepository _runs;
+    private readonly IOperatingPeriodRepository _periods;
     private readonly IDateTimeProvider _clock;
     private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _uow;
 
     public PayoutSettlementHandlers(
-        IPayoutRunRepository runs, IDateTimeProvider clock, IAuditWriter audit, IUnitOfWork uow)
+        IPayoutRunRepository runs, IOperatingPeriodRepository periods, IDateTimeProvider clock,
+        IAuditWriter audit, IUnitOfWork uow)
     {
         _runs = runs;
+        _periods = periods;
         _clock = clock;
         _audit = audit;
         _uow = uow;
@@ -93,15 +96,26 @@ public sealed class PayoutSettlementHandlers
             ct);
 
     public async Task<Result> Handle(CancelPayoutRunCommand request, CancellationToken ct)
-        => await MutateAsync(
+    {
+        // A cancelled dividend paid nobody, so the period it was declared from gets its income back
+        // and can be distributed again. Loaded before the mutation so both are saved together.
+        var period = await _periods.FindByPayoutRunAsync(request.RunId, ct);
+
+        return await MutateAsync(
             request.RunId,
             run =>
             {
                 run.Cancel(request.Reason);
+                if (period is not null)
+                {
+                    period.ReleaseDistribution(run.Id);
+                    _periods.Update(period);
+                }
                 return (AuditEvents.PayoutRunCancelled, AuditSeverity.Warning,
                     $"Распределение {run.DeclaredAmount} {run.Currency} отменено: {request.Reason}");
             },
             ct);
+    }
 
     /// <summary>
     /// Loads the run with its lines, applies the change, and journals it. The aggregate holds every

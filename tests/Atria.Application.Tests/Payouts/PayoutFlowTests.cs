@@ -70,7 +70,7 @@ public sealed class PayoutFlowTests
         => new(_runs, _snapshots, _properties, _periods, _currentUser, _audit, _uow);
 
     private PayoutSettlementHandlers NewSettlementHandlers()
-        => new(_runs, _clock, _audit, _uow);
+        => new(_runs, _periods, _clock, _audit, _uow);
 
     private PayoutRun Captured()
         => (PayoutRun)_runs.ReceivedCalls()

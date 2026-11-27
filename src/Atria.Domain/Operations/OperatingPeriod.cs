@@ -214,6 +214,20 @@ public sealed class OperatingPeriod : AggregateRoot
         PayoutRunId = payoutRunId;
     }
 
+    /// <summary>
+    /// Gives the period's income back when the distribution declared from it is called off before any
+    /// money moved. Without this a cancelled dividend would consume the period for good, and its
+    /// income could never be distributed at all.
+    /// </summary>
+    public void ReleaseDistribution(Guid payoutRunId)
+    {
+        if (Status != OperatingPeriodStatus.Distributed || PayoutRunId != payoutRunId)
+            throw new DomainException("This period was not distributed by that distribution.");
+
+        Status = OperatingPeriodStatus.Confirmed;
+        PayoutRunId = null;
+    }
+
     private static void RequireMinorUnits(decimal value, string what)
     {
         if (decimal.Round(value, MinorUnitScale) != value)

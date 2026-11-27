@@ -28,4 +28,7 @@ public sealed class OperatingPeriodRepository : Repository<OperatingPeriod>, IOp
                      && p.StartUtc == startUtc.Date
                      && p.EndUtc == endUtc.Date,
                 ct);
+
+    public Task<OperatingPeriod?> FindByPayoutRunAsync(Guid payoutRunId, CancellationToken ct)
+        => Set.Include(p => p.Lines).FirstOrDefaultAsync(p => p.PayoutRunId == payoutRunId, ct);
 }

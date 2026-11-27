@@ -172,4 +172,33 @@ public sealed class PayoutFromOperatingPeriodTests
         withPeriod.Error.Code.Should().Be("payout.periodNotApplicable");
         period.Status.Should().Be(OperatingPeriodStatus.Confirmed);
     }
+
+    [Fact]
+    public async Task Cancelling_a_dividend_gives_the_period_its_income_back()
+    {
+        // Otherwise a dividend called off before anyone was paid would consume the period for good.
+        var snapshot = GivenRegister();
+        var period = GivenConfirmedPeriod(snapshot.PropertyId);
+        PayoutRun? created = null;
+        await _runs.AddAsync(Arg.Do<PayoutRun>(r => created = r), Arg.Any<CancellationToken>());
+
+        var result = await NewHandler().Handle(
+            new CreatePayoutRunCommand(
+                snapshot.Id, PayoutKind.Dividend, PayoutMethod.BankTransfer, 100_000m, "KGS",
+                null, period.Id),
+            CancellationToken.None);
+        result.IsSuccess.Should().BeTrue();
+
+        _runs.GetWithItemsAsync(result.Value, Arg.Any<CancellationToken>()).Returns(created);
+        _periods.FindByPayoutRunAsync(result.Value, Arg.Any<CancellationToken>()).Returns(period);
+        var clock = Substitute.For<IDateTimeProvider>();
+        clock.UtcNow.Returns(Now);
+
+        var cancelled = await new PayoutSettlementHandlers(_runs, _periods, clock, _audit, _uow).Handle(
+            new CancelPayoutRunCommand(result.Value, "ошибка в сумме"), CancellationToken.None);
+
+        cancelled.IsSuccess.Should().BeTrue();
+        period.Status.Should().Be(OperatingPeriodStatus.Confirmed);
+        period.PayoutRunId.Should().BeNull();
+    }
 }

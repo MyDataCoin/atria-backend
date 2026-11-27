@@ -15,4 +15,7 @@ public interface IOperatingPeriodRepository : IRepository<OperatingPeriod>
     /// </summary>
     Task<OperatingPeriod?> FindByRangeAsync(
         Guid propertyId, DateTime startUtc, DateTime endUtc, CancellationToken ct);
+
+    /// <summary>The period a distribution was declared from, if it was declared from one.</summary>
+    Task<OperatingPeriod?> FindByPayoutRunAsync(Guid payoutRunId, CancellationToken ct);
 }
