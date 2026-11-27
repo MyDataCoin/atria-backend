@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Domain.Factories;
 using Atria.Domain.Investments;
+using Atria.Domain.Payments;
 using Atria.Domain.Trading;
 using Atria.Infrastructure.Persistence;
 using Atria.Infrastructure.Persistence.Repositories;
@@ -90,6 +91,26 @@ public sealed class HoldingsAtCutoffTests
 
         holdings.Single().TokenCount.Should().Be(5);
         holdings.Single().Amount.Should().Be(200m + 3 * 150m);
+    }
+
+    [Fact]
+    public async Task A_placement_paid_short_costs_what_was_actually_paid()
+    {
+        await using var db = NewDb();
+        var tower = Property.Create("Tower One", null, null, 1_000_000m, 100m, 10_000, "KGS");
+        db.Properties.Add(tower);
+        var placement = Placement(tower, 1, new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        db.Investments.Add(placement);
+        var invoice = CryptoInvoice.Issue(
+            placement.Id, _investor, CryptoPaymentMethod.KgstBep20, "0x1111111111111111111111111111111111111111",
+            100m, 1m, 86, new DateTime(2026, 3, 4, 0, 0, 0, DateTimeKind.Utc));
+        invoice.MarkPaid("0xtx", "0xfrom", new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc), receivedAmount: 98.86m);
+        db.Set<CryptoInvoice>().Add(invoice);
+        await db.SaveChangesAsync();
+
+        var holdings = await new InvestmentRepository(db).GetHoldingsAtAsync(_investor, Cutoff, CancellationToken.None);
+
+        holdings.Single().Amount.Should().Be(98.86m);
     }
 
     private sealed class NoOpEncryption : IEncryptionService

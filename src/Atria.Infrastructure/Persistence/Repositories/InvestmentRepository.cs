@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
+using Atria.Domain.Payments;
 using Atria.Domain.Trading;
 using Microsoft.EntityFrameworkCore;
 
@@ -98,8 +99,21 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
                         && (i.Status == InvestmentStatus.Active
                             || ((i.Status == InvestmentStatus.Withdrawn || i.Status == InvestmentStatus.Annulled)
                                 && i.ClosedAtUtc != null && i.ClosedAtUtc >= cutoffUtc)))
-            .Select(i => new { i.PropertyId, i.TokenCount, i.Amount, At = i.ActivatedAtUtc!.Value, i.WalletAddress })
+            .Select(i => new { i.Id, i.PropertyId, i.TokenCount, i.Amount, At = i.ActivatedAtUtc!.Value, i.WalletAddress })
             .ToListAsync(ct);
+
+        // The cost of a placement is what the investor actually paid for it. A crypto payment that
+        // arrived short and was accepted cost less than the share price; without a paid invoice
+        // (a bank transfer) the application amount is the cost.
+        var placementIds = placements.Select(p => p.Id).ToList();
+        var paidKgs = (await Db.Set<CryptoInvoice>().AsNoTracking()
+                .Where(i => placementIds.Contains(i.InvestmentId)
+                            && i.Status == CryptoInvoiceStatus.Paid
+                            && i.ReceivedAmount != null)
+                .Select(i => new { i.InvestmentId, Received = i.ReceivedAmount!.Value, i.RateKgs })
+                .ToListAsync(ct))
+            .GroupBy(x => x.InvestmentId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => decimal.Round(x.Received * x.RateKgs, 2)));
 
         // Every address the investor is known by: the register resolves addresses to investors, and
         // each placement names the wallet it was minted to. Secondary trades are matched on these.
@@ -127,7 +141,7 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
         // Replayed in time order per property, so a sale leaves at the average cost of what was held
         // at that moment, not at a cost that includes later purchases.
         var events = placements
-            .Select(p => (p.PropertyId, p.At, Tokens: p.TokenCount, Cost: p.Amount))
+            .Select(p => (p.PropertyId, p.At, Tokens: p.TokenCount, Cost: paidKgs.GetValueOrDefault(p.Id, p.Amount)))
             .Concat(trades.SelectMany(t =>
             {
                 var bought = wallets.Contains(t.BuyerAddress.ToLowerInvariant());
