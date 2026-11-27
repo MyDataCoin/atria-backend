@@ -26,6 +26,13 @@ public interface ICryptoInvoiceRepository : IRepository<CryptoInvoice>
         CryptoPaymentMethod method, string payToAddress, decimal amount, CancellationToken ct);
 
     Task<IReadOnlyList<CryptoInvoice>> ListAsync(CryptoInvoiceStatus? status, int take, CancellationToken ct);
+
+    /// <summary>
+    /// For each of these investments paid by crypto invoice: what actually arrived, in som. An
+    /// investment missing from the result was not paid through an invoice (a bank transfer, say).
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, decimal>> GetReceivedKgsAsync(
+        IReadOnlyCollection<Guid> investmentIds, CancellationToken ct);
 }
 
 public interface ICryptoDepositRepository : IRepository<CryptoDeposit>

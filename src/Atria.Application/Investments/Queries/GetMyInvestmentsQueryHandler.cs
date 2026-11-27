@@ -9,11 +9,13 @@ public sealed class GetMyInvestmentsQueryHandler
     : IRequestHandler<GetMyInvestmentsQuery, Result<IReadOnlyList<InvestmentDto>>>
 {
     private readonly IInvestmentRepository _investments;
+    private readonly ICryptoInvoiceRepository _invoices;
     private readonly ICurrentUserService _currentUser;
 
-    public GetMyInvestmentsQueryHandler(IInvestmentRepository investments, ICurrentUserService currentUser)
+    public GetMyInvestmentsQueryHandler(IInvestmentRepository investments, ICryptoInvoiceRepository invoices, ICurrentUserService currentUser)
     {
         _investments = investments;
+        _invoices = invoices;
         _currentUser = currentUser;
     }
 
@@ -26,10 +28,10 @@ public sealed class GetMyInvestmentsQueryHandler
 
         var investments = await _investments.GetByInvestorAsync(userId.Value, ct);
 
+        var received = await _invoices.GetReceivedKgsAsync(investments.Select(i => i.Id).ToList(), ct);
+
         IReadOnlyList<InvestmentDto> dtos = investments
-            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.InvestorId, i.TokenCount, i.Amount, i.Currency,
-                i.PricePerToken, i.Status, i.ReservedUntilUtc, i.WithdrawalDeadlineUtc, i.RejectionReason, i.OnChainStatus,
-                i.TransactionHash, i.CreatedAtUtc))
+            .Select(i => InvestmentDto.From(i, received))
             .ToList();
 
         return Result.Success(dtos);

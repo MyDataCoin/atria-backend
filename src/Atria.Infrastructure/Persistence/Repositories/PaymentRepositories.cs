@@ -21,6 +21,24 @@ public sealed class CryptoInvoiceRepository : Repository<CryptoInvoice>, ICrypto
 {
     public CryptoInvoiceRepository(AtriaDbContext db) : base(db) { }
 
+    public async Task<IReadOnlyDictionary<Guid, decimal>> GetReceivedKgsAsync(
+        IReadOnlyCollection<Guid> investmentIds, CancellationToken ct)
+    {
+        if (investmentIds.Count == 0)
+            return new Dictionary<Guid, decimal>();
+
+        var paid = await Set.AsNoTracking()
+            .Where(i => investmentIds.Contains(i.InvestmentId)
+                        && i.Status == CryptoInvoiceStatus.Paid
+                        && i.ReceivedAmount != null)
+            .Select(i => new { i.InvestmentId, Received = i.ReceivedAmount!.Value, i.RateKgs })
+            .ToListAsync(ct);
+
+        return paid
+            .GroupBy(x => x.InvestmentId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => decimal.Round(x.Received * x.RateKgs, 2)));
+    }
+
     public Task<CryptoInvoice?> GetLatestByInvestmentAsync(Guid investmentId, CancellationToken ct)
         => Set.AsNoTracking()
             .Where(i => i.InvestmentId == investmentId)

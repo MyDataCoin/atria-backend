@@ -23,6 +23,11 @@ namespace Atria.Application.Investments.Dtos;
 /// <param name="OnChainStatus">On-chain confirmation status of the token allocation (serialized by name).</param>
 /// <param name="TransactionHash">Mint transaction hash once submitted on chain; <c>null</c> until then.</param>
 /// <param name="CreatedAtUtc">UTC timestamp when the investment was created.</param>
+/// <param name="ReceivedKgs">
+/// What actually arrived for this application, in som, when it was paid by crypto invoice. It can be
+/// less than <paramref name="Amount"/> when a short payment was accepted and the difference written
+/// off. Null when there is no paid invoice (a bank transfer, or not paid yet).
+/// </param>
 public sealed record InvestmentDto(
     Guid Id,
     Guid PropertyId,
@@ -37,4 +42,12 @@ public sealed record InvestmentDto(
     string? RejectionReason,
     OnChainStatus OnChainStatus,
     string? TransactionHash,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    decimal? ReceivedKgs = null)
+{
+    public static InvestmentDto From(Investment i, IReadOnlyDictionary<Guid, decimal>? received = null) => new(
+        i.Id, i.PropertyId, i.InvestorId, i.TokenCount, i.Amount, i.Currency, i.PricePerToken, i.Status,
+        i.ReservedUntilUtc, i.WithdrawalDeadlineUtc, i.RejectionReason, i.OnChainStatus, i.TransactionHash,
+        i.CreatedAtUtc,
+        received is not null && received.TryGetValue(i.Id, out var kgs) ? kgs : null);
+}

@@ -12,11 +12,13 @@ public sealed class GetPortfolioQueryHandler
     : IRequestHandler<GetPortfolioQuery, Result<PortfolioDto>>
 {
     private readonly IInvestmentRepository _investments;
+    private readonly ICryptoInvoiceRepository _invoices;
     private readonly ICurrentUserService _currentUser;
 
-    public GetPortfolioQueryHandler(IInvestmentRepository investments, ICurrentUserService currentUser)
+    public GetPortfolioQueryHandler(IInvestmentRepository investments, ICryptoInvoiceRepository invoices, ICurrentUserService currentUser)
     {
         _investments = investments;
+        _invoices = invoices;
         _currentUser = currentUser;
     }
 
@@ -29,10 +31,10 @@ public sealed class GetPortfolioQueryHandler
 
         var investments = await _investments.GetByInvestorAsync(userId.Value, ct);
 
+        var received = await _invoices.GetReceivedKgsAsync(investments.Select(i => i.Id).ToList(), ct);
+
         var dtos = investments
-            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.InvestorId, i.TokenCount, i.Amount, i.Currency,
-                i.PricePerToken, i.Status, i.ReservedUntilUtc, i.WithdrawalDeadlineUtc, i.RejectionReason, i.OnChainStatus,
-                i.TransactionHash, i.CreatedAtUtc))
+            .Select(i => InvestmentDto.From(i, received))
             .ToList();
 
         // Only confirmed (Active) investments count toward invested capital; aggregated DB-side.

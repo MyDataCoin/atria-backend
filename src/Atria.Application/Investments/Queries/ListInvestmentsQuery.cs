@@ -19,8 +19,13 @@ public sealed class ListInvestmentsQueryHandler
     : IRequestHandler<ListInvestmentsQuery, Result<IReadOnlyList<InvestmentDto>>>
 {
     private readonly IInvestmentRepository _investments;
+    private readonly ICryptoInvoiceRepository _invoices;
 
-    public ListInvestmentsQueryHandler(IInvestmentRepository investments) => _investments = investments;
+    public ListInvestmentsQueryHandler(IInvestmentRepository investments, ICryptoInvoiceRepository invoices)
+    {
+        _investments = investments;
+        _invoices = invoices;
+    }
 
     public async Task<Result<IReadOnlyList<InvestmentDto>>> Handle(
         ListInvestmentsQuery request, CancellationToken ct)
@@ -28,10 +33,10 @@ public sealed class ListInvestmentsQueryHandler
         var take = Math.Clamp(request.Take, 1, 500);
         var investments = await _investments.ListAsync(request.Status, request.PropertyId, take, ct);
 
+        var received = await _invoices.GetReceivedKgsAsync(investments.Select(i => i.Id).ToList(), ct);
+
         IReadOnlyList<InvestmentDto> dtos = investments
-            .Select(i => new InvestmentDto(i.Id, i.PropertyId, i.InvestorId, i.TokenCount, i.Amount, i.Currency,
-                i.PricePerToken, i.Status, i.ReservedUntilUtc, i.WithdrawalDeadlineUtc, i.RejectionReason, i.OnChainStatus,
-                i.TransactionHash, i.CreatedAtUtc))
+            .Select(i => InvestmentDto.From(i, received))
             .ToList();
 
         return Result.Success(dtos);
