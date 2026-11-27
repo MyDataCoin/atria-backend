@@ -28,6 +28,8 @@ internal sealed class CryptoInvoiceConfiguration : IEntityTypeConfiguration<Cryp
         b.Property(i => i.Status).HasConversion<int>();
         b.Property(i => i.PayToAddress).HasMaxLength(PaymentSettings.MaxAddressLength).IsRequired();
         b.Property(i => i.PayAmount).HasPrecision(28, 8);
+        b.Property(i => i.ReceivedAmount).HasPrecision(28, 8);
+        b.Ignore(i => i.ShortfallKgs);
         b.Property(i => i.RateKgs).HasPrecision(18, 4);
         b.Property(i => i.AmountKgs).HasPrecision(18, 2);
         b.Property(i => i.TransactionHash).HasMaxLength(CryptoDeposit.MaxKeyLength);

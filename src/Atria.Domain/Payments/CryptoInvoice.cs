@@ -93,7 +93,23 @@ public sealed class CryptoInvoice : AggregateRoot
 
     public bool IsOpenAt(DateTime nowUtc) => Status == CryptoInvoiceStatus.Pending && nowUtc <= ExpiresAtUtc;
 
-    public void MarkPaid(string transactionHash, string fromAddress, DateTime paidAtUtc)
+    /// <summary>
+    /// What actually arrived, in the token. Equals <see cref="PayAmount"/> when the transfer matched
+    /// exactly; differs when an operator accepted a transfer that was short (a sender's fee, say).
+    /// Null until paid.
+    /// </summary>
+    public decimal? ReceivedAmount { get; private set; }
+
+    /// <summary>
+    /// How many som short of the application amount the payment fell, rounded to the tyiyn; zero
+    /// when it was paid in full or is not paid yet. A paid invoice with a shortfall means the
+    /// platform accepted the payment and wrote the difference off.
+    /// </summary>
+    public decimal ShortfallKgs => ReceivedAmount is { } received
+        ? Math.Max(0m, decimal.Round(AmountKgs - received * RateKgs, 2))
+        : 0m;
+
+    public void MarkPaid(string transactionHash, string fromAddress, DateTime paidAtUtc, decimal? receivedAmount = null)
     {
         if (Status != CryptoInvoiceStatus.Pending)
             throw new DomainException("Only a pending invoice can be paid.");
@@ -104,6 +120,7 @@ public sealed class CryptoInvoice : AggregateRoot
         TransactionHash = transactionHash;
         FromAddress = fromAddress;
         PaidAtUtc = paidAtUtc;
+        ReceivedAmount = receivedAmount ?? PayAmount;
     }
 
     public void Cancel()

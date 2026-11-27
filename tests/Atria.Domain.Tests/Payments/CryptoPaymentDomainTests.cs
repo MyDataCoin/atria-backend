@@ -45,6 +45,32 @@ public sealed class CryptoPaymentDomainTests
     }
 
     [Fact]
+    public void A_short_payment_records_what_arrived_and_how_much_was_written_off()
+    {
+        var invoice = CryptoInvoice.Issue(
+            Guid.NewGuid(), Guid.NewGuid(), CryptoPaymentMethod.KgstBep20, Bep20,
+            100m, 1m, 86, DateTime.UtcNow.AddDays(3));
+
+        invoice.MarkPaid("tx1", Bep20, DateTime.UtcNow, receivedAmount: 98.86m);
+
+        invoice.ReceivedAmount.Should().Be(98.86m);
+        invoice.ShortfallKgs.Should().Be(1.14m);
+    }
+
+    [Fact]
+    public void An_exact_payment_has_no_shortfall()
+    {
+        var invoice = CryptoInvoice.Issue(
+            Guid.NewGuid(), Guid.NewGuid(), CryptoPaymentMethod.KgstBep20, Bep20,
+            100m, 1m, 86, DateTime.UtcNow.AddDays(3));
+
+        invoice.MarkPaid("tx1", Bep20, DateTime.UtcNow);
+
+        invoice.ReceivedAmount.Should().Be(100.86m);
+        invoice.ShortfallKgs.Should().Be(0m);
+    }
+
+    [Fact]
     public void A_method_is_offered_only_when_everything_it_needs_is_set()
     {
         var settings = PaymentSettings.CreateEmpty();

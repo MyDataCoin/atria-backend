@@ -517,6 +517,7 @@ public sealed class BlockchainOperationWorker : BackgroundService
             return;
 
         Guid? investmentId = null;
+        string? wallet = null;
         try
         {
             using var payload = JsonDocument.Parse(operation.Payload);
@@ -524,6 +525,11 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 && value.TryGetGuid(out var parsed))
             {
                 investmentId = parsed;
+            }
+            if (payload.RootElement.TryGetProperty("wallet", out var walletValue)
+                && walletValue.ValueKind == JsonValueKind.String)
+            {
+                wallet = walletValue.GetString();
             }
         }
         catch (JsonException)
@@ -548,6 +554,18 @@ public sealed class BlockchainOperationWorker : BackgroundService
                 "Allocation {OperationId} references investment {InvestmentId}, which no longer exists.",
                 operation.Id, investmentId);
             return;
+        }
+
+        // The holder's chain record shows where the shares went: the address they were minted to and
+        // the issue's contract. The allocation is what knows both, so it records them on the way.
+        if (string.IsNullOrWhiteSpace(investment.WalletAddress) && !string.IsNullOrWhiteSpace(wallet))
+        {
+            var contract = await context.Set<Property>()
+                .Where(p => p.Id == investment.PropertyId)
+                .Select(p => p.TokenContractAddress)
+                .FirstOrDefaultAsync(ct);
+            if (!string.IsNullOrWhiteSpace(contract))
+                investment.SetTokenTarget(wallet, contract);
         }
 
         investment.SetOnChainResult(operation.TransactionRef!, status);

@@ -61,7 +61,7 @@ public sealed class CryptoDepositProcessor
                 var investment = await _investments.GetByIdAsync(invoice.InvestmentId, ct);
                 if (investment is { Status: InvestmentStatus.Reserved })
                 {
-                    invoice.MarkPaid(transfer.TransactionHash, transfer.FromAddress, transfer.OccurredAtUtc);
+                    invoice.MarkPaid(transfer.TransactionHash, transfer.FromAddress, transfer.OccurredAtUtc, transfer.Amount);
                     _invoices.Update(invoice);
                     deposit.MatchTo(invoice.Id);
                     matched++;

@@ -1551,6 +1551,10 @@ namespace Atria.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<decimal?>("ReceivedAmount")
+                        .HasPrecision(28, 8)
+                        .HasColumnType("numeric(28,8)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 

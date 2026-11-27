@@ -36,12 +36,18 @@ public sealed record CryptoInvoiceDto(
     string? TransactionUrl,
     string? FromAddress,
     DateTime? PaidAtUtc,
-    DateTime CreatedAtUtc)
+    DateTime CreatedAtUtc,
+    decimal? ReceivedAmount = null,
+    decimal? ReceivedKgs = null,
+    decimal ShortfallKgs = 0m)
 {
     public static CryptoInvoiceDto From(CryptoInvoice i) => new(
         i.Id, i.InvestmentId, i.Method.ToWire(), i.Method.Token(), i.Method.Network(), i.PayToAddress,
         i.PayAmount, i.RateKgs, i.AmountKgs, i.ExpiresAtUtc, StatusWire(i.Status), i.TransactionHash,
-        CryptoExplorer.TransactionUrl(i.Method, i.TransactionHash), i.FromAddress, i.PaidAtUtc, i.CreatedAtUtc);
+        CryptoExplorer.TransactionUrl(i.Method, i.TransactionHash), i.FromAddress, i.PaidAtUtc, i.CreatedAtUtc,
+        i.ReceivedAmount,
+        i.ReceivedAmount is { } received ? decimal.Round(received * i.RateKgs, 2) : null,
+        i.ShortfallKgs);
 
     public static string StatusWire(CryptoInvoiceStatus status) => status switch
     {
