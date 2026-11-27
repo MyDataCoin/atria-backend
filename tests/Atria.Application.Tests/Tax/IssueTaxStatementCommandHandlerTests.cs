@@ -68,7 +68,7 @@ public sealed class IssueTaxStatementCommandHandlerTests
 
     private void GivenHoldings(
         params (Guid PropertyId, string Name, long Tokens, decimal Amount, long TotalTokens)[] holdings)
-        => _investments.GetActiveHoldingsByInvestorAsync(InvestorId, Arg.Any<CancellationToken>())
+        => _investments.GetHoldingsAtAsync(InvestorId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
             .Returns(holdings
                 .Select(h => (h.PropertyId, h.Name, h.Tokens, h.Amount, "KGS", h.TotalTokens))
                 .ToList());
@@ -215,5 +215,35 @@ public sealed class IssueTaxStatementCommandHandlerTests
 
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("taxStatement.yearNotOver");
+    }
+
+    [Fact]
+    public async Task Holdings_are_read_as_they_stood_at_the_end_of_the_year()
+    {
+        GivenApprovedKyc();
+        GivenHoldings((Guid.NewGuid(), "Tower One", 30, 3_000m, 1_000));
+
+        await NewHandler().Handle(new IssueTaxStatementCommand(2026), CancellationToken.None);
+
+        // The cutoff is the first instant of the next year, not "now" (February 2027).
+        await _investments.Received(1).GetHoldingsAtAsync(
+            InvestorId, new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Income_is_reported_even_when_everything_was_sold_during_the_year()
+    {
+        GivenApprovedKyc();
+        GivenHoldings();
+        _payouts.ListForInvestorAsync(InvestorId, Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            PayoutLine(PayoutKind.Dividend, 50m, new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)),
+        });
+
+        var result = await NewHandler().Handle(new IssueTaxStatementCommand(2026), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _issued.Single().TotalIncome.Should().Be(50m);
+        _issued.Single().TotalInvested.Should().Be(0m);
     }
 }

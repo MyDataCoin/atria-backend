@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Domain.Investments;
 using Atria.Domain.Kyc;
+using Atria.Domain.Trading;
 using Microsoft.EntityFrameworkCore;
 
 namespace Atria.Infrastructure.Persistence.Repositories;
@@ -84,6 +85,91 @@ public sealed class InvestmentRepository : Repository<Investment>, IInvestmentRe
             select new { i.InvestorId, i.TokenCount, k }).ToListAsync(ct);
 
         return rows.Select(r => (r.InvestorId, r.TokenCount, (KycProfile?)r.k)).ToList();
+    }
+
+    public async Task<IReadOnlyList<(Guid PropertyId, string PropertyName, long TokenCount, decimal Amount, string Currency, long TotalTokens)>>
+        GetHoldingsAtAsync(Guid investorId, DateTime cutoffUtc, CancellationToken ct)
+    {
+        // Placements that were held at the cutoff: activated before it, and either still Active or
+        // closed (withdrawn / annulled) only at or after it.
+        var placements = await Db.Investments.AsNoTracking()
+            .Where(i => i.InvestorId == investorId
+                        && i.ActivatedAtUtc != null && i.ActivatedAtUtc < cutoffUtc
+                        && (i.Status == InvestmentStatus.Active
+                            || ((i.Status == InvestmentStatus.Withdrawn || i.Status == InvestmentStatus.Annulled)
+                                && i.ClosedAtUtc != null && i.ClosedAtUtc >= cutoffUtc)))
+            .Select(i => new { i.PropertyId, i.TokenCount, i.Amount, At = i.ActivatedAtUtc!.Value, i.WalletAddress })
+            .ToListAsync(ct);
+
+        // Every address the investor is known by: the register resolves addresses to investors, and
+        // each placement names the wallet it was minted to. Secondary trades are matched on these.
+        var registerWallets = await Db.HolderPositions.AsNoTracking()
+            .Where(h => h.InvestorId == investorId)
+            .Select(h => h.WalletAddress)
+            .ToListAsync(ct);
+        var placementWallets = await Db.Investments.AsNoTracking()
+            .Where(i => i.InvestorId == investorId && i.WalletAddress != null)
+            .Select(i => i.WalletAddress!)
+            .ToListAsync(ct);
+        var wallets = registerWallets.Concat(placementWallets)
+            .Select(w => w.ToLowerInvariant())
+            .ToHashSet();
+
+        var trades = wallets.Count == 0
+            ? []
+            : (await Db.ExchangeTrades.AsNoTracking()
+                .Where(t => t.EventType == ExchangeTradeType.Settled && !t.IsReversed && t.SettledAtUtc < cutoffUtc)
+                .ToListAsync(ct))
+              .Where(t => wallets.Contains(t.BuyerAddress.ToLowerInvariant())
+                          || wallets.Contains(t.SellerAddress.ToLowerInvariant()))
+              .ToList();
+
+        // Replayed in time order per property, so a sale leaves at the average cost of what was held
+        // at that moment, not at a cost that includes later purchases.
+        var events = placements
+            .Select(p => (p.PropertyId, p.At, Tokens: p.TokenCount, Cost: p.Amount))
+            .Concat(trades.SelectMany(t =>
+            {
+                var bought = wallets.Contains(t.BuyerAddress.ToLowerInvariant());
+                var sold = wallets.Contains(t.SellerAddress.ToLowerInvariant());
+                // Moving shares between two of the investor's own wallets changes nothing.
+                if (bought && sold) return Array.Empty<(Guid, DateTime, long, decimal)>();
+                return bought
+                    ? [(t.PropertyId, t.SettledAtUtc, t.TokenCount, t.TokenCount * t.PricePerToken)]
+                    : [(t.PropertyId, t.SettledAtUtc, -t.TokenCount, 0m)];
+            }))
+            .OrderBy(e => e.Item2);
+
+        var held = new Dictionary<Guid, (long Tokens, decimal Cost)>();
+        foreach (var (propertyId, _, tokens, cost) in events)
+        {
+            held.TryGetValue(propertyId, out var h);
+            if (tokens >= 0)
+            {
+                h = (h.Tokens + tokens, h.Cost + cost);
+            }
+            else
+            {
+                var sold = Math.Min(-tokens, h.Tokens);
+                var costOut = h.Tokens == 0 ? 0m : decimal.Round(h.Cost * sold / h.Tokens, 2);
+                h = (h.Tokens - sold, h.Cost - costOut);
+            }
+            held[propertyId] = h;
+        }
+
+        var ids = held.Where(kv => kv.Value.Tokens > 0).Select(kv => kv.Key).ToList();
+        if (ids.Count == 0)
+            return [];
+
+        var properties = await Db.Properties.AsNoTracking()
+            .Where(p => ids.Contains(p.Id))
+            .Select(p => new { p.Id, p.Name, p.Currency, p.TotalTokens })
+            .ToListAsync(ct);
+
+        return properties
+            .Select(p => (p.Id, p.Name, held[p.Id].Tokens, held[p.Id].Cost, p.Currency, p.TotalTokens))
+            .OrderBy(r => r.Name)
+            .ToList();
     }
 
     public async Task<IReadOnlyList<(Guid PropertyId, string PropertyName, long TokenCount, decimal Amount, string Currency, long TotalTokens)>>

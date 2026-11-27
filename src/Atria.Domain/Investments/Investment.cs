@@ -59,6 +59,13 @@ public sealed class Investment : AggregateRoot
     /// </remarks>
     public DateTime? WithdrawalDeadlineUtc { get; private set; }
 
+    /// <summary>
+    /// When the holding ended: the investor withdrew, or the operator annulled it. Null while it is
+    /// still held (or never was). Needed to answer «what did this investor hold on a given date» — a
+    /// year-end tax statement must not drop a stake that was given up only after the year closed.
+    /// </summary>
+    public DateTime? ClosedAtUtc { get; private set; }
+
     /// <summary>True while the holder can still withdraw.</summary>
     public bool CanWithdrawAt(DateTime nowUtc)
         => Status == InvestmentStatus.Active
@@ -137,6 +144,7 @@ public sealed class Investment : AggregateRoot
                 "The 14-day withdrawal window for this investment is not open.");
 
         Status = InvestmentStateFactory.Create(Status).Withdraw(this).Status;
+        ClosedAtUtc = nowUtc;
     }
 
     /// <summary>Reserved -> Rejected: an operator declines the application. Raises the rejected event.</summary>
@@ -168,13 +176,14 @@ public sealed class Investment : AggregateRoot
     /// only be deleted straight from the database, which does not give the shares back and leaves the
     /// issue quietly short of them.
     /// </remarks>
-    public void Annul(string reason)
+    public void Annul(string reason, DateTime? nowUtc = null)
     {
         if (string.IsNullOrWhiteSpace(reason))
             throw new DomainException("An annulment reason is required.");
 
         Status = InvestmentStateFactory.Create(Status).Annul(this, reason).Status;
         RejectionReason = reason;
+        ClosedAtUtc = nowUtc ?? DateTime.UtcNow;
     }
 
     /// <summary>

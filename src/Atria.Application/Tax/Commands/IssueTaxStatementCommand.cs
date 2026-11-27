@@ -79,18 +79,19 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
                 "taxStatement.kycRequired",
                 "A statement can only be issued once identity verification is approved."));
 
-        var holdings = await _investments.GetActiveHoldingsByInvestorAsync(userId.Value, ct);
-        if (holdings.Count == 0)
-            return Result.Failure<Guid>(Error.Conflict(
-                "taxStatement.noHoldings", "There are no holdings to report for this investor."));
+        // Holdings as they stood at the end of the year, not as they are today: a stake bought after
+        // the year closed was not held in it, and one sold after it still was.
+        var yearEnd = new DateTime(request.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var holdings = await _investments.GetHoldingsAtAsync(userId.Value, yearEnd, ct);
+        var lines = await _payouts.ListForInvestorAsync(userId.Value, ct);
 
-        var currency = holdings[0].Currency;
+        var currency = holdings.Count > 0 ? holdings[0].Currency : lines.FirstOrDefault().Run?.Currency ?? "KGS";
         var totalInvested = holdings.Sum(h => h.Amount);
 
         // Income is what was actually paid to this investor in the year: dividend lines recorded as
         // paid, dated by the payment, not by the register cut. A capital return is the investor's own
         // money coming back and is not income; a line still pending or failed was not received.
-        var paidIncome = (await _payouts.ListForInvestorAsync(userId.Value, ct))
+        var paidIncome = lines
             .Where(x => x.Run.Kind == PayoutKind.Dividend
                         && x.Item.Status == PayoutItemStatus.Paid
                         && x.Item.PaidAtUtc is { } paidAt
@@ -100,6 +101,12 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
             .ToList();
 
         var totalIncome = paidIncome.Sum(x => x.Item.Amount);
+
+        // Someone who sold everything during the year holds nothing at its end but may still have
+        // been paid income in it — that still has to be reported.
+        if (holdings.Count == 0 && paidIncome.Count == 0)
+            return Result.Failure<Guid>(Error.Conflict(
+                "taxStatement.noHoldings", "There are no holdings or income to report for this year."));
         var holdingNames = holdings.GroupBy(h => h.PropertyId).ToDictionary(g => g.Key, g => g.First().PropertyName);
 
         // Relaxed escaping so the stored document reads as Cyrillic text rather than \uXXXX escapes:
@@ -110,6 +117,7 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
             issuedAtUtc = now,
             investor = new { fullName = profile.FullName },
             totals = new { invested = totalInvested, income = totalIncome, currency },
+            holdingsAsOfUtc = yearEnd.AddTicks(-1),
             incomeNote = paidIncome.Count == 0
                 ? "За отчётный период выплаты дохода не производились."
                 : null,

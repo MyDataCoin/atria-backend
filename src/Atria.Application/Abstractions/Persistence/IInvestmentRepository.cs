@@ -46,4 +46,13 @@ public interface IInvestmentRepository : IRepository<Investment>
     /// </summary>
     Task<IReadOnlyList<(Guid PropertyId, string PropertyName, long TokenCount, decimal Amount, string Currency, long TotalTokens)>>
         GetActiveHoldingsByInvestorAsync(Guid investorId, CancellationToken ct);
+
+    /// <summary>
+    /// What the investor held just before <paramref name="cutoffUtc"/>, one row per property: placements
+    /// activated before the cutoff and not closed before it, adjusted by secondary-market trades
+    /// settled before it. Amount is the cost of what was held (sold shares leave at average cost).
+    /// Properties where nothing was held at the cutoff are left out.
+    /// </summary>
+    Task<IReadOnlyList<(Guid PropertyId, string PropertyName, long TokenCount, decimal Amount, string Currency, long TotalTokens)>>
+        GetHoldingsAtAsync(Guid investorId, DateTime cutoffUtc, CancellationToken ct);
 }
