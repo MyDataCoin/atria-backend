@@ -31,7 +31,8 @@ public sealed record WhitelistEntryDto(
     Guid? MintListId,
     string? MintListNumber,
     DateTime? MintedAtUtc,
-    string? ExclusionReason);
+    string? ExclusionReason,
+    bool PlatformMinting = false);
 
 /// <summary>Header of a mint list, without its lines. What the batch list shows.</summary>
 /// <param name="Id">Batch identifier.</param>

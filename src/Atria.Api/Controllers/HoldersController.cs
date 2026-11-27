@@ -17,9 +17,10 @@ namespace Atria.Api.Controllers;
 /// </summary>
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/holders")]
-// Reads are open to the collateral manager and the auditor as well: the register is exactly the part
-// of the platform their roles exist to watch. Taking a snapshot stays with the operator.
-[Authorize(Roles = "Admin,CollateralManager,Auditor")]
+// Reads are open to the collateral manager, the auditor and the accountant as well: the register is
+// exactly the part of the platform their roles exist to watch (the accountant reconciles distributions
+// against it). Taking a snapshot stays with the operator.
+[Authorize(Roles = "Admin,CollateralManager,Auditor,Finance")]
 public sealed class HoldersController : ApiControllerBase
 {
     public HoldersController(ISender sender) : base(sender) { }
