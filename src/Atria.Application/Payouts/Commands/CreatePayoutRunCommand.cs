@@ -145,11 +145,15 @@ public sealed class CreatePayoutRunCommandHandler
             var holdersShare = Math.Floor(
                 period.NetIncome * snapshot.TotalTokens / property.TotalTokens * 100m) / 100m;
             if (run.DeclaredAmount > holdersShare)
+            {
+                var ru = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
                 return Result.Failure<Guid>(Error.Conflict(
                     "payout.exceedsHoldersShare",
-                    $"Держателям по реестру принадлежит {snapshot.TotalTokens:N0} из {property.TotalTokens:N0} долей, "
-                    + $"их часть чистого дохода периода — {holdersShare:N2} {period.Currency}. "
-                    + "Остальной доход приходится на непроданные доли и остаётся у эмитента."));
+                    string.Format(ru,
+                        "Держателям по реестру принадлежит {0:N0} из {1:N0} долей, их часть чистого дохода "
+                        + "периода — {2:N2} {3}. Остальной доход приходится на непроданные доли и остаётся у эмитента.",
+                        snapshot.TotalTokens, property.TotalTokens, holdersShare, period.Currency)));
+            }
         }
 
         // Marked before the run is saved so the period's own rules — confirmed, not already

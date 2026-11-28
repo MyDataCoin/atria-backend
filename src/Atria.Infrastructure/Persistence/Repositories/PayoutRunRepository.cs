@@ -12,8 +12,11 @@ public sealed class PayoutRunRepository : Repository<PayoutRun>, IPayoutRunRepos
     public Task<PayoutRun?> GetWithItemsAsync(Guid id, CancellationToken ct)
         => Set.Include(r => r.Items).FirstOrDefaultAsync(r => r.Id == id, ct);
 
+    // Lines are loaded with the runs: paid, outstanding and holder counts are computed from them, and
+    // without them every distribution in the list reads as «nothing paid, nobody to pay».
     public async Task<IReadOnlyList<PayoutRun>> ListByPropertyAsync(Guid propertyId, CancellationToken ct)
         => await Set.AsNoTracking()
+            .Include(r => r.Items)
             .Where(r => r.PropertyId == propertyId)
             .OrderByDescending(r => r.SnapshotAtUtc)
             .ToListAsync(ct);
