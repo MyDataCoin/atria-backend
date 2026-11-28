@@ -74,6 +74,30 @@ public sealed class TaxStatementsController : ApiControllerBase
         return File(file.Content, file.ContentType, file.FileName);
     }
 
+    /// <summary>A draft of the caller's statement for a year, including the year still running.</summary>
+    /// <remarks>
+    /// Nothing is issued or stored: the same figures the statement would carry, stamped as a draft,
+    /// with no number and no verification code, so it cannot be handed over as the real document.
+    /// 409 when verification is not approved or there is nothing to report yet.
+    /// </remarks>
+    /// <param name="year">The year the draft covers.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet("draft/{year:int}/document")]
+    [Produces("text/html", "application/problem+json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Draft(int year, CancellationToken ct)
+    {
+        var result = await Sender.Send(new RenderTaxStatementDraftQuery(year), ct);
+        if (result.IsFailure)
+            return ToActionResult(result);
+
+        var file = result.Value;
+        return File(file.Content, file.ContentType, file.FileName);
+    }
+
     /// <summary>Verifies a statement by the code printed on it. Open to anyone holding the document.</summary>
     /// <remarks>
     /// No authentication: whoever was handed the statement — a tax officer, a bank — must be able to

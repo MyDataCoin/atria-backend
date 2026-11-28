@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Compliance.EventHandlers;
 using Atria.Domain.Compliance;
+using Atria.Domain.Holders;
 using Atria.Domain.Investments;
 using Atria.Domain.Investments.Events;
 using FluentAssertions;
@@ -21,6 +22,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandlerTests
     private readonly IBlockchainOperationQueue _queue = Substitute.For<IBlockchainOperationQueue>();
     private readonly IProcessedEventStore _processed = Substitute.For<IProcessedEventStore>();
     private readonly IPropertyRepository _properties = Substitute.For<IPropertyRepository>();
+    private readonly IHolderPositionRepository _positions = Substitute.For<IHolderPositionRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
     private static readonly Guid InvestorId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -33,7 +35,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandlerTests
             .Returns(true);
 
     private AddToAllowlistOnInvestmentActivatedHandler NewHandler() =>
-        new(_profiles, _tessera, _queue, _processed, _properties, _uow,
+        new(_profiles, _tessera, _queue, _processed, _properties, _positions, _uow,
             NullLogger<AddToAllowlistOnInvestmentActivatedHandler>.Instance);
 
     private Property GivenIssueOn(string? chain)
@@ -65,6 +67,20 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandlerTests
         await NewHandler().HandleAsync(ActivationFor(property), CancellationToken.None);
 
         await _tessera.Received(1).AddToAllowlistAsync("bsc-testnet", Wallet, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_register_position_projected_before_allowlisting_is_brought_in_step()
+    {
+        var property = GivenIssueOn("bsc-testnet");
+        GivenWallet(Wallet);
+        var position = HolderPosition.Create(
+            property.Id, Wallet, 10, InvestorId, isAllowlisted: false, HolderSource.OurRecords, DateTime.UtcNow);
+        _positions.GetByWalletAsync(Wallet, Arg.Any<CancellationToken>()).Returns(new[] { position });
+
+        await NewHandler().HandleAsync(ActivationFor(property), CancellationToken.None);
+
+        position.IsAllowlisted.Should().BeTrue();
     }
 
     [Fact]

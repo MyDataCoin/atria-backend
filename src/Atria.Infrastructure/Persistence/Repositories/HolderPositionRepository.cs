@@ -23,6 +23,10 @@ public sealed class HolderPositionRepository : Repository<HolderPosition>, IHold
             .OrderBy(p => p.WalletAddress)
             .FirstOrDefaultAsync(ct);
 
+    public async Task<IReadOnlyList<HolderPosition>> GetByWalletAsync(string walletAddress, CancellationToken ct)
+        => await Set.Where(p => p.WalletAddress.ToLower() == walletAddress.ToLower())
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<HolderPosition>> GetByPropertyAsync(Guid propertyId, CancellationToken ct)
         => await Set.AsNoTracking()
             .Where(p => p.PropertyId == propertyId)

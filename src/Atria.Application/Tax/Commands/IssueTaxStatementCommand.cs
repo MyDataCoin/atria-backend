@@ -1,9 +1,6 @@
-using System.Text.Json;
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Domain.Common;
-using Atria.Domain.Kyc;
-using Atria.Domain.Payouts;
 using Atria.Domain.Tax;
 
 namespace Atria.Application.Tax.Commands;
@@ -23,10 +20,7 @@ public sealed record IssueTaxStatementCommand(int Year) : IRequest<Result<Guid>>
 public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxStatementCommand, Result<Guid>>
 {
     private readonly ITaxStatementRepository _statements;
-    private readonly IInvestmentRepository _investments;
-    private readonly IPayoutRunRepository _payouts;
-    private readonly IPropertyRepository _properties;
-    private readonly IKycRepository _kyc;
+    private readonly TaxStatementComposer _composer;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _uow;
@@ -42,19 +36,11 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
         IUnitOfWork uow)
     {
         _statements = statements;
-        _investments = investments;
-        _payouts = payouts;
-        _properties = properties;
-        _kyc = kyc;
+        _composer = new TaxStatementComposer(investments, payouts, properties, kyc);
         _currentUser = currentUser;
         _clock = clock;
         _uow = uow;
     }
-
-    private static readonly JsonSerializerOptions ContentJson = new()
-    {
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
 
     public async Task<Result<Guid>> Handle(IssueTaxStatementCommand request, CancellationToken ct)
     {
@@ -65,7 +51,8 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
 
         var now = _clock.UtcNow;
         // The current year is not over: a statement is issued once per year and then frozen, so
-        // issuing it now would lock in a year without its remaining months.
+        // issuing it now would lock in a year without its remaining months. The draft view shows a
+        // running year without freezing anything.
         if (request.Year >= now.Year)
             return Result.Failure<Guid>(Error.Validation(
                 "taxStatement.yearNotOver", "A statement can only be issued for a year that has ended."));
@@ -74,93 +61,17 @@ public sealed class IssueTaxStatementCommandHandler : IRequestHandler<IssueTaxSt
         if (existing is not null)
             return Result.Success(existing.Id);
 
-        // The name on a tax document has to be the verified one. Without approved KYC there is no
-        // name the platform can stand behind, and a statement is not something to guess a name onto.
-        var profile = await _kyc.GetByUserIdAsync(userId.Value, ct);
-        if (profile is null || profile.Status != KycStatus.Approved || string.IsNullOrWhiteSpace(profile.FullName))
-            return Result.Failure<Guid>(Error.Conflict(
-                "taxStatement.kycRequired",
-                "A statement can only be issued once identity verification is approved."));
+        var composed = await _composer.ComposeAsync(userId.Value, request.Year, now, ct);
+        if (composed.IsFailure)
+            return Result.Failure<Guid>(composed.Error);
 
-        // Holdings as they stood at the end of the year, not as they are today: a stake bought after
-        // the year closed was not held in it, and one sold after it still was.
-        var yearEnd = new DateTime(request.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var holdings = await _investments.GetHoldingsAtAsync(userId.Value, yearEnd, ct);
-        var lines = await _payouts.ListForInvestorAsync(userId.Value, ct);
-
-        var currency = holdings.Count > 0 ? holdings[0].Currency : lines.FirstOrDefault().Run?.Currency ?? "KGS";
-        var totalInvested = holdings.Sum(h => h.Amount);
-
-        // Income is what was actually paid to this investor in the year: dividend lines recorded as
-        // paid, dated by the payment, not by the register cut. A capital return is the investor's own
-        // money coming back and is not income; a line still pending or failed was not received.
-        var paidIncome = lines
-            .Where(x => x.Run.Kind == PayoutKind.Dividend
-                        && x.Item.Status == PayoutItemStatus.Paid
-                        && x.Item.PaidAtUtc is { } paidAt
-                        && paidAt.Year == request.Year
-                        && string.Equals(x.Run.Currency, currency, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(x => x.Item.PaidAtUtc)
-            .ToList();
-
-        var totalIncome = paidIncome.Sum(x => x.Item.Amount);
-
-        // Someone who sold everything during the year holds nothing at its end but may still have
-        // been paid income in it — that still has to be reported.
-        if (holdings.Count == 0 && paidIncome.Count == 0)
-            return Result.Failure<Guid>(Error.Conflict(
-                "taxStatement.noHoldings", "There are no holdings or income to report for this year."));
-
-        // Every payout line names its property. Most are among the year-end holdings; one sold
-        // during the year is not, so its name comes from the property itself.
-        var propertyNames = holdings.GroupBy(h => h.PropertyId).ToDictionary(g => g.Key, g => g.First().PropertyName);
-        foreach (var propertyId in paidIncome.Select(x => x.Run.PropertyId).Distinct())
-        {
-            if (propertyNames.ContainsKey(propertyId)) continue;
-            var property = await _properties.GetByIdAsync(propertyId, ct);
-            if (property is not null)
-                propertyNames[propertyId] = property.Name;
-        }
-
-        // Relaxed escaping so the stored document reads as Cyrillic text rather than \uXXXX escapes:
-        // this JSON is the statement's content, not a wire payload.
-        var content = JsonSerializer.Serialize(new
-        {
-            year = request.Year,
-            issuedAtUtc = now,
-            investor = new { fullName = profile.FullName },
-            totals = new { invested = totalInvested, income = totalIncome, currency },
-            holdingsAsOfUtc = yearEnd.AddTicks(-1),
-            incomeNote = paidIncome.Count == 0
-                ? "За отчётный период выплаты дохода не производились."
-                : null,
-            payouts = paidIncome.Select(x => new
-            {
-                propertyId = x.Run.PropertyId,
-                propertyName = propertyNames.GetValueOrDefault(x.Run.PropertyId),
-                paidAtUtc = x.Item.PaidAtUtc,
-                tokens = x.Item.TokenCount,
-                amount = x.Item.Amount,
-                currency = x.Run.Currency,
-                reference = x.Item.SettlementReference
-            }),
-            holdings = holdings.Select(h => new
-            {
-                propertyId = h.PropertyId,
-                propertyName = h.PropertyName,
-                tokens = h.TokenCount,
-                invested = h.Amount,
-                currency = h.Currency,
-                shareOfIssue = h.TotalTokens == 0 ? 0m : (decimal)h.TokenCount / h.TotalTokens
-            })
-        }, ContentJson);
-
+        var c = composed.Value;
         TaxStatement statement;
         try
         {
             statement = TaxStatement.Issue(
-                userId.Value, request.Year, profile.FullName!, totalInvested, totalIncome,
-                currency, content, now);
+                userId.Value, request.Year, c.FullName, c.TotalInvested, c.TotalIncome,
+                c.Currency, c.Content, now);
         }
         catch (DomainException ex)
         {

@@ -134,6 +134,24 @@ public sealed class CreatePayoutRunCommandHandler
             return Result.Failure<Guid>(Error.Validation("payout.invalid", ex.Message));
         }
 
+        var property = await _properties.GetByIdAsync(run.PropertyId, ct);
+
+        // The register holds only the shares investors bought; the rest of the issue is still the
+        // issuer's, and so is the income attributable to it. Holders may be paid at most their
+        // proportional part of the period's net income — otherwise, with one share of a hundred
+        // thousand sold, the whole object's income would go to that one holder.
+        if (period is not null && property is { TotalTokens: > 0 })
+        {
+            var holdersShare = Math.Floor(
+                period.NetIncome * snapshot.TotalTokens / property.TotalTokens * 100m) / 100m;
+            if (run.DeclaredAmount > holdersShare)
+                return Result.Failure<Guid>(Error.Conflict(
+                    "payout.exceedsHoldersShare",
+                    $"Держателям по реестру принадлежит {snapshot.TotalTokens:N0} из {property.TotalTokens:N0} долей, "
+                    + $"их часть чистого дохода периода — {holdersShare:N2} {period.Currency}. "
+                    + "Остальной доход приходится на непроданные доли и остаётся у эмитента."));
+        }
+
         // Marked before the run is saved so the period's own rules — confirmed, not already
         // distributed, and the amount within its net income — decide whether this run exists at all.
         if (period is not null)
@@ -151,8 +169,6 @@ public sealed class CreatePayoutRunCommandHandler
         }
 
         await _runs.AddAsync(run, ct);
-
-        var property = await _properties.GetByIdAsync(run.PropertyId, ct);
 
         await _audit.WriteAsync(
             AuditEntities.PayoutRun, run.Id, AuditEvents.PayoutRunCreated,

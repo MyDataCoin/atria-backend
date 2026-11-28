@@ -1,6 +1,7 @@
 using Atria.Application.Abstractions;
 using Atria.Application.Common;
 using Atria.Application.Tax.Commands;
+using Atria.Application.Tax.Queries;
 using Atria.Domain.Holders;
 using Atria.Domain.Kyc;
 using Atria.Domain.Payouts;
@@ -263,5 +264,40 @@ public sealed class IssueTaxStatementCommandHandlerTests
         using var doc = System.Text.Json.JsonDocument.Parse(_issued.Single().Content);
         doc.RootElement.GetProperty("payouts")[0].GetProperty("propertyName").GetString()
             .Should().Be("Бизнес-центр Восток");
+    }
+
+    private RenderTaxStatementDraftQueryHandler NewDraftHandler() =>
+        new(_investments, _payouts, _properties, _kyc, _currentUser, _clock);
+
+    [Fact]
+    public async Task A_draft_for_the_running_year_is_rendered_without_being_issued()
+    {
+        GivenApprovedKyc();
+        GivenHoldings((Guid.NewGuid(), "Офис Г4", 1, 98.86m, 109_294));
+        _payouts.ListForInvestorAsync(InvestorId, Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            PayoutLine(PayoutKind.Dividend, 12.5m, new DateTime(2027, 1, 20, 0, 0, 0, DateTimeKind.Utc)),
+        });
+
+        // Now is February 2027: the 2027 statement cannot be issued, but its draft can be looked at.
+        var result = await NewDraftHandler().Handle(new RenderTaxStatementDraftQuery(2027), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var html = System.Text.Encoding.UTF8.GetString(result.Value.Content);
+        html.Should().Contain("ЧЕРНОВИК").And.Contain("Офис Г4").And.Contain("98,86").And.Contain("12,50");
+        html.Should().NotContain("Проверка подлинности");
+        _issued.Should().BeEmpty("a draft is never stored");
+        // Holdings are read as of now for a running year, not as of a year end still ahead.
+        await _investments.Received(1).GetHoldingsAtAsync(InvestorId, Now, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_draft_for_a_year_that_has_not_started_is_refused()
+    {
+        GivenApprovedKyc();
+
+        var result = await NewDraftHandler().Handle(new RenderTaxStatementDraftQuery(2028), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
     }
 }

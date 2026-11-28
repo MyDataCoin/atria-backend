@@ -46,6 +46,14 @@ public sealed record GetMyTaxStatementsQuery : IRequest<Result<IReadOnlyList<Tax
 /// <param name="Id">Statement identifier.</param>
 public sealed record RenderTaxStatementQuery(Guid Id) : IRequest<Result<TaxStatementFileDto>>;
 
+/// <summary>
+/// Renders a draft of the caller's statement for a year — including the year still running — without
+/// issuing or storing anything. Marked as a draft and carrying no number or verification code, so it
+/// cannot pass for the issued document.
+/// </summary>
+/// <param name="Year">The year the draft covers.</param>
+public sealed record RenderTaxStatementDraftQuery(int Year) : IRequest<Result<TaxStatementFileDto>>;
+
 /// <summary>Verifies a statement by the code printed on it. Anonymous.</summary>
 /// <param name="VerificationCode">The code from the document.</param>
 public sealed record VerifyTaxStatementQuery(string VerificationCode)
@@ -138,15 +146,98 @@ public sealed class RenderTaxStatementQueryHandler
             return Result.Failure<TaxStatementFileDto>(
                 Error.NotFound("taxStatement.notFound", "Statement not found."));
 
-        var html = Render(statement);
+        var html = TaxStatementRenderer.Render(
+            statement.Number, statement.Year, statement.InvestorFullName, statement.TotalInvested,
+            statement.TotalIncome, statement.Currency, statement.IssuedAtUtc, statement.Content,
+            statement.VerificationCode);
         return Result.Success(new TaxStatementFileDto(
             $"{statement.Number}.html", "text/html; charset=utf-8", Encoding.UTF8.GetBytes(html)));
     }
+}
 
-    private static string Render(TaxStatement statement)
+public sealed class RenderTaxStatementDraftQueryHandler
+    : IRequestHandler<RenderTaxStatementDraftQuery, Result<TaxStatementFileDto>>
+{
+    private readonly TaxStatementComposer _composer;
+    private readonly ICurrentUserService _currentUser;
+    private readonly IDateTimeProvider _clock;
+
+    public RenderTaxStatementDraftQueryHandler(
+        IInvestmentRepository investments,
+        IPayoutRunRepository payouts,
+        IPropertyRepository properties,
+        IKycRepository kyc,
+        ICurrentUserService currentUser,
+        IDateTimeProvider clock)
     {
-        var content = JsonDocument.Parse(statement.Content).RootElement;
+        _composer = new TaxStatementComposer(investments, payouts, properties, kyc);
+        _currentUser = currentUser;
+        _clock = clock;
+    }
+
+    public async Task<Result<TaxStatementFileDto>> Handle(RenderTaxStatementDraftQuery request, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null)
+            return Result.Failure<TaxStatementFileDto>(
+                Error.Unauthorized("taxStatement.unauthorized", "Authentication is required."));
+
+        var now = _clock.UtcNow;
+        if (request.Year > now.Year || request.Year < 2000)
+            return Result.Failure<TaxStatementFileDto>(Error.Validation(
+                "taxStatement.yearOutOfRange", "A draft can only be shown for a year that has started."));
+
+        var composed = await _composer.ComposeAsync(userId.Value, request.Year, now, ct);
+        if (composed.IsFailure)
+            return Result.Failure<TaxStatementFileDto>(composed.Error);
+
+        var c = composed.Value;
+        var html = TaxStatementRenderer.Render(
+            null, request.Year, c.FullName, c.TotalInvested, c.TotalIncome, c.Currency, now,
+            c.Content, null);
+        return Result.Success(new TaxStatementFileDto(
+            $"draft-{request.Year}.html", "text/html; charset=utf-8", Encoding.UTF8.GetBytes(html)));
+    }
+}
+
+/// <summary>
+/// The statement as a self-contained printable page. One template for the issued document and the
+/// draft, so the two cannot drift apart; a draft (no number) is stamped as such and carries no
+/// verification code.
+/// </summary>
+internal static class TaxStatementRenderer
+{
+
+    public static string Render(
+        string? number, int year, string fullName, decimal totalInvested, decimal totalIncome,
+        string currency, DateTime issuedAtUtc, string contentJson, string? verificationCode)
+    {
+        var isDraft = number is null;
+        var content = JsonDocument.Parse(contentJson).RootElement;
         var rows = new StringBuilder();
+        var payoutRows = new StringBuilder();
+
+        if (content.TryGetProperty("payouts", out var payouts))
+        {
+            foreach (var p in payouts.EnumerateArray())
+            {
+                var paidAt = p.TryGetProperty("paidAtUtc", out var at) && at.ValueKind == JsonValueKind.String
+                    ? at.GetDateTime().ToString("dd.MM.yyyy", Culture)
+                    : "—";
+                var name = p.TryGetProperty("propertyName", out var pn) && pn.ValueKind == JsonValueKind.String
+                    ? pn.GetString()!
+                    : "—";
+                payoutRows.Append("<tr><td>").Append(paidAt)
+                    .Append("</td><td>").Append(Escape(name))
+                    .Append("</td><td class=\"num\">").Append(p.GetProperty("tokens").GetInt64().ToString("N0", Culture))
+                    .Append("</td><td class=\"num\">").Append(p.GetProperty("amount").GetDecimal().ToString("N2", Culture))
+                    .Append("</td></tr>");
+            }
+        }
+
+        var asOf = content.TryGetProperty("holdingsAsOfUtc", out var asOfValue) && asOfValue.ValueKind == JsonValueKind.String
+            ? asOfValue.GetDateTime()
+            : issuedAtUtc;
 
         if (content.TryGetProperty("holdings", out var holdings))
         {
@@ -171,7 +262,7 @@ public sealed class RenderTaxStatementQueryHandler
         <html lang="ru">
         <head>
         <meta charset="utf-8">
-        <title>{{Escape(statement.Number)}}</title>
+        <title>{{(isDraft ? $"Черновик справки за {year} год" : Escape(number!))}}</title>
         <style>
           @page { size: A4; margin: 18mm; }
           body { font-family: Georgia, 'Times New Roman', serif; color: #111; line-height: 1.5; }
@@ -186,19 +277,23 @@ public sealed class RenderTaxStatementQueryHandler
           .totals { margin-top: 12px; font-size: 14px; }
           .totals strong { font-size: 18px; }
           footer { margin-top: 28px; border-top: 1px solid #ddd; padding-top: 10px; font-size: 11px; color: #555; }
+          .draft { border: 2px dashed #b45309; color: #92400e; background: #fffbeb; padding: 10px 12px;
+                   font-size: 13px; margin-bottom: 16px; }
+          h2 { font-size: 14px; margin: 22px 0 0; text-transform: uppercase; letter-spacing: .05em; }
         </style>
         </head>
         <body>
+          {{(isDraft ? $"<div class=\"draft\"><strong>ЧЕРНОВИК — не является налоговым документом.</strong> Цифры на {issuedAtUtc.ToString("dd.MM.yyyy", Culture)}; справку за {year} год можно будет выпустить после окончания года.</div>" : "")}}
           <h1>Справка о доходе от инвестиций</h1>
           <div class="muted">
-            Документ № <span class="mono">{{Escape(statement.Number)}}</span> ·
-            отчётный период: {{statement.Year}} год ·
-            выдан {{statement.IssuedAtUtc.ToString("dd.MM.yyyy", Culture)}}
+            {{(isDraft ? "Черновик" : $"Документ № <span class=\"mono\">{Escape(number!)}</span>")}} ·
+            отчётный период: {{year}} год ·
+            {{(isDraft ? "сформирован" : "выдан")}} {{issuedAtUtc.ToString("dd.MM.yyyy", Culture)}}
           </div>
 
           <p style="margin-top:18px">
-            Настоящая справка подтверждает, что <strong>{{Escape(statement.InvestorFullName)}}</strong>
-            по состоянию на дату выдачи владеет долями в объектах, перечисленных ниже.
+            Настоящая справка подтверждает, что <strong>{{Escape(fullName)}}</strong>
+            по состоянию на {{asOf.ToString("dd.MM.yyyy", Culture)}} владел(а) долями в объектах, перечисленных ниже.
           </p>
 
           <table>
@@ -206,23 +301,25 @@ public sealed class RenderTaxStatementQueryHandler
               <tr>
                 <th>Объект</th>
                 <th class="num">Долей</th>
-                <th class="num">Вложено, {{Escape(statement.Currency)}}</th>
+                <th class="num">Вложено, {{Escape(currency)}}</th>
                 <th class="num">Доля выпуска</th>
               </tr>
             </thead>
-            <tbody>{{rows}}</tbody>
+            <tbody>{{(rows.Length == 0 ? "<tr><td colspan=\"4\" class=\"muted\">На эту дату долей нет.</td></tr>" : rows.ToString())}}</tbody>
           </table>
 
+          {{(payoutRows.Length == 0 ? "" : $"<h2>Выплаты дохода за {year} год</h2><table><thead><tr><th>Дата</th><th>Объект</th><th class=\"num\">Долей</th><th class=\"num\">Сумма, {Escape(currency)}</th></tr></thead><tbody>{payoutRows}</tbody></table>")}}
+
           <div class="totals">
-            Итого вложено: <strong>{{statement.TotalInvested.ToString("N2", Culture)}} {{Escape(statement.Currency)}}</strong><br>
-            Доход за период: <strong>{{statement.TotalIncome.ToString("N2", Culture)}} {{Escape(statement.Currency)}}</strong>
+            Итого вложено: <strong>{{totalInvested.ToString("N2", Culture)}} {{Escape(currency)}}</strong><br>
+            Доход за период: <strong>{{totalIncome.ToString("N2", Culture)}} {{Escape(currency)}}</strong>
             {{(string.IsNullOrWhiteSpace(incomeNote) ? "" : $"<div class=\"muted\">{Escape(incomeNote!)}</div>")}}
           </div>
 
           <footer>
-            Проверка подлинности: код <span class="mono">{{Escape(statement.VerificationCode)}}</span>.
+            {{(isDraft ? "Черновик не имеет номера и кода проверки и не подтверждает доход перед третьими лицами." : $"Проверка подлинности: код <span class=\"mono\">{Escape(verificationCode ?? "")}</span>.")}}
             Справка сформирована на сервере ATRIA; сведения в ней соответствуют записям платформы на
-            дату выдачи.
+            дату формирования.
           </footer>
         </body>
         </html>

@@ -20,6 +20,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
     private readonly IBlockchainOperationQueue _queue;
     private readonly IProcessedEventStore _processed;
     private readonly IPropertyRepository _properties;
+    private readonly IHolderPositionRepository _positions;
     private readonly IUnitOfWork _uow;
     private readonly ILogger<AddToAllowlistOnInvestmentActivatedHandler> _logger;
 
@@ -29,6 +30,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
         IBlockchainOperationQueue queue,
         IProcessedEventStore processed,
         IPropertyRepository properties,
+        IHolderPositionRepository positions,
         IUnitOfWork uow,
         ILogger<AddToAllowlistOnInvestmentActivatedHandler> logger)
     {
@@ -37,6 +39,7 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
         _queue = queue;
         _processed = processed;
         _properties = properties;
+        _positions = positions;
         _uow = uow;
         _logger = logger;
     }
@@ -98,6 +101,16 @@ public sealed class AddToAllowlistOnInvestmentActivatedHandler : IDomainEventHan
         await _tessera.AddToAllowlistAsync(property.TokenChain, wallet, ct);
         profile.MarkAllowlisted();
         _profiles.Update(profile);
+
+        // The holder register copies the allowlist flag when it projects a position, which can happen
+        // before this handler runs for the same activation. Bring any position of this wallet in step,
+        // or reconciliation reports an allowlisted holder as not allowlisted.
+        foreach (var position in await _positions.GetByWalletAsync(wallet, ct))
+        {
+            if (position.IsAllowlisted) continue;
+            position.SetAllowlisted(true);
+            _positions.Update(position);
+        }
 
         // Durable, idempotent on-chain token allocation (mint of TokenCount to the investor's wallet);
         // the idempotency key ties it to this activation. Built via System.Text.Json so values (wallet)

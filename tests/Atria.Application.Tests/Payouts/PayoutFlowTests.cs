@@ -99,6 +99,35 @@ public sealed class PayoutFlowTests
         run.Items.Single(i => i.InvestorId == _investorB).Amount.Should().Be(3_000m);
     }
 
+    [Fact]
+    public async Task Holders_are_paid_at_most_their_share_of_the_periods_income()
+    {
+        // 10 of 1 000 shares sold: holders own 1% of the issue, so 1% of the 150 000 net income.
+        var property = Property.Create("Tower One", null, null, 1_000_000m, 100m, 1_000, "KGS");
+        var snapshot = HolderSnapshot.Create(
+            property.Id, Cut, SnapshotPurpose.Payout, 1_000_000, _operator,
+            [new HolderSnapshotEntry("0xaaa", 10, _investorA)]);
+        _snapshots.GetWithRowsAsync(snapshot.Id, Arg.Any<CancellationToken>()).Returns(snapshot);
+        _properties.GetByIdAsync(property.Id, Arg.Any<CancellationToken>()).Returns(property);
+        var period = OperatingPeriod.Report(
+            property.Id, Cut.AddMonths(-3), Cut, 200_000m, 50_000m, "KGS", _reporter, null);
+        period.Confirm(_operator, Now);
+        _periods.GetByIdAsync(period.Id, Arg.Any<CancellationToken>()).Returns(period);
+
+        var tooMuch = await NewCreateHandler().Handle(
+            new CreatePayoutRunCommand(
+                snapshot.Id, PayoutKind.Dividend, PayoutMethod.BankTransfer, 150_000m, "KGS", null, period.Id),
+            CancellationToken.None);
+        var holdersShare = await NewCreateHandler().Handle(
+            new CreatePayoutRunCommand(
+                snapshot.Id, PayoutKind.Dividend, PayoutMethod.BankTransfer, 1_500m, "KGS", null, period.Id),
+            CancellationToken.None);
+
+        tooMuch.IsFailure.Should().BeTrue();
+        tooMuch.Error.Code.Should().Be("payout.exceedsHoldersShare");
+        holdersShare.IsSuccess.Should().BeTrue();
+    }
+
     /// <summary>Nothing is authorised by drawing one up — that is the whole point of the draft.</summary>
     [Fact]
     public async Task A_new_distribution_authorises_nothing()

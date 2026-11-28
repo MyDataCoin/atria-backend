@@ -16,4 +16,7 @@ public interface IHolderPositionRepository : IRepository<HolderPosition>
 
     /// <summary>All holding positions of an issuance, read-only. The basis for a snapshot / reporting.</summary>
     Task<IReadOnlyList<HolderPosition>> GetByPropertyAsync(Guid propertyId, CancellationToken ct);
+
+    /// <summary>Every position a wallet holds, across issuances. Tracked; address matched case-insensitively.</summary>
+    Task<IReadOnlyList<HolderPosition>> GetByWalletAsync(string walletAddress, CancellationToken ct);
 }
